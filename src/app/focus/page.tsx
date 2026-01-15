@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createSession } from "./actions";
 import { Input } from "@/components/ui/input";
+import { LayoutGrid } from "lucide-react";
+import Link from "next/link";
 
 export default async function FocusPage() {
   const supabase = await createClient();
@@ -29,20 +31,13 @@ export default async function FocusPage() {
         {/* Header */}
         <header className="flex justify-between items-center mb-12 border-b border-white/20 pb-6">
           <h1 className="text-2xl md:text-3xl">Break Mode</h1>
-          <div className="flex gap-4 items-center">
-            <span className="text-sm text-gray-400 truncate max-w-[150px]">
-              {user.email}
-            </span>
-            <form action="/auth/signout" method="post">
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-transparent border-white text-white hover:bg-white hover:text-black transition-colors"
-              >
-                Log Out
-              </Button>
-            </form>
-          </div>
+          <Link
+            href="/dashboard"
+            className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
+            aria-label="Dashboard"
+          >
+            <LayoutGrid size={20} />
+          </Link>
         </header>
 
         {/* Session Planning Form */}
