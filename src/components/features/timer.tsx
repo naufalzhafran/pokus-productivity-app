@@ -2,13 +2,12 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
 import { Play, Pause, Square } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 
 interface TimerProps {
   initialDurationMinutes: number;
+  sessionId: string;
   onComplete?: () => void;
   onExit?: () => void;
   onStop?: () => void;
@@ -16,32 +15,69 @@ interface TimerProps {
 
 export function Timer({
   initialDurationMinutes,
+  sessionId,
   onComplete,
   onExit,
   onStop,
 }: TimerProps) {
-  const router = useRouter();
-  // simple state: seconds remaining
-  const [timeLeft, setTimeLeft] = useState(initialDurationMinutes * 60);
-  const [isActive, setIsActive] = useState(false); // Start paused or auto-start? Let's say auto-start.
-  const [showConfirm, setShowConfirm] = useState(false);
+  const storageKey = `pokus_timer_${sessionId}`;
 
-  // Ref for the interval to clear it properly
+  // Initialize state with default props (server-safe)
+  const [timeLeft, setTimeLeft] = useState(initialDurationMinutes * 60);
+  const [isActive, setIsActive] = useState(true); // Default to auto-start
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Load from localStorage only on client mount
+  useEffect(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const {
+        timeLeft: savedTime,
+        lastTick,
+        isActive: wasActive,
+      } = JSON.parse(saved);
+
+      let newTimeLeft = savedTime;
+      if (wasActive) {
+        const now = Date.now();
+        const elapsed = Math.floor((now - lastTick) / 1000);
+        newTimeLeft = Math.max(0, savedTime - elapsed);
+      }
+
+      setTimeLeft(newTimeLeft);
+      setIsActive(wasActive);
+    }
+    setIsHydrated(true);
+  }, [storageKey]);
+
+  const [showConfirm, setShowConfirm] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Persist state whenever relevant values change
   useEffect(() => {
-    // Auto start
-    setIsActive(true);
-  }, []);
+    if (!isHydrated) return;
+
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        timeLeft,
+        isActive,
+        lastTick: Date.now(),
+      })
+    );
+  }, [timeLeft, isActive, storageKey, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
+
     if (isActive && timeLeft > 0) {
       intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
+        setTimeLeft((prev: number) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0) {
       // Completed
       setIsActive(false);
+      localStorage.removeItem(storageKey);
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (onComplete) onComplete();
     }
@@ -49,7 +85,7 @@ export function Timer({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, timeLeft, onComplete]);
+  }, [isActive, timeLeft, onComplete, storageKey, isHydrated]);
 
   const toggleTimer = () => setIsActive(!isActive);
 
@@ -60,6 +96,7 @@ export function Timer({
 
   const handleConfirmStop = () => {
     setShowConfirm(false);
+    localStorage.removeItem(storageKey);
     if (onStop) {
       onStop();
     } else if (onExit) {
@@ -92,7 +129,7 @@ export function Timer({
         <Button
           variant="outline"
           size="icon"
-          className="h-16 w-16 md:h-20 md:w-20 rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors"
+          className="h-16 w-16 md:h-20 md:w-20 rounded-full border-2 border-white bg-transparent text-white hover:bg-white hover:text-black transition-colors"
           onClick={toggleTimer}
         >
           {isActive ? (
@@ -105,7 +142,7 @@ export function Timer({
         <Button
           variant="outline"
           size="icon"
-          className="h-16 w-16 md:h-20 md:w-20 rounded-full border-2 border-white text-white hover:bg-destructive hover:border-destructive hover:text-white transition-colors"
+          className="h-16 w-16 md:h-20 md:w-20 rounded-full border-2 border-white bg-transparent text-white hover:bg-destructive hover:border-destructive hover:text-white transition-colors"
           onClick={handleStopClick}
         >
           <Square className="h-6 w-6 md:h-8 md:w-8 fill-current" />

@@ -47,6 +47,7 @@ export default async function FocusPage(props: FocusPageProps) {
 
         <Timer
           initialDurationMinutes={session.duration_planned}
+          sessionId={session.id}
           onStop={async () => {
             "use server";
             await updateSessionStatus(session.id, "ABANDONED");
