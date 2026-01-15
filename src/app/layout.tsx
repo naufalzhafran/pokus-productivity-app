@@ -1,25 +1,11 @@
 import type { Metadata } from "next";
-import {
-  Playfair_Display,
-  Source_Serif_4,
-  JetBrains_Mono,
-} from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const playfair = Playfair_Display({
+const geistMono = Geist_Mono({
   subsets: ["latin"],
-  variable: "--font-playfair",
-});
-
-const sourceSerif = Source_Serif_4({
-  subsets: ["latin"],
-  variable: "--font-source-serif",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
@@ -36,10 +22,8 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={cn(
-          "min-h-screen bg-background font-sans antialiased",
-          playfair.variable,
-          sourceSerif.variable,
-          jetbrainsMono.variable
+          "min-h-screen bg-background font-mono antialiased",
+          geistMono.variable
         )}
       >
         {children}
