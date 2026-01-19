@@ -1,9 +1,6 @@
-"use client";
-
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface ModalProps {
   isOpen: boolean;
@@ -52,6 +49,6 @@ export function Modal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

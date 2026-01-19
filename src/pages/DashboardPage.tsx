@@ -1,17 +1,21 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { logout } from "@/api/auth";
+import { useNavigate } from "react-router-dom";
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function DashboardPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  if (!user) {
-    redirect("/login");
-  }
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-8 font-sans">
@@ -22,23 +26,22 @@ export default async function DashboardPage() {
               Dashboard
             </h1>
             <p className="text-slate-400 text-sm mt-1">
-              Welcome back, {user.email}
+              Welcome back, {user?.email}
             </p>
           </div>
           <div className="flex gap-4 w-full md:w-auto">
-            <Link href="/focus">
+            <Link to="/focus">
               <Button className="bg-[#06b6d4] hover:bg-[#0891b2] text-slate-900 font-bold shadow-[0_0_15px_rgba(6,182,212,0.3)]">
                 Start Session
               </Button>
             </Link>
-            <form action="/auth/signout" method="post">
-              <Button
-                variant="ghost"
-                className="text-slate-400 hover:text-white hover:bg-white/10"
-              >
-                Log Out
-              </Button>
-            </form>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              className="text-slate-400 hover:text-white hover:bg-white/10"
+            >
+              Log Out
+            </Button>
           </div>
         </header>
 

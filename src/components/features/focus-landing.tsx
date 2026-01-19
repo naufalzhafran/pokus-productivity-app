@@ -1,15 +1,15 @@
-"use client";
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Timer, Coffee, Plane, Play, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createSession } from "@/app/focus/actions";
-import Link from "next/link";
+import { createSession } from "@/api/focus";
+import { Link, useNavigate } from "react-router-dom";
 
 export function FocusLanding() {
   const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
   const [duration, setDuration] = useState(25);
+  const [isCreating, setIsCreating] = useState(false);
+  const navigate = useNavigate();
 
   const getDuration = (m: typeof mode) => {
     switch (m) {
@@ -27,6 +27,18 @@ export function FocusLanding() {
     setDuration(getDuration(newMode));
   };
 
+  const handleStartSession = async () => {
+    setIsCreating(true);
+    try {
+      const title = mode === "focus" ? "Focus Session" : "Break";
+      const session = await createSession(title, duration);
+      navigate(`/focus/${session.id}`);
+    } catch (error) {
+      console.error("Error creating session:", error);
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col relative overflow-hidden font-sans">
       {/* Navbar */}
@@ -40,7 +52,7 @@ export function FocusLanding() {
           </span>
         </div>
         <div className="flex gap-4">
-          <Link href="/dashboard">
+          <Link to="/dashboard">
             <Button
               variant="ghost"
               className="text-white hover:text-white/80 hover:bg-white/10 flex items-center gap-2"
@@ -118,27 +130,20 @@ export function FocusLanding() {
 
         {/* Actions */}
         <div className="flex items-center gap-4">
-          <form action={createSession}>
-            <input
-              type="hidden"
-              name="title"
-              value={mode === "focus" ? "Focus Session" : "Break"}
-            />
-            <input type="hidden" name="duration" value={duration} />
-            <Button
-              type="submit"
-              className="h-14 px-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 text-lg font-bold flex items-center gap-2 shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:scale-105 active:scale-95"
-            >
-              <div className="w-6 h-6 rounded-full bg-slate-900 flex items-center justify-center">
-                <Play
-                  size={10}
-                  className="text-cyan-500 ml-0.5"
-                  fill="currentColor"
-                />
-              </div>
-              Start focus timer
-            </Button>
-          </form>
+          <Button
+            onClick={handleStartSession}
+            disabled={isCreating}
+            className="h-14 px-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 text-lg font-bold flex items-center gap-2 shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:scale-105 active:scale-95"
+          >
+            <div className="w-6 h-6 rounded-full bg-slate-900 flex items-center justify-center">
+              <Play
+                size={10}
+                className="text-cyan-500 ml-0.5"
+                fill="currentColor"
+              />
+            </div>
+            {isCreating ? "Creating..." : "Start focus timer"}
+          </Button>
         </div>
       </main>
 

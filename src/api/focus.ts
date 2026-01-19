@@ -1,21 +1,14 @@
-"use server";
+import { createClient } from "@/lib/supabase/client";
 
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+const supabase = createClient();
 
-export async function createSession(formData: FormData) {
-  const supabase = await createClient();
-
-  const title = formData.get("title") as string;
-  const duration = parseInt(formData.get("duration") as string) || 25;
-
+export async function createSession(title: string, duration: number) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    throw new Error("Not authenticated");
   }
 
   const { data, error } = await supabase
@@ -31,20 +24,17 @@ export async function createSession(formData: FormData) {
 
   if (error) {
     console.error("Error creating session:", error);
-    return;
+    throw error;
   }
 
-  revalidatePath("/focus");
-  redirect(`/focus/${data.id}`);
+  return data;
 }
 
 export async function updateSessionStatus(
   sessionId: string,
   status: "COMPLETED" | "ABANDONED",
-  actualDuration?: number
+  actualDuration?: number,
 ) {
-  const supabase = await createClient();
-
   const { error } = await supabase
     .from("pokus_sessions")
     .update({
@@ -58,7 +48,4 @@ export async function updateSessionStatus(
     console.error("Error updating session:", error);
     throw new Error("Failed to update session");
   }
-
-  revalidatePath("/focus");
-  redirect("/focus");
 }

@@ -1,3 +1,4 @@
+import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -7,10 +8,54 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import Link from "next/link";
-import { login, signup } from "./actions";
+import { Link, useNavigate } from "react-router-dom";
+import { loginWithEmail, signUpWithEmail } from "@/api/auth";
 
 export default function LoginPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    try {
+      await loginWithEmail(email, password);
+      navigate("/dashboard");
+    } catch (err) {
+      setError("Invalid email or password");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    try {
+      await signUpWithEmail(email, password);
+      navigate("/dashboard");
+    } catch (err) {
+      setError("Failed to create account");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <main className="flex min-h-screen items-center justify-center p-6 bg-[#0f172a] font-sans relative overflow-hidden">
       <Card className="w-full max-w-md bg-[#1e293b]/80 border border-[#334155] text-white shadow-2xl backdrop-blur-md z-10">
@@ -26,7 +71,12 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleLogin}>
+            {error && (
+              <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-2 rounded text-sm">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <Input
                 id="email"
@@ -34,6 +84,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="Email Address"
                 required
+                disabled={isLoading}
                 className="bg-[#0f172a] border-[#334155] text-white placeholder:text-slate-500 h-12 focus-visible:ring-[#06b6d4]"
               />
             </div>
@@ -44,18 +95,25 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Password"
                 required
+                disabled={isLoading}
                 className="bg-[#0f172a] border-[#334155] text-white placeholder:text-slate-500 h-12 focus-visible:ring-[#06b6d4]"
               />
             </div>
             <div className="flex flex-col gap-3 pt-2">
               <Button
-                formAction={login}
+                type="submit"
+                disabled={isLoading}
                 className="w-full h-12 bg-[#06b6d4] hover:bg-[#0891b2] text-slate-900 font-bold text-lg shadow-[0_0_15px_rgba(6,182,212,0.3)]"
               >
-                Log In
+                {isLoading ? "Loading..." : "Log In"}
               </Button>
               <Button
-                formAction={signup}
+                type="button"
+                onClick={(e) => {
+                  const form = e.currentTarget.closest("form");
+                  if (form) handleSignup(new Event("submit") as any);
+                }}
+                disabled={isLoading}
                 variant="ghost"
                 className="w-full text-slate-400 hover:text-white hover:bg-white/5"
               >
@@ -65,7 +123,7 @@ export default function LoginPage() {
           </form>
           <div className="text-center pt-2">
             <Link
-              href="/"
+              to="/"
               className="text-xs text-slate-500 hover:text-white transition-colors"
             >
               ← BACK TO HOME

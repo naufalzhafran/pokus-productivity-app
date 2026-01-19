@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Square } from "lucide-react";
@@ -51,7 +49,7 @@ export function Timer({
   }, [storageKey]);
 
   const [showConfirm, setShowConfirm] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<number | null>(null);
 
   // Persist state whenever relevant values change
   useEffect(() => {

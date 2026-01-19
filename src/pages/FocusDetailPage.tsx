@@ -1,27 +1,83 @@
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Timer } from "@/components/features/timer";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import { updateSessionStatus } from "../actions";
+import { createClient } from "@/lib/supabase/client";
 
-interface FocusPageProps {
-  params: Promise<{
-    id: string;
-  }>;
+interface Session {
+  id: string;
+  title: string;
+  duration_planned: number;
+  status: string;
+  user_id: string;
 }
 
-export default async function FocusPage(props: FocusPageProps) {
-  const params = await props.params;
-  const supabase = await createClient();
+export default function FocusDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
-  const { data: session, error } = await supabase
-    .from("pokus_sessions")
-    .select("*")
-    .eq("id", params.id)
-    .single();
+  useEffect(() => {
+    async function loadSession() {
+      if (!id) {
+        navigate("/dashboard");
+        return;
+      }
 
-  if (error || !session) {
-    // Handle error or redirect
-    redirect("/dashboard");
+      const { data, error } = await supabase
+        .from("pokus_sessions")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error || !data) {
+        console.error("Error loading session:", error);
+        navigate("/dashboard");
+        return;
+      }
+
+      setSession(data);
+      setLoading(false);
+    }
+
+    loadSession();
+  }, [id, navigate]);
+
+  const updateSessionStatus = async (
+    sessionId: string,
+    status: "COMPLETED" | "ABANDONED",
+    actualDuration?: number,
+  ) => {
+    const { error } = await supabase
+      .from("pokus_sessions")
+      .update({
+        status,
+        duration_actual: actualDuration,
+        ended_at: new Date().toISOString(),
+      })
+      .eq("id", sessionId);
+
+    if (error) {
+      console.error("Error updating session:", error);
+      throw new Error("Failed to update session");
+    }
+
+    navigate("/focus");
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
+        <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#06b6d4] p-1">
+          <div className="w-full h-full bg-[#06b6d4] rounded-full animate-pulse shadow-[0_0_15px_#06b6d4]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return null;
   }
 
   return (
@@ -82,18 +138,14 @@ export default async function FocusPage(props: FocusPageProps) {
         <Timer
           initialDurationMinutes={session.duration_planned}
           sessionId={session.id}
-          onStop={async () => {
-            "use server";
-            await updateSessionStatus(session.id, "ABANDONED");
-          }}
-          onComplete={async () => {
-            "use server";
-            await updateSessionStatus(
+          onStop={() => updateSessionStatus(session.id, "ABANDONED")}
+          onComplete={() =>
+            updateSessionStatus(
               session.id,
               "COMPLETED",
               session.duration_planned,
-            );
-          }}
+            )
+          }
         />
       </div>
     </div>

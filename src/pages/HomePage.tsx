@@ -1,16 +1,26 @@
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function HomePage() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
-  if (user) {
-    redirect("/focus");
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/focus");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
+        <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#06b6d4] p-1">
+          <div className="w-full h-full bg-[#06b6d4] rounded-full animate-pulse shadow-[0_0_15px_#06b6d4]" />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -25,7 +35,7 @@ export default async function Home() {
             POKUS
           </span>
         </div>
-        <Link href="/login">
+        <Link to="/login">
           <Button
             variant="ghost"
             className="text-white hover:text-white/80 hover:bg-white/10"
@@ -49,7 +59,7 @@ export default async function Home() {
         </p>
 
         <div className="flex gap-4">
-          <Link href="/login">
+          <Link to="/login">
             <Button
               size="lg"
               className="h-14 px-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 text-lg font-bold shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-transform hover:scale-105"
