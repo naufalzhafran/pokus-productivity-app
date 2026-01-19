@@ -63,7 +63,7 @@ export function Timer({
         timeLeft,
         isActive,
         lastTick: Date.now(),
-      })
+      }),
     );
   }, [timeLeft, isActive, storageKey, isHydrated]);
 
@@ -121,37 +121,37 @@ export function Timer({
 
   return (
     <div className="flex flex-col items-center space-y-12 w-full">
-      <div className="font-mono text-7xl sm:text-9xl md:text-[12rem] tracking-tight leading-none tabular-nums">
+      <div className="font-sans font-semibold text-[120px] md:text-[180px] tracking-tight leading-none tabular-nums drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-200">
         {formatTime(timeLeft)}
       </div>
 
       <div className="flex gap-6 z-20">
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="h-16 w-16 md:h-20 md:w-20 rounded-full border-2 border-white bg-transparent text-white hover:bg-white hover:text-black transition-colors"
+          className="h-20 w-20 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all transform hover:scale-110 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
           onClick={toggleTimer}
         >
           {isActive ? (
-            <Pause className="h-8 w-8 md:h-10 md:w-10" />
+            <Pause className="h-8 w-8 fill-current" />
           ) : (
-            <Play className="h-8 w-8 md:h-10 md:w-10 ml-1" />
+            <Play className="h-8 w-8 ml-1 fill-current" />
           )}
         </Button>
 
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="h-16 w-16 md:h-20 md:w-20 rounded-full border-2 border-white bg-transparent text-white hover:bg-destructive hover:border-destructive hover:text-white transition-colors"
+          className="h-20 w-20 rounded-full bg-white/10 hover:bg-red-500/80 text-white transition-all transform hover:scale-110 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
           onClick={handleStopClick}
         >
-          <Square className="h-6 w-6 md:h-8 md:w-8 fill-current" />
+          <Square className="h-6 w-6 fill-current" />
         </Button>
       </div>
 
       {/* Minimalist Progress Line */}
       <div
-        className="fixed bottom-0 left-0 h-1 bg-white transition-all duration-1000 ease-linear"
+        className="fixed bottom-0 left-0 h-1 bg-cyan-400 shadow-[0_0_10px_#22d3ee] transition-all duration-1000 ease-linear z-20"
         style={{ width: `${progress}%` }}
       />
 
