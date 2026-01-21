@@ -14,9 +14,9 @@ const config = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-geist-mono)", "monospace"],
-        serif: ["var(--font-geist-mono)", "monospace"],
-        mono: ["var(--font-geist-mono)", "monospace"],
+        sans: ["Inter", "sans-serif"],
+        serif: ["Inter", "sans-serif"],
+        mono: ["monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
