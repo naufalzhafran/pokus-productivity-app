@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { loginWithEmail, signUpWithEmail } from "@/api/auth";
 
 export default function LoginPage() {

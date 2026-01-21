@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Timer, Coffee, Plane, Play, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createSession } from "@/api/focus";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 
 export function FocusLanding() {
   const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
