@@ -49,3 +49,28 @@ export async function updateSessionStatus(
     throw new Error("Failed to update session");
   }
 }
+
+export async function getSessions(startDate: Date, endDate: Date) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
+
+  const { data, error } = await supabase
+    .from("pokus_sessions")
+    .select("*")
+    .eq("user_id", user.id)
+    .gte("created_at", startDate.toISOString())
+    .lte("created_at", endDate.toISOString())
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching sessions:", error);
+    throw error;
+  }
+
+  return data;
+}
