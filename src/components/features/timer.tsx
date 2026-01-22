@@ -120,7 +120,12 @@ export function Timer({
 
   return (
     <div className="flex flex-col items-center space-y-12 w-full">
-      <div className="relative flex justify-center">
+      <div
+        className="relative flex justify-center"
+        style={
+          { viewTransitionName: "focus-timer-container" } as React.CSSProperties
+        }
+      >
         <CircularDurationInput
           value={timeLeft}
           max={initialDurationMinutes * 60}

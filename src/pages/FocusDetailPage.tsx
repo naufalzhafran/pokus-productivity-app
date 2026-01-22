@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { Timer } from "@/components/features/timer";
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,8 +14,11 @@ interface Session {
 export default function FocusDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const [session, setSession] = useState<Session | null>(
+    location.state?.session || null,
+  );
+  const [loading, setLoading] = useState(!location.state?.session);
   const supabase = createClient();
 
   useEffect(() => {
@@ -33,7 +36,10 @@ export default function FocusDetailPage() {
 
       if (error || !data) {
         console.error("Error loading session:", error);
-        navigate("/dashboard");
+        // Only redirect if we don't have optimistic data to show
+        if (!session) {
+          navigate("/dashboard");
+        }
         return;
       }
 
@@ -42,6 +48,7 @@ export default function FocusDetailPage() {
     }
 
     loadSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate]);
 
   const updateSessionStatus = async (
@@ -70,7 +77,7 @@ export default function FocusDetailPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
         <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#06b6d4] p-1">
-          <div className="w-full h-full bg-[#06b6d4] rounded-full" />
+          <div className="w-full h-full bg-[#06b6d4] rounded-full animate-pulse shadow-[0_0_15px_#06b6d4]" />
         </div>
       </div>
     );
@@ -82,7 +89,6 @@ export default function FocusDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-8 relative overflow-hidden font-sans">
-      {/* Wave Background */}
       {/* Wave Background Removed */}
 
       <div className="z-10 text-center space-y-12 md:space-y-24 w-full max-w-4xl px-4">

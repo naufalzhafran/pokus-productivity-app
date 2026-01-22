@@ -43,7 +43,11 @@ export default function FocusPage() {
               : "Long Break";
       }
       const session = await createSession(title, duration);
-      navigate(`/focus/${session.id}`);
+      // Enable View Transition for this navigation
+      navigate(`/focus/${session.id}`, {
+        state: { session },
+        viewTransition: true,
+      });
     } catch (error) {
       console.error("Error creating session:", error);
       setIsCreating(false);
@@ -76,7 +80,14 @@ export default function FocusPage() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 z-10 w-full max-w-2xl mx-auto -mt-20">
         {/* Timer Display with Circular Slider */}
-        <div className="mb-12 relative flex justify-center">
+        <div
+          className="mb-12 relative flex justify-center"
+          style={
+            {
+              viewTransitionName: "focus-timer-container",
+            } as React.CSSProperties
+          }
+        >
           <CircularDurationInput
             value={duration}
             onChange={(val) => {
