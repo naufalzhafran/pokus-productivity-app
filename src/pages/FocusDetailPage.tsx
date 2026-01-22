@@ -102,6 +102,7 @@ export default function FocusDetailPage() {
         </div>
 
         <Timer
+          key={session.id}
           initialDurationMinutes={session.duration_planned}
           sessionId={session.id}
           onStop={() => updateSessionStatus(session.id, "ABANDONED")}

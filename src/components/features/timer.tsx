@@ -23,41 +23,46 @@ export function Timer({
 }: TimerProps) {
   const storageKey = `pokus_timer_${sessionId}`;
 
-  // Initialize state with default props (server-safe)
-  const [timeLeft, setTimeLeft] = useState(initialDurationMinutes * 60);
-  const [isActive, setIsActive] = useState(true); // Default to auto-start
-  const [isHydrated, setIsHydrated] = useState(false);
+  // Initialize state from localStorage (SPA lazy init)
+  const [timeLeft, setTimeLeft] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const {
+          timeLeft: savedTime,
+          lastTick,
+          isActive: wasActive,
+        } = JSON.parse(saved);
 
-  // Load from localStorage only on client mount
-  useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      const {
-        timeLeft: savedTime,
-        lastTick,
-        isActive: wasActive,
-      } = JSON.parse(saved);
-
-      let newTimeLeft = savedTime;
-      if (wasActive) {
-        const now = Date.now();
-        const elapsed = Math.floor((now - lastTick) / 1000);
-        newTimeLeft = Math.max(0, savedTime - elapsed);
+        if (wasActive) {
+          const elapsed = Math.floor((Date.now() - lastTick) / 1000);
+          return Math.max(0, savedTime - elapsed);
+        }
+        return savedTime;
       }
-
-      setTimeLeft(newTimeLeft);
-      setIsActive(wasActive);
+    } catch (error) {
+      console.error("Failed to parse saved timer state:", error);
     }
-    setIsHydrated(true);
-  }, [storageKey]);
+    return initialDurationMinutes * 60;
+  });
+
+  const [isActive, setIsActive] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        return JSON.parse(saved).isActive;
+      }
+    } catch (error) {
+      // Ignore error
+    }
+    return true; // Default to auto-start
+  });
 
   const [showConfirm, setShowConfirm] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
   // Persist state whenever relevant values change
   useEffect(() => {
-    if (!isHydrated) return;
-
     localStorage.setItem(
       storageKey,
       JSON.stringify({
@@ -66,11 +71,9 @@ export function Timer({
         lastTick: Date.now(),
       }),
     );
-  }, [timeLeft, isActive, storageKey, isHydrated]);
+  }, [timeLeft, isActive, storageKey]);
 
   useEffect(() => {
-    if (!isHydrated) return;
-
     if (isActive && timeLeft > 0) {
       intervalRef.current = setInterval(() => {
         setTimeLeft((prev: number) => prev - 1);
@@ -86,7 +89,7 @@ export function Timer({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, timeLeft, onComplete, storageKey, isHydrated]);
+  }, [isActive, timeLeft, onComplete, storageKey]);
 
   const toggleTimer = () => setIsActive(!isActive);
 
