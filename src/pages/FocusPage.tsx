@@ -58,7 +58,7 @@ export default function FocusPage() {
           <div className="w-6 h-6 rounded-full border-2 border-dashed border-[#06b6d4] p-0.5">
             <div className="w-full h-full bg-[#06b6d4] rounded-full" />
           </div>
-          <span className="font-bold text-lg tracking-tight">FOCUS KEEPER</span>
+          <span className="font-bold text-lg tracking-tight">POKUS</span>
         </div>
         <div className="flex gap-4">
           <Link to="/dashboard">
