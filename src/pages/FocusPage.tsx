@@ -4,10 +4,13 @@ import { Timer, Coffee, Plane, Play, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createSession } from "@/api/focus";
 import { Link, useNavigate } from "react-router";
+import { Input } from "@/components/ui/input";
+import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 
 export default function FocusPage() {
   const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
   const [duration, setDuration] = useState(25);
+  const [sessionName, setSessionName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
 
@@ -30,7 +33,15 @@ export default function FocusPage() {
   const handleStartSession = async () => {
     setIsCreating(true);
     try {
-      const title = mode === "focus" ? "Focus Session" : "Break";
+      let title = sessionName;
+      if (!title.trim()) {
+        title =
+          mode === "focus"
+            ? "Focus Session"
+            : mode === "short"
+              ? "Short Break"
+              : "Long Break";
+      }
       const session = await createSession(title, duration);
       navigate(`/focus/${session.id}`);
     } catch (error) {
@@ -64,9 +75,47 @@ export default function FocusPage() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 z-10 w-full max-w-2xl mx-auto -mt-20">
-        {/* Timer Display */}
-        <div className="text-[120px] md:text-[180px] font-semibold leading-none tracking-tight mb-8 font-sans">
-          {duration.toString().padStart(2, "0")}:00
+        {/* Timer Display with Circular Slider */}
+        <div className="mb-12 relative flex justify-center">
+          <CircularDurationInput
+            value={duration}
+            onChange={(val) => {
+              setDuration(val);
+              if (val !== 25 && val !== 5 && val !== 15) {
+                setMode("focus");
+              }
+            }}
+            size={500}
+            strokeWidth={15}
+          >
+            <div className="text-[100px] md:text-[140px] font-semibold leading-none tracking-tight font-sans text-center select-none pointer-events-none">
+              {duration.toString().padStart(2, "0")}:00
+            </div>
+          </CircularDurationInput>
+        </div>
+
+        {/* Custom Inputs */}
+        <div className="w-full max-w-md space-y-4 mb-8">
+          <div className="flex flex-col gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">
+                Session Name
+              </label>
+              <Input
+                type="text"
+                placeholder={
+                  mode === "focus"
+                    ? "Focus Session"
+                    : mode === "short"
+                      ? "Short Break"
+                      : "Long Break"
+                }
+                value={sessionName}
+                onChange={(e) => setSessionName(e.target.value)}
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-cyan-500/50 focus:ring-cyan-500/20"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Mode Selectors */}
@@ -75,7 +124,7 @@ export default function FocusPage() {
             onClick={() => handleModeChange("focus")}
             className={cn(
               "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
-              mode === "focus"
+              mode === "focus" && duration === 25
                 ? "bg-white/10 border-cyan-400 translate-y-[-4px]"
                 : "bg-white/5 border-transparent hover:bg-white/10",
             )}
@@ -93,7 +142,7 @@ export default function FocusPage() {
             onClick={() => handleModeChange("short")}
             className={cn(
               "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
-              mode === "short"
+              mode === "short" && duration === 5
                 ? "bg-white/10 border-sky-400 translate-y-[-4px]"
                 : "bg-white/5 border-transparent hover:bg-white/10",
             )}
@@ -111,7 +160,7 @@ export default function FocusPage() {
             onClick={() => handleModeChange("long")}
             className={cn(
               "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
-              mode === "long"
+              mode === "long" && duration === 15
                 ? "bg-white/10 border-indigo-400 translate-y-[-4px]"
                 : "bg-white/5 border-transparent hover:bg-white/10",
             )}
@@ -130,8 +179,8 @@ export default function FocusPage() {
         <div className="flex items-center gap-4">
           <Button
             onClick={handleStartSession}
-            disabled={isCreating}
-            className="h-14 px-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 text-lg font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
+            disabled={isCreating || duration <= 0}
+            className="h-14 px-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 text-lg font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
           >
             <div className="w-6 h-6 rounded-full bg-slate-900 flex items-center justify-center">
               <Play
@@ -140,53 +189,12 @@ export default function FocusPage() {
                 fill="currentColor"
               />
             </div>
-            {isCreating ? "Creating..." : "Start focus timer"}
+            {isCreating ? "Creating..." : "Start session"}
           </Button>
         </div>
       </main>
 
-      {/* Water Wave Footer - Layered */}
-      <div className="absolute bottom-0 left-0 right-0 h-48 w-full z-0 overflow-hidden">
-        {/* Back Wave */}
-        <svg
-          viewBox="0 0 1440 320"
-          className="absolute bottom-0 w-full h-full preserve-3d opacity-30 animate-pulse"
-          style={{ animationDuration: "8s" }}
-          preserveAspectRatio="none"
-        >
-          <path
-            fill="#0ea5e9"
-            fillOpacity="1"
-            d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320L0,320Z"
-          ></path>
-        </svg>
-
-        {/* Middle Wave */}
-        <svg
-          viewBox="0 0 1440 320"
-          className="absolute bottom-[-10px] w-full h-full preserve-3d opacity-50"
-          preserveAspectRatio="none"
-        >
-          <path
-            fill="#06b6d4"
-            fillOpacity="1"
-            d="M0,160L48,170.7C96,181,192,203,288,197.3C384,192,480,160,576,144C672,128,768,128,864,144C960,160,1056,192,1152,192C1248,192,1344,160,1392,144L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320L0,320Z"
-          ></path>
-        </svg>
-
-        {/* Front Wave (Filling) */}
-        <svg
-          viewBox="0 0 1440 320"
-          className="absolute bottom-[-20px] w-full h-full preserve-3d opacity-80"
-          preserveAspectRatio="none"
-        >
-          <path
-            fill="#22d3ee"
-            fillOpacity="1"
-            d="M0,224L80,213.3C160,203,320,181,480,181.3C640,181,800,203,960,202.7C1120,203,1280,181,1360,170.7L1440,160L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"
-          ></path>
-        </svg>
-      </div>
+      {/* Wave Background Removed */}
     </div>
   );
 }

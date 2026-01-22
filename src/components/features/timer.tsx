@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Square } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 
 interface TimerProps {
   initialDurationMinutes: number;
@@ -119,8 +120,19 @@ export function Timer({
 
   return (
     <div className="flex flex-col items-center space-y-12 w-full">
-      <div className="font-sans font-semibold text-[120px] md:text-[180px] tracking-tight leading-none tabular-nums">
-        {formatTime(timeLeft)}
+      <div className="relative flex justify-center">
+        <CircularDurationInput
+          value={timeLeft}
+          max={initialDurationMinutes * 60}
+          onChange={() => {}}
+          size={500}
+          strokeWidth={15}
+          readOnly={true}
+        >
+          <div className="font-sans font-semibold text-[100px] md:text-[140px] tracking-tight leading-none tabular-nums text-center select-none pointer-events-none">
+            {formatTime(timeLeft)}
+          </div>
+        </CircularDurationInput>
       </div>
 
       <div className="flex gap-6 z-20">
