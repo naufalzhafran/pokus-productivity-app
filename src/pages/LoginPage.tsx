@@ -84,6 +84,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="Email Address"
                 required
+                autoComplete="email"
                 disabled={isLoading}
                 className="bg-background/50 border-white/5 text-foreground placeholder:text-muted-foreground h-12 focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
               />
@@ -95,6 +96,7 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Password"
                 required
+                autoComplete="current-password"
                 disabled={isLoading}
                 className="bg-background/50 border-white/5 text-foreground placeholder:text-muted-foreground h-12 focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
               />
