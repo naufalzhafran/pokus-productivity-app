@@ -45,11 +45,9 @@ export function FocusLanding() {
       <nav className="flex justify-between items-center p-6 max-w-5xl mx-auto w-full z-10">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full border-2 border-dashed border-[#06b6d4] p-0.5">
-            <div className="w-full h-full bg-[#06b6d4] rounded-full animate-pulse shadow-[0_0_10px_#06b6d4]" />
+            <div className="w-full h-full bg-[#06b6d4] rounded-full" />
           </div>
-          <span className="font-bold text-lg tracking-tight drop-shadow-md">
-            FOCUS KEEPER
-          </span>
+          <span className="font-bold text-lg tracking-tight">FOCUS KEEPER</span>
         </div>
         <div className="flex gap-4">
           <Link to="/dashboard">
@@ -67,7 +65,7 @@ export function FocusLanding() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 z-10 w-full max-w-2xl mx-auto -mt-20">
         {/* Timer Display */}
-        <div className="text-[120px] md:text-[180px] font-semibold leading-none tracking-tight mb-8 font-sans drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-200">
+        <div className="text-[120px] md:text-[180px] font-semibold leading-none tracking-tight mb-8 font-sans">
           {duration.toString().padStart(2, "0")}:00
         </div>
 
@@ -78,7 +76,7 @@ export function FocusLanding() {
             className={cn(
               "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
               mode === "focus"
-                ? "bg-white/10 border-cyan-400 translate-y-[-4px] shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+                ? "bg-white/10 border-cyan-400 translate-y-[-4px]"
                 : "bg-white/5 border-transparent hover:bg-white/10",
             )}
           >
@@ -96,7 +94,7 @@ export function FocusLanding() {
             className={cn(
               "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
               mode === "short"
-                ? "bg-white/10 border-sky-400 translate-y-[-4px] shadow-[0_0_20px_rgba(56,189,248,0.3)]"
+                ? "bg-white/10 border-sky-400 translate-y-[-4px]"
                 : "bg-white/5 border-transparent hover:bg-white/10",
             )}
           >
@@ -114,7 +112,7 @@ export function FocusLanding() {
             className={cn(
               "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
               mode === "long"
-                ? "bg-white/10 border-indigo-400 translate-y-[-4px] shadow-[0_0_20px_rgba(129,140,248,0.3)]"
+                ? "bg-white/10 border-indigo-400 translate-y-[-4px]"
                 : "bg-white/5 border-transparent hover:bg-white/10",
             )}
           >
@@ -133,7 +131,7 @@ export function FocusLanding() {
           <Button
             onClick={handleStartSession}
             disabled={isCreating}
-            className="h-14 px-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 text-lg font-bold flex items-center gap-2 shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:scale-105 active:scale-95"
+            className="h-14 px-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 text-lg font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
           >
             <div className="w-6 h-6 rounded-full bg-slate-900 flex items-center justify-center">
               <Play
