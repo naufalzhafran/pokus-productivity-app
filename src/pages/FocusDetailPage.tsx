@@ -112,6 +112,7 @@ export default function FocusDetailPage() {
               session.duration_planned,
             )
           }
+          sessionTitle={session.title}
         />
       </div>
     </div>

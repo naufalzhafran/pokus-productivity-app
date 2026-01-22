@@ -29,7 +29,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex gap-4 w-full md:w-auto">
             <Link to="/focus">
-              <Button className="bg-[#06b6d4] hover:bg-[#0891b2] text-slate-900 font-bold shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+              <Button className="bg-[#06b6d4] hover:bg-[#0891b2] text-slate-900 font-bold">
                 Start Session
               </Button>
             </Link>
@@ -46,10 +46,10 @@ export default function DashboardPage() {
         <main className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-200 flex items-center gap-2">
-              <span className="w-2 h-6 bg-[#06b6d4] rounded-full shadow-[0_0_10px_#06b6d4]"></span>
+              <span className="w-2 h-6 bg-[#06b6d4] rounded-full"></span>
               Analytics
             </h2>
-            <div className="bg-[#1e293b] rounded-xl p-8 min-h-[300px] border border-[#334155] shadow-md flex items-center justify-center">
+            <div className="bg-[#1e293b] rounded-xl p-8 min-h-[300px] border border-[#334155] flex items-center justify-center">
               <p className="text-slate-500 font-medium">
                 No session data available yet.
               </p>
@@ -58,10 +58,10 @@ export default function DashboardPage() {
 
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-200 flex items-center gap-2">
-              <span className="w-2 h-6 bg-[#6b9dff] rounded-full shadow-[0_0_10px_#6b9dff]"></span>
+              <span className="w-2 h-6 bg-[#6b9dff] rounded-full"></span>
               Settings
             </h2>
-            <div className="bg-[#1e293b] rounded-xl p-8 min-h-[300px] border border-[#334155] shadow-md flex items-center justify-center">
+            <div className="bg-[#1e293b] rounded-xl p-8 min-h-[300px] border border-[#334155] flex items-center justify-center">
               <p className="text-slate-500 font-medium">
                 Settings are currently locked.
               </p>

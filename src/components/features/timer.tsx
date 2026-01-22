@@ -10,6 +10,7 @@ interface TimerProps {
   onComplete?: () => void;
   onExit?: () => void;
   onStop?: () => void;
+  sessionTitle?: string;
 }
 
 export function Timer({
@@ -18,6 +19,7 @@ export function Timer({
   onComplete,
   onExit,
   onStop,
+  sessionTitle = "Focus Session",
 }: TimerProps) {
   const storageKey = `pokus_timer_${sessionId}`;
 
@@ -113,6 +115,18 @@ export function Timer({
     const s = seconds % 60;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
+
+  useEffect(() => {
+    if (isActive) {
+      document.title = `${formatTime(timeLeft)} - ${sessionTitle}`;
+    } else {
+      document.title = "Pokus";
+    }
+
+    return () => {
+      document.title = "Pokus";
+    };
+  }, [isActive, timeLeft, sessionTitle]);
 
   // Calculate progress for potentially a progress bar
   const totalSeconds = initialDurationMinutes * 60;

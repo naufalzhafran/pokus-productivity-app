@@ -48,7 +48,7 @@ export default function HomePage() {
       <div className="z-10 flex flex-col items-center text-center space-y-10 max-w-4xl px-4 animate-in fade-in zoom-in duration-700">
         <h1 className="text-6xl md:text-8xl font-medium tracking-tight leading-tight">
           <span className="block text-slate-300">Simple. Effective.</span>
-          <span className="text-primary">Focus Timer.</span>
+          <span className="text-primary">Pokus.</span>
         </h1>
 
         <p className="text-xl md:text-2xl text-slate-400 max-w-2xl font-light leading-relaxed">
