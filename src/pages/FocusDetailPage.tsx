@@ -70,7 +70,7 @@ export default function FocusDetailPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
         <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#06b6d4] p-1">
-          <div className="w-full h-full bg-[#06b6d4] rounded-full animate-pulse shadow-[0_0_15px_#06b6d4]" />
+          <div className="w-full h-full bg-[#06b6d4] rounded-full" />
         </div>
       </div>
     );
@@ -127,10 +127,10 @@ export default function FocusDetailPage() {
 
       <div className="z-10 text-center space-y-12 md:space-y-24 w-full max-w-4xl px-4">
         <div className="space-y-4 mb-8">
-          <div className="bg-white/10 rounded-full px-4 py-1 inline-flex items-center gap-2 text-sm font-medium tracking-wide shadow-[0_0_10px_rgba(255,255,255,0.2)]">
+          <div className="bg-white/10 rounded-full px-4 py-1 inline-flex items-center gap-2 text-sm font-medium tracking-wide">
             <span className="text-white/70 uppercase">FOCUSING</span>
           </div>
-          <h1 className="font-sans font-bold text-3xl md:text-4xl text-white/90 drop-shadow-lg">
+          <h1 className="font-sans font-bold text-3xl md:text-4xl text-white/90">
             {session.title}
           </h1>
         </div>

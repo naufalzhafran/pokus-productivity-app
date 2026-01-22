@@ -31,7 +31,7 @@ export function Modal({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white border-2 border-black p-6 md:p-8 max-w-md w-full space-y-6 shadow-none animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white text-slate-900 border-2 border-black p-6 md:p-8 max-w-md w-full space-y-6 shadow-none animate-in fade-in zoom-in-95 duration-200">
         <div className="space-y-2 text-center">
           <h3 className="text-2xl font-serif font-bold">{title}</h3>
           <p className="text-muted-foreground font-sans">{description}</p>

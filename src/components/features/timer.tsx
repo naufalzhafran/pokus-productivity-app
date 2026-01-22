@@ -119,7 +119,7 @@ export function Timer({
 
   return (
     <div className="flex flex-col items-center space-y-12 w-full">
-      <div className="font-sans font-semibold text-[120px] md:text-[180px] tracking-tight leading-none tabular-nums drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-200">
+      <div className="font-sans font-semibold text-[120px] md:text-[180px] tracking-tight leading-none tabular-nums">
         {formatTime(timeLeft)}
       </div>
 
@@ -127,7 +127,7 @@ export function Timer({
         <Button
           variant="ghost"
           size="icon"
-          className="h-20 w-20 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all transform hover:scale-110 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+          className="h-20 w-20 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all transform hover:scale-110"
           onClick={toggleTimer}
         >
           {isActive ? (
@@ -140,7 +140,7 @@ export function Timer({
         <Button
           variant="ghost"
           size="icon"
-          className="h-20 w-20 rounded-full bg-white/10 hover:bg-red-500/80 text-white transition-all transform hover:scale-110 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+          className="h-20 w-20 rounded-full bg-white/10 hover:bg-red-500/80 text-white transition-all transform hover:scale-110"
           onClick={handleStopClick}
         >
           <Square className="h-6 w-6 fill-current" />
@@ -149,7 +149,7 @@ export function Timer({
 
       {/* Minimalist Progress Line */}
       <div
-        className="fixed bottom-0 left-0 h-1 bg-cyan-400 shadow-[0_0_10px_#22d3ee] transition-all duration-1000 ease-linear z-20"
+        className="fixed bottom-0 left-0 h-1 bg-cyan-400 transition-all duration-1000 ease-linear z-20"
         style={{ width: `${progress}%` }}
       />
 
