@@ -100,7 +100,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex gap-3 w-full md:w-auto">
             <Link to="/focus" className="flex-1 md:flex-none">
-              <Button className="w-full bg-[#06b6d4] hover:bg-[#0891b2] text-slate-900 font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.5)]">
+              <Button className="w-full bg-[#06b6d4] hover:bg-[#0891b2] text-slate-900 font-bold transition-all">
                 Start Session
               </Button>
             </Link>
