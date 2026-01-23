@@ -138,7 +138,7 @@ export function Timer({
   return (
     <div className="flex flex-col items-center space-y-12 w-full">
       <div
-        className="relative flex justify-center"
+        className="relative flex justify-center w-full max-w-[500px] aspect-square mx-auto px-4"
         style={
           { viewTransitionName: "focus-timer-container" } as React.CSSProperties
         }
@@ -150,8 +150,9 @@ export function Timer({
           size={500}
           strokeWidth={15}
           readOnly={true}
+          className="w-full h-full"
         >
-          <div className="font-sans font-semibold text-[100px] md:text-[140px] tracking-tight leading-none tabular-nums text-center select-none pointer-events-none">
+          <div className="font-sans font-semibold text-[15vw] md:text-[140px] tracking-tight leading-none tabular-nums text-center select-none pointer-events-none">
             {formatTime(timeLeft)}
           </div>
         </CircularDurationInput>

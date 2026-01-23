@@ -25,6 +25,8 @@ export function CircularDurationInput({
   const [isDragging, setIsDragging] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // We use a fixed coordinate system for the SVG internals (0,0) to (size, size)
+  // resizing is handled by CSS on the root div
   const center = size / 2;
   const radius = center - strokeWidth * 2;
   const circumference = 2 * Math.PI * radius;
@@ -57,8 +59,6 @@ export function CircularDurationInput({
       const newValue = Math.round((theta / 360) * max);
 
       // Handle the wraparound case near 0/60
-      // If we jump from high value to low or vice versa with small movement
-      // For now simple clamp is okay as long as we track drag properly
       return Math.min(Math.max(0, newValue), max);
     },
     [max],
@@ -87,17 +87,16 @@ export function CircularDurationInput({
   return (
     <div
       className={cn(
-        "relative flex items-center justify-center select-none touch-none",
+        "relative flex items-center justify-center select-none touch-none aspect-square w-full h-auto",
         className,
       )}
-      style={{ width: size, height: size }}
+      style={{ maxWidth: size }} // Optional max-width constraint if provided
     >
       <svg
         ref={svgRef}
-        width={size}
-        height={size}
+        viewBox={`0 0 ${size} ${size}`}
         className={cn(
-          "absolute top-0 left-0 w-full h-full",
+          "w-full h-full block",
           readOnly ? "cursor-default" : "cursor-pointer",
         )}
         onPointerDown={handlePointerDown}
@@ -129,7 +128,7 @@ export function CircularDurationInput({
           className="transition-all duration-75 ease-out"
         />
 
-        {/* Thumb - Hide if readOnly? Or keep as indicator? User said "cannot be edit", usually implies no handle or fixed handle. I'll hide handle if readOnly for cleaner look, or just disable interaction. User asked for "circular also", likely the timer ring. Thumb might be distracting if not interactive. I will hide thumb if readOnly. */}
+        {/* Thumb */}
         {!readOnly && (
           <>
             <circle
@@ -149,7 +148,10 @@ export function CircularDurationInput({
           </>
         )}
       </svg>
-      {children}
+      {/* Centered Children Container with responsive text sizing hack or absolute positioning */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        {children}
+      </div>
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default function FocusPage() {
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col relative overflow-hidden font-sans">
       {/* Navbar */}
-      <nav className="flex justify-between items-center p-6 max-w-5xl mx-auto w-full z-10">
+      <nav className="flex justify-between items-center p-4 md:p-6 max-w-5xl mx-auto w-full z-10">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full border-2 border-dashed border-[#06b6d4] p-0.5">
             <div className="w-full h-full bg-[#06b6d4] rounded-full" />
@@ -78,10 +78,10 @@ export default function FocusPage() {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center p-4 z-10 w-full max-w-2xl mx-auto -mt-20">
+      <main className="flex-1 flex flex-col items-center justify-center p-4 z-10 w-full max-w-2xl mx-auto min-h-0">
         {/* Timer Display with Circular Slider */}
         <div
-          className="mb-12 relative flex justify-center"
+          className="mb-8 md:mb-12 relative flex justify-center w-[80vw] max-w-[500px] aspect-square"
           style={
             {
               viewTransitionName: "focus-timer-container",
@@ -98,8 +98,9 @@ export default function FocusPage() {
             }}
             size={500}
             strokeWidth={15}
+            className="w-full h-full"
           >
-            <div className="text-[100px] md:text-[140px] font-semibold leading-none tracking-tight font-sans text-center select-none pointer-events-none">
+            <div className="text-[15vw] md:text-[140px] font-semibold leading-none tracking-tight font-sans text-center select-none pointer-events-none">
               {duration.toString().padStart(2, "0")}:00
             </div>
           </CircularDurationInput>
@@ -123,7 +124,7 @@ export default function FocusPage() {
                 }
                 value={sessionName}
                 onChange={(e) => setSessionName(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-cyan-500/50 focus:ring-cyan-500/20"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-cyan-500/50 focus:ring-cyan-500/20 h-12"
               />
             </div>
           </div>

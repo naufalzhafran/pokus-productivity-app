@@ -88,7 +88,7 @@ export default function FocusDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden font-sans">
       {/* Wave Background Removed */}
 
       <div className="z-10 text-center space-y-12 md:space-y-24 w-full max-w-4xl px-4">
