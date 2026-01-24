@@ -11,7 +11,6 @@ export default function FocusPage() {
   const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
   const [duration, setDuration] = useState(25);
   const [sessionName, setSessionName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
 
   const getDuration = (m: typeof mode) => {
@@ -31,27 +30,24 @@ export default function FocusPage() {
   };
 
   const handleStartSession = async () => {
-    setIsCreating(true);
-    try {
-      let title = sessionName;
-      if (!title.trim()) {
-        title =
-          mode === "focus"
-            ? "Focus Session"
-            : mode === "short"
-              ? "Short Break"
-              : "Long Break";
-      }
-      const session = await createSession(title, duration);
-      // Enable View Transition for this navigation
-      navigate(`/focus/${session.id}`, {
-        state: { session },
-        viewTransition: true,
-      });
-    } catch (error) {
-      console.error("Error creating session:", error);
-      setIsCreating(false);
+    let title = sessionName;
+    if (!title.trim()) {
+      title =
+        mode === "focus"
+          ? "Focus Session"
+          : mode === "short"
+            ? "Short Break"
+            : "Long Break";
     }
+
+    // Create session locally - instant, no loading state needed
+    const session = await createSession(title, duration);
+
+    // Navigate immediately with local session data
+    navigate(`/focus/${session.id}`, {
+      state: { session },
+      viewTransition: true,
+    });
   };
 
   return (
@@ -191,7 +187,7 @@ export default function FocusPage() {
         <div className="flex items-center gap-4">
           <Button
             onClick={handleStartSession}
-            disabled={isCreating || duration <= 0}
+            disabled={duration <= 0}
             className="h-14 px-8 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 text-lg font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
           >
             <div className="w-6 h-6 rounded-full bg-slate-900 flex items-center justify-center">
@@ -201,7 +197,7 @@ export default function FocusPage() {
                 fill="currentColor"
               />
             </div>
-            {isCreating ? "Creating..." : "Start session"}
+            Start session
           </Button>
         </div>
       </main>
