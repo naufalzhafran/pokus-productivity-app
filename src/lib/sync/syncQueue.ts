@@ -1,5 +1,5 @@
 import { getDB, SyncOperation } from "./db";
-import { createClient } from "@/lib/supabase/client";
+import { getClient } from "@/lib/supabase/client";
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
@@ -89,7 +89,7 @@ async function updateOperationRetry(operation: SyncOperation): Promise<void> {
  * Process a single sync operation
  */
 async function processOperation(operation: SyncOperation): Promise<boolean> {
-  const supabase = createClient();
+  const supabase = getClient();
 
   try {
     switch (operation.type) {

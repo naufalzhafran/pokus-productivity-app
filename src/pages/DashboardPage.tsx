@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { logout } from "@/api/auth";
 import { getSessions } from "@/api/focus";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo, memo } from "react";
+import { LocalSession } from "@/lib/sync";
 import {
   Calendar,
   CheckCircle,
@@ -12,10 +13,71 @@ import {
   Clock,
   XCircle,
 } from "lucide-react";
+
+interface SessionListItemProps {
+  session: LocalSession;
+}
+
+const SessionListItem = memo(function SessionListItem({
+  session,
+}: SessionListItemProps) {
+  return (
+    <div className="bg-[#1e293b] hover:bg-[#283548] p-4 rounded-xl border border-[#334155] flex items-center justify-between group transition-all">
+      <div className="flex items-start gap-4">
+        {session.status === "COMPLETED" ? (
+          <div className="mt-1">
+            <CheckCircle className="w-5 h-5 text-emerald-500" />
+          </div>
+        ) : session.status === "ABANDONED" ? (
+          <div className="mt-1">
+            <XCircle className="w-5 h-5 text-rose-500" />
+          </div>
+        ) : (
+          <div className="mt-1">
+            <div className="w-5 h-5 rounded-full border-2 border-slate-500 border-t-transparent animate-spin" />
+          </div>
+        )}
+        <div>
+          <h3 className="font-medium text-slate-200 group-hover:text-white transition-colors">
+            {session.title || "Untitled Session"}
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+            <span>
+              {new Date(session.created_at).toLocaleDateString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+            <span>•</span>
+            <span>
+              {new Date(session.created_at).toLocaleTimeString(undefined, {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </p>
+        </div>
+      </div>
+      <div className="text-right">
+        <span
+          className={`text-lg font-bold ${session.status === "COMPLETED" ? "text-[#06b6d4]" : "text-slate-500"}`}
+        >
+          {session.duration_actual || session.duration_planned}
+          <span className="text-xs ml-1 font-normal opacity-70">min</span>
+        </span>
+        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-600 mt-1">
+          {session.status}
+        </p>
+      </div>
+    </div>
+  );
+});
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<LocalSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const now = new Date();
@@ -51,22 +113,24 @@ export default function DashboardPage() {
     }
   }, [user, currentWeekStart]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await logout();
       navigate("/");
     } catch (error) {
       console.error("Logout error:", error);
     }
-  };
+  }, [navigate]);
 
-  const changeWeek = (direction: -1 | 1) => {
-    const newStart = new Date(currentWeekStart);
-    newStart.setDate(currentWeekStart.getDate() + direction * 7);
-    setCurrentWeekStart(newStart);
-  };
+  const changeWeek = useCallback((direction: -1 | 1) => {
+    setCurrentWeekStart((prev) => {
+      const newStart = new Date(prev);
+      newStart.setDate(prev.getDate() + direction * 7);
+      return newStart;
+    });
+  }, []);
 
-  const getWeekRangeString = () => {
+  const weekRangeString = useMemo(() => {
     const end = new Date(currentWeekStart);
     end.setDate(currentWeekStart.getDate() + 6);
 
@@ -75,16 +139,24 @@ export default function DashboardPage() {
       day: "numeric",
     };
     return `${currentWeekStart.toLocaleDateString("en-US", options)} - ${end.toLocaleDateString("en-US", options)}`;
-  };
+  }, [currentWeekStart]);
 
-  // Stats
-  const totalSessions = sessions.filter((s) => s.status === "COMPLETED").length;
-  const totalMinutes = sessions.reduce((acc, s) => {
-    if (s.status === "COMPLETED") {
-      return acc + (s.duration_actual || s.duration_planned || 0);
-    }
-    return acc;
-  }, 0);
+  // Memoized stats calculations
+  const totalSessions = useMemo(
+    () => sessions.filter((s) => s.status === "COMPLETED").length,
+    [sessions],
+  );
+
+  const totalMinutes = useMemo(
+    () =>
+      sessions.reduce((acc, s) => {
+        if (s.status === "COMPLETED") {
+          return acc + (s.duration_actual || s.duration_planned || 0);
+        }
+        return acc;
+      }, 0),
+    [sessions],
+  );
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-8 font-sans pb-24">
@@ -127,7 +199,7 @@ export default function DashboardPage() {
             </Button>
             <div className="flex items-center gap-2 text-slate-200 font-medium bg-[#0f172a] px-4 py-2 rounded-lg border border-[#334155]">
               <Calendar className="w-4 h-4 text-[#06b6d4]" />
-              {getWeekRangeString()}
+              {weekRangeString}
             </div>
             <Button
               variant="ghost"
@@ -182,63 +254,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="bg-[#1e293b] hover:bg-[#283548] p-4 rounded-xl border border-[#334155] flex items-center justify-between group transition-all"
-                >
-                  <div className="flex items-start gap-4">
-                    {session.status === "COMPLETED" ? (
-                      <div className="mt-1">
-                        <CheckCircle className="w-5 h-5 text-emerald-500" />
-                      </div>
-                    ) : session.status === "ABANDONED" ? (
-                      <div className="mt-1">
-                        <XCircle className="w-5 h-5 text-rose-500" />
-                      </div>
-                    ) : (
-                      <div className="mt-1">
-                        <div className="w-5 h-5 rounded-full border-2 border-slate-500 border-t-transparent animate-spin" />
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="font-medium text-slate-200 group-hover:text-white transition-colors">
-                        {session.title || "Untitled Session"}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                        <span>
-                          {new Date(session.created_at).toLocaleDateString(
-                            undefined,
-                            {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}
-                        </span>
-                        <span>•</span>
-                        <span>
-                          {new Date(session.created_at).toLocaleTimeString(
-                            undefined,
-                            { hour: "2-digit", minute: "2-digit" },
-                          )}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span
-                      className={`text-lg font-bold ${session.status === "COMPLETED" ? "text-[#06b6d4]" : "text-slate-500"}`}
-                    >
-                      {session.duration_actual || session.duration_planned}
-                      <span className="text-xs ml-1 font-normal opacity-70">
-                        min
-                      </span>
-                    </span>
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-slate-600 mt-1">
-                      {session.status}
-                    </p>
-                  </div>
-                </div>
+                <SessionListItem key={session.id} session={session} />
               ))
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Timer, Coffee, Plane, Play, LayoutGrid, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,30 +8,39 @@ import { Input } from "@/components/ui/input";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 import { useAuth } from "@/hooks/useAuth";
 
+type FocusMode = "focus" | "short" | "long";
+
+const getDuration = (mode: FocusMode): number => {
+  switch (mode) {
+    case "focus":
+      return 25;
+    case "short":
+      return 5;
+    case "long":
+      return 15;
+  }
+};
+
 export default function FocusPage() {
-  const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
+  const [mode, setMode] = useState<FocusMode>("focus");
   const [duration, setDuration] = useState(25);
   const [sessionName, setSessionName] = useState("");
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const getDuration = (m: typeof mode) => {
-    switch (m) {
-      case "focus":
-        return 25;
-      case "short":
-        return 5;
-      case "long":
-        return 15;
-    }
-  };
-
-  const handleModeChange = (newMode: typeof mode) => {
+  const handleModeChange = useCallback((newMode: FocusMode) => {
     setMode(newMode);
     setDuration(getDuration(newMode));
-  };
+  }, []);
 
-  const handleStartSession = async () => {
+  const handleDurationChange = useCallback((val: number) => {
+    setDuration(val);
+    if (val !== 25 && val !== 5 && val !== 15) {
+      setMode("focus");
+    }
+  }, []);
+
+  const handleStartSession = useCallback(async () => {
     let title = sessionName;
     if (!title.trim()) {
       title =
@@ -42,15 +51,19 @@ export default function FocusPage() {
             : "Long Break";
     }
 
-    // Create session locally - instant, no loading state needed
-    const session = await createSession(title, duration);
+    try {
+      // Create session locally - instant, no loading state needed
+      const session = await createSession(title, duration);
 
-    // Navigate immediately with local session data
-    navigate(`/focus/${session.id}`, {
-      state: { session },
-      viewTransition: true,
-    });
-  };
+      // Navigate immediately with local session data
+      navigate(`/focus/${session.id}`, {
+        state: { session },
+        viewTransition: true,
+      });
+    } catch (error) {
+      console.error("Failed to create session:", error);
+    }
+  }, [sessionName, mode, duration, navigate]);
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col relative overflow-hidden font-sans">
@@ -100,12 +113,7 @@ export default function FocusPage() {
         >
           <CircularDurationInput
             value={duration}
-            onChange={(val) => {
-              setDuration(val);
-              if (val !== 25 && val !== 5 && val !== 15) {
-                setMode("focus");
-              }
-            }}
+            onChange={handleDurationChange}
             size={500}
             strokeWidth={15}
             className="w-full h-full"

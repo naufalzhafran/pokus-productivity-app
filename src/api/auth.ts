@@ -1,7 +1,7 @@
-import { createClient } from "@/lib/supabase/client";
+import { getClient } from "@/lib/supabase/client";
 import { clearAllData, saveLocalSession } from "@/lib/sync";
 
-const supabase = createClient();
+const supabase = getClient();
 
 /**
  * Fetch user's sessions from Supabase and populate IndexedDB

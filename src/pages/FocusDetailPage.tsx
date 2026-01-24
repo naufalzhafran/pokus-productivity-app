@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router";
 import { Timer } from "@/components/features/timer";
 import { updateSessionStatus } from "@/api/focus";
@@ -40,15 +40,22 @@ export default function FocusDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate]);
 
-  const handleUpdateStatus = async (
-    sessionId: string,
-    status: "COMPLETED" | "ABANDONED",
-    actualDuration?: number,
-  ) => {
-    // Update status locally first (instant), sync to Supabase in background
-    await updateSessionStatus(sessionId, status, actualDuration);
-    navigate("/focus");
-  };
+  const handleUpdateStatus = useCallback(
+    async (
+      sessionId: string,
+      status: "COMPLETED" | "ABANDONED",
+      actualDuration?: number,
+    ) => {
+      try {
+        // Update status locally first (instant), sync to Supabase in background
+        await updateSessionStatus(sessionId, status, actualDuration);
+        navigate("/focus");
+      } catch (error) {
+        console.error("Failed to update session status:", error);
+      }
+    },
+    [navigate],
+  );
 
   // No loading state - we either have the session from nav state or local storage
   if (!session) {

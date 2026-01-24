@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { getClient } from "@/lib/supabase/client";
 import {
   saveLocalSession,
   updateLocalSession,
@@ -8,7 +8,7 @@ import {
   addToSyncQueue,
 } from "@/lib/sync";
 
-const supabase = createClient();
+const supabase = getClient();
 
 // Special user ID for guest (non-logged-in) users
 const GUEST_USER_ID = "guest";
