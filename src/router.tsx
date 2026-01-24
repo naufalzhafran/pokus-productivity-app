@@ -21,11 +21,6 @@ function ProtectedLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  // Double check for safety, though technically redundant with above
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
   return <Outlet />;
 }
 
@@ -50,21 +45,22 @@ export const router = createBrowserRouter([
         path: "/login",
         element: <LoginPage />,
       },
+      // Focus routes - accessible by both guests and logged-in users
       {
-        // Protected routes wrapper
+        path: "/focus",
+        element: <FocusPage />,
+      },
+      {
+        path: "/focus/:id",
+        element: <FocusDetailPage />,
+      },
+      {
+        // Protected routes wrapper - only for authenticated users
         element: <ProtectedLayout />,
         children: [
           {
             path: "/dashboard",
             element: <DashboardPage />,
-          },
-          {
-            path: "/focus",
-            element: <FocusPage />,
-          },
-          {
-            path: "/focus/:id",
-            element: <FocusDetailPage />,
           },
         ],
       },

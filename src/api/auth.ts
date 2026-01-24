@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { clearAllData } from "@/lib/sync";
 
 const supabase = createClient();
 
@@ -23,6 +24,9 @@ export async function signUpWithEmail(email: string, password: string) {
 }
 
 export async function logout() {
+  // Clear local IndexedDB data to prevent data leakage between users
+  await clearAllData();
+
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }

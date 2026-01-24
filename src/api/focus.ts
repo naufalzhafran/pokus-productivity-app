@@ -10,9 +10,12 @@ import {
 
 const supabase = createClient();
 
+// Special user ID for guest (non-logged-in) users
+const GUEST_USER_ID = "guest";
+
 /**
  * Create a session locally first, then sync to Supabase in background
- * Returns immediately with local session data - no loading state needed
+ * For guest users, only saves locally (no sync)
  */
 export async function createSession(
   title: string,
@@ -22,46 +25,48 @@ export async function createSession(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    throw new Error("Not authenticated");
-  }
-
   // Generate UUID client-side for consistent ID between local and remote
   const sessionId = crypto.randomUUID();
   const now = new Date().toISOString();
+  const userId = user?.id ?? GUEST_USER_ID;
+  const isGuest = !user;
 
   const localSession: LocalSession = {
     id: sessionId,
-    user_id: user.id,
+    user_id: userId,
     title: title,
     duration_planned: duration,
     status: "PLANNED",
     created_at: now,
-    syncStatus: "PENDING",
+    // Guest sessions are marked as "SYNCED" since they won't sync
+    syncStatus: isGuest ? "SYNCED" : "PENDING",
   };
 
   // Save to local storage immediately
   await saveLocalSession(localSession);
 
-  // Queue background sync to Supabase (fire and forget)
-  addToSyncQueue({
-    type: "CREATE",
-    table: "pokus_sessions",
-    data: {
-      id: sessionId,
-      user_id: user.id,
-      title: title,
-      duration_planned: duration,
-      status: "PLANNED",
-      created_at: now,
-    },
-  });
+  // Only queue sync for authenticated users
+  if (!isGuest) {
+    addToSyncQueue({
+      type: "CREATE",
+      table: "pokus_sessions",
+      data: {
+        id: sessionId,
+        user_id: userId,
+        title: title,
+        duration_planned: duration,
+        status: "PLANNED",
+        created_at: now,
+      },
+    });
+  }
 
   return localSession;
 }
 
 /**
  * Update session status locally first, then sync to Supabase in background
+ * For guest users, only updates locally (no sync)
  */
 export async function updateSessionStatus(
   sessionId: string,
@@ -70,6 +75,10 @@ export async function updateSessionStatus(
 ): Promise<void> {
   const endedAt = new Date().toISOString();
 
+  // Check if this is a guest session
+  const session = await getLocalSession(sessionId);
+  const isGuest = session?.user_id === GUEST_USER_ID;
+
   // Update local storage immediately
   await updateLocalSession(sessionId, {
     status,
@@ -77,21 +86,24 @@ export async function updateSessionStatus(
     ended_at: endedAt,
   });
 
-  // Queue background sync to Supabase (fire and forget)
-  addToSyncQueue({
-    type: "UPDATE",
-    table: "pokus_sessions",
-    data: {
-      id: sessionId,
-      status,
-      duration_actual: actualDuration,
-      ended_at: endedAt,
-    },
-  });
+  // Only queue sync for authenticated users' sessions
+  if (!isGuest) {
+    addToSyncQueue({
+      type: "UPDATE",
+      table: "pokus_sessions",
+      data: {
+        id: sessionId,
+        status,
+        duration_actual: actualDuration,
+        ended_at: endedAt,
+      },
+    });
+  }
 }
 
 /**
- * Get sessions - returns local data first, syncs with remote in background
+ * Get sessions - returns local data first
+ * For authenticated users, also syncs with remote in background
  */
 export async function getSessions(
   startDate: Date,
@@ -101,19 +113,19 @@ export async function getSessions(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    throw new Error("Not authenticated");
-  }
-
   // Get local sessions first (instant)
   const localSessions = await getLocalSessionsByDateRange(startDate, endDate);
 
-  // If online, fetch remote and merge in background
-  if (navigator.onLine) {
+  // Filter by current user (or guest)
+  const userId = user?.id ?? GUEST_USER_ID;
+  const userSessions = localSessions.filter((s) => s.user_id === userId);
+
+  // If authenticated and online, fetch remote and merge in background
+  if (user && navigator.onLine) {
     fetchAndMergeRemoteSessions(user.id, startDate, endDate);
   }
 
-  return localSessions.sort(
+  return userSessions.sort(
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );

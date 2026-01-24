@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Timer, Coffee, Plane, Play, LayoutGrid } from "lucide-react";
+import { Timer, Coffee, Plane, Play, LayoutGrid, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createSession } from "@/api/focus";
 import { Link, useNavigate } from "react-router";
 import { Input } from "@/components/ui/input";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function FocusPage() {
   const [mode, setMode] = useState<"focus" | "short" | "long">("focus");
   const [duration, setDuration] = useState(25);
   const [sessionName, setSessionName] = useState("");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const getDuration = (m: typeof mode) => {
     switch (m) {
@@ -61,15 +63,27 @@ export default function FocusPage() {
           <span className="font-bold text-lg tracking-tight">POKUS</span>
         </div>
         <div className="flex gap-4">
-          <Link to="/dashboard">
-            <Button
-              variant="ghost"
-              className="text-white hover:text-white/80 hover:bg-white/10 flex items-center gap-2"
-            >
-              <LayoutGrid size={16} />
-              Dashboard
-            </Button>
-          </Link>
+          {user ? (
+            <Link to="/dashboard">
+              <Button
+                variant="ghost"
+                className="text-white hover:text-white/80 hover:bg-white/10 flex items-center gap-2"
+              >
+                <LayoutGrid size={16} />
+                Dashboard
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/login">
+              <Button
+                variant="ghost"
+                className="text-white hover:text-white/80 hover:bg-white/10 flex items-center gap-2"
+              >
+                <LogIn size={16} />
+                Sign in
+              </Button>
+            </Link>
+          )}
         </div>
       </nav>
 
