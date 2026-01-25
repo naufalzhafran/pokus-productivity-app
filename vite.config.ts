@@ -31,7 +31,7 @@ export default defineConfig({
             "tailwind-merge",
             "tailwindcss-animate",
           ],
-          supabase: ["@supabase/supabase-js", "@supabase/ssr"],
+          pocketbase: ["pocketbase"],
         },
       },
     },

@@ -6,12 +6,11 @@ import {
   ReactNode,
   useMemo,
 } from "react";
-import { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
-import { getClient } from "@/lib/supabase/client";
+import { RecordModel } from "pocketbase";
+import { getClient } from "@/lib/pocketbase/client";
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: RecordModel | null;
   loading: boolean;
 }
 
@@ -22,38 +21,26 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<RecordModel | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = getClient();
+    const pb = getClient();
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+    // Get initial auth state
+    setUser(pb.authStore.record);
+    setLoading(false);
+
+    // Listen for auth changes
+    const unsubscribe = pb.authStore.onChange((_token, record) => {
+      setUser(record);
       setLoading(false);
     });
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, currentSession: Session | null) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        setLoading(false);
-      },
-    );
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
-  const value = useMemo(
-    () => ({ user, session, loading }),
-    [user, session, loading],
-  );
+  const value = useMemo(() => ({ user, loading }), [user, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -1,5 +1,5 @@
 import { getDB, SyncOperation } from "./db";
-import { getClient } from "@/lib/supabase/client";
+import { getClient } from "@/lib/pocketbase/client";
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
@@ -89,37 +89,25 @@ async function updateOperationRetry(operation: SyncOperation): Promise<void> {
  * Process a single sync operation
  */
 async function processOperation(operation: SyncOperation): Promise<boolean> {
-  const supabase = getClient();
+  const pb = getClient();
 
   try {
     switch (operation.type) {
       case "CREATE": {
-        const { error } = await supabase
-          .from(operation.table)
-          .insert(operation.data);
-
-        if (error) throw error;
+        await pb.collection(operation.table).create(operation.data);
         break;
       }
 
       case "UPDATE": {
         const { id, ...updateData } = operation.data;
-        const { error } = await supabase
-          .from(operation.table)
-          .update(updateData)
-          .eq("id", id as string);
-
-        if (error) throw error;
+        await pb.collection(operation.table).update(id as string, updateData);
         break;
       }
 
       case "DELETE": {
-        const { error } = await supabase
-          .from(operation.table)
-          .delete()
-          .eq("id", operation.data.id as string);
-
-        if (error) throw error;
+        await pb
+          .collection(operation.table)
+          .delete(operation.data.id as string);
         break;
       }
     }

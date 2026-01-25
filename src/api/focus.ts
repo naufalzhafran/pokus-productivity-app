@@ -1,4 +1,4 @@
-import { getClient } from "@/lib/supabase/client";
+import { getClient } from "@/lib/pocketbase/client";
 import {
   saveLocalSession,
   updateLocalSession,
@@ -8,22 +8,20 @@ import {
   addToSyncQueue,
 } from "@/lib/sync";
 
-const supabase = getClient();
+const pb = getClient();
 
 // Special user ID for guest (non-logged-in) users
 const GUEST_USER_ID = "guest";
 
 /**
- * Create a session locally first, then sync to Supabase in background
+ * Create a session locally first, then sync to PocketBase in background
  * For guest users, only saves locally (no sync)
  */
 export async function createSession(
   title: string,
   duration: number,
 ): Promise<LocalSession> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = pb.authStore.record;
 
   // Generate UUID client-side for consistent ID between local and remote
   const sessionId = crypto.randomUUID();
@@ -56,7 +54,6 @@ export async function createSession(
         title: title,
         duration_planned: duration,
         status: "PLANNED",
-        created_at: now,
       },
     });
   }
@@ -65,7 +62,7 @@ export async function createSession(
 }
 
 /**
- * Update session status locally first, then sync to Supabase in background
+ * Update session status locally first, then sync to PocketBase in background
  * For guest users, only updates locally (no sync)
  */
 export async function updateSessionStatus(
@@ -109,9 +106,7 @@ export async function getSessions(
   startDate: Date,
   endDate: Date,
 ): Promise<LocalSession[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = pb.authStore.record;
 
   // Get local sessions first (instant)
   const localSessions = await getLocalSessionsByDateRange(startDate, endDate);
@@ -140,37 +135,45 @@ async function fetchAndMergeRemoteSessions(
   endDate: Date,
 ): Promise<void> {
   try {
-    const { data, error } = await supabase
-      .from("pokus_sessions")
-      .select("*")
-      .eq("user_id", userId)
-      .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString());
+    const records = await pb.collection("pokus_sessions").getFullList({
+      filter: `user_id = "${userId}" && created >= "${startDate.toISOString()}" && created <= "${endDate.toISOString()}"`,
+    });
 
-    if (error) {
-      console.error("Error fetching remote sessions:", error);
-      return;
-    }
+    for (const remoteSession of records) {
+      const localSession = await getLocalSession(remoteSession.id);
 
-    if (data) {
-      for (const remoteSession of data) {
-        const localSession = await getLocalSession(remoteSession.id);
-
-        // If local doesn't exist or remote is more recent, update local
-        if (!localSession) {
-          await saveLocalSession({
-            ...remoteSession,
-            syncStatus: "SYNCED",
-            lastSyncedAt: new Date().toISOString(),
-          });
-        } else if (localSession.syncStatus === "SYNCED") {
-          // Only update from remote if local is already synced (not pending changes)
-          await saveLocalSession({
-            ...remoteSession,
-            syncStatus: "SYNCED",
-            lastSyncedAt: new Date().toISOString(),
-          });
-        }
+      // If local doesn't exist or remote is more recent, update local
+      if (!localSession) {
+        await saveLocalSession({
+          id: remoteSession.id,
+          user_id: remoteSession.user_id,
+          title: remoteSession.title,
+          duration_planned: remoteSession.duration_planned,
+          duration_actual: remoteSession.duration_actual,
+          status: remoteSession.status,
+          tag: remoteSession.tag,
+          started_at: remoteSession.started_at,
+          ended_at: remoteSession.ended_at,
+          created_at: remoteSession.created,
+          syncStatus: "SYNCED",
+          lastSyncedAt: new Date().toISOString(),
+        });
+      } else if (localSession.syncStatus === "SYNCED") {
+        // Only update from remote if local is already synced (not pending changes)
+        await saveLocalSession({
+          id: remoteSession.id,
+          user_id: remoteSession.user_id,
+          title: remoteSession.title,
+          duration_planned: remoteSession.duration_planned,
+          duration_actual: remoteSession.duration_actual,
+          status: remoteSession.status,
+          tag: remoteSession.tag,
+          started_at: remoteSession.started_at,
+          ended_at: remoteSession.ended_at,
+          created_at: remoteSession.created,
+          syncStatus: "SYNCED",
+          lastSyncedAt: new Date().toISOString(),
+        });
       }
     }
   } catch (error) {

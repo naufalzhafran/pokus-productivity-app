@@ -1,10 +1,10 @@
-import { getClient } from "@/lib/supabase/client";
+import { getClient } from "@/lib/pocketbase/client";
 import { clearAllData, saveLocalSession } from "@/lib/sync";
 
-const supabase = getClient();
+const pb = getClient();
 
 /**
- * Fetch user's sessions from Supabase and populate IndexedDB
+ * Fetch user's sessions from PocketBase and populate IndexedDB
  * Only fetches current week's data to reduce initial load
  */
 async function populateUserSessions(userId: string): Promise<void> {
@@ -17,68 +17,69 @@ async function populateUserSessions(userId: string): Promise<void> {
     startOfWeek.setDate(now.getDate() - diffToMonday);
     startOfWeek.setHours(0, 0, 0, 0);
 
-    const { data, error } = await supabase
-      .from("pokus_sessions")
-      .select("*")
-      .eq("user_id", userId)
-      .gte("created_at", startOfWeek.toISOString())
-      .order("created_at", { ascending: false });
+    const records = await pb.collection("pokus_sessions").getFullList({
+      filter: `user_id = "${userId}" && created >= "${startOfWeek.toISOString()}"`,
+      sort: "-created",
+    });
 
-    if (error) {
-      console.error("Error fetching user sessions:", error);
-      return;
+    for (const record of records) {
+      await saveLocalSession({
+        id: record.id,
+        user_id: record.user_id,
+        title: record.title,
+        duration_planned: record.duration_planned,
+        duration_actual: record.duration_actual,
+        status: record.status,
+        tag: record.tag,
+        started_at: record.started_at,
+        ended_at: record.ended_at,
+        created_at: record.created,
+        syncStatus: "SYNCED",
+        lastSyncedAt: new Date().toISOString(),
+      });
     }
-
-    if (data) {
-      for (const session of data) {
-        await saveLocalSession({
-          ...session,
-          syncStatus: "SYNCED",
-          lastSyncedAt: new Date().toISOString(),
-        });
-      }
-      console.log(`Populated ${data.length} sessions from current week`);
-    }
+    console.log(`Populated ${records.length} sessions from current week`);
   } catch (error) {
     console.error("Error populating user sessions:", error);
   }
 }
 
 export async function loginWithEmail(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error) throw error;
+  const authData = await pb
+    .collection("users")
+    .authWithPassword(email, password);
 
   // Clear any guest data and populate with logged-in user's data
   await clearAllData();
-  if (data.user) {
-    await populateUserSessions(data.user.id);
+  if (authData.record) {
+    await populateUserSessions(authData.record.id);
   }
 
-  return data;
+  return authData;
 }
 
 export async function signUpWithEmail(email: string, password: string) {
-  const { data, error } = await supabase.auth.signUp({
+  // Create the user
+  await pb.collection("users").create({
     email,
     password,
+    passwordConfirm: password,
   });
 
-  if (error) throw error;
+  // Auto-login after signup
+  const authData = await pb
+    .collection("users")
+    .authWithPassword(email, password);
 
   // Clear any guest data (new user won't have any sessions yet)
   await clearAllData();
 
-  return data;
+  return authData;
 }
 
 export async function logout() {
   // Clear local IndexedDB data to prevent data leakage between users
   await clearAllData();
 
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  pb.authStore.clear();
 }
