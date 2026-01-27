@@ -18,8 +18,9 @@ async function populateUserSessions(userId: string): Promise<void> {
     startOfWeek.setHours(0, 0, 0, 0);
 
     const records = await pb.collection("pokus_sessions").getFullList({
-      filter: `user_id = "${userId}" && created >= "${startOfWeek.toISOString()}"`,
+      filter: `user_id.id = "${userId}" && created >= "${startOfWeek.toISOString()}"`,
       sort: "-created",
+      expand: "user_id",
     });
 
     for (const record of records) {

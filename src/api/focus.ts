@@ -136,7 +136,8 @@ async function fetchAndMergeRemoteSessions(
 ): Promise<void> {
   try {
     const records = await pb.collection("pokus_sessions").getFullList({
-      filter: `user_id = "${userId}" && created >= "${startDate.toISOString()}" && created <= "${endDate.toISOString()}"`,
+      filter: `user_id.id = "${userId}" && created >= "${startDate.toISOString()}" && created <= "${endDate.toISOString()}"`,
+      expand: "user_id",
     });
 
     for (const remoteSession of records) {
