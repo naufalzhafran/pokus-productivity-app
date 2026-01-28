@@ -1,59 +1,30 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Timer, Coffee, Plane, Play, LayoutGrid, LogIn } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Play, LayoutGrid, LogIn } from "lucide-react";
 import { createSession } from "@/api/focus";
 import { Link, useNavigate } from "react-router";
 import { Input } from "@/components/ui/input";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
+import { TagSelector } from "@/components/features/TagSelector";
 import { useAuth } from "@/hooks/useAuth";
 
-type FocusMode = "focus" | "short" | "long";
-
-const getDuration = (mode: FocusMode): number => {
-  switch (mode) {
-    case "focus":
-      return 25;
-    case "short":
-      return 5;
-    case "long":
-      return 15;
-  }
-};
-
 export default function FocusPage() {
-  const [mode, setMode] = useState<FocusMode>("focus");
   const [duration, setDuration] = useState(25);
   const [sessionName, setSessionName] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const handleModeChange = useCallback((newMode: FocusMode) => {
-    setMode(newMode);
-    setDuration(getDuration(newMode));
-  }, []);
-
   const handleDurationChange = useCallback((val: number) => {
     setDuration(val);
-    if (val !== 25 && val !== 5 && val !== 15) {
-      setMode("focus");
-    }
   }, []);
 
   const handleStartSession = useCallback(async () => {
-    let title = sessionName;
-    if (!title.trim()) {
-      title =
-        mode === "focus"
-          ? "Focus Session"
-          : mode === "short"
-            ? "Short Break"
-            : "Long Break";
-    }
+    const title = sessionName.trim() || "Focus Session";
 
     try {
       // Create session locally - instant, no loading state needed
-      const session = await createSession(title, duration);
+      const session = await createSession(title, duration, selectedTags);
 
       // Navigate immediately with local session data
       navigate(`/focus/${session.id}`, {
@@ -63,7 +34,7 @@ export default function FocusPage() {
     } catch (error) {
       console.error("Failed to create session:", error);
     }
-  }, [sessionName, mode, duration, navigate]);
+  }, [sessionName, duration, selectedTags, navigate]);
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col relative overflow-hidden font-sans">
@@ -124,85 +95,31 @@ export default function FocusPage() {
           </CircularDurationInput>
         </div>
 
-        {/* Custom Inputs */}
-        <div className="w-full max-w-md space-y-4 mb-8">
-          <div className="flex flex-col gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-400 ml-1">
-                Session Name
-              </label>
-              <Input
-                type="text"
-                placeholder={
-                  mode === "focus"
-                    ? "Focus Session"
-                    : mode === "short"
-                      ? "Short Break"
-                      : "Long Break"
-                }
-                value={sessionName}
-                onChange={(e) => setSessionName(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-cyan-500/50 focus:ring-cyan-500/20 h-12"
-              />
-            </div>
+        {/* Session Name Input */}
+        <div className="w-full max-w-md space-y-4 mb-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-400 ml-1">
+              Session Name
+            </label>
+            <Input
+              type="text"
+              placeholder="Focus Session"
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:border-cyan-500/50 focus:ring-cyan-500/20 h-12"
+            />
           </div>
         </div>
 
-        {/* Mode Selectors */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-12">
-          <button
-            onClick={() => handleModeChange("focus")}
-            className={cn(
-              "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
-              mode === "focus" && duration === 25
-                ? "bg-white/10 border-cyan-400 translate-y-[-4px]"
-                : "bg-white/5 border-transparent hover:bg-white/10",
-            )}
-          >
-            <div className="flex items-center gap-2 mb-1 text-cyan-400">
-              <Timer size={20} />
-              <span className="font-medium">Focus</span>
-            </div>
-            <div className="text-2xl font-bold">
-              25 <span className="text-sm font-normal text-blue-200">min</span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => handleModeChange("short")}
-            className={cn(
-              "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
-              mode === "short" && duration === 5
-                ? "bg-white/10 border-sky-400 translate-y-[-4px]"
-                : "bg-white/5 border-transparent hover:bg-white/10",
-            )}
-          >
-            <div className="flex items-center gap-2 mb-1 text-sky-400">
-              <Coffee size={20} />
-              <span className="font-medium">Short Break</span>
-            </div>
-            <div className="text-2xl font-bold">
-              5 <span className="text-sm font-normal text-blue-200">min</span>
-            </div>
-          </button>
-
-          <button
-            onClick={() => handleModeChange("long")}
-            className={cn(
-              "flex flex-col items-start p-4 rounded-xl transition-all duration-200 border-2 backdrop-blur-sm",
-              mode === "long" && duration === 15
-                ? "bg-white/10 border-indigo-400 translate-y-[-4px]"
-                : "bg-white/5 border-transparent hover:bg-white/10",
-            )}
-          >
-            <div className="flex items-center gap-2 mb-1 text-indigo-400">
-              <Plane size={20} />
-              <span className="font-medium">Long Break</span>
-            </div>
-            <div className="text-2xl font-bold">
-              15 <span className="text-sm font-normal text-blue-200">min</span>
-            </div>
-          </button>
+        {/* Tag Selector */}
+        <div className="w-full max-w-md mb-10">
+          <label className="text-sm font-medium text-slate-400 ml-1 block mb-3">
+            Tags (optional)
+          </label>
+          <TagSelector
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
+          />
         </div>
 
         {/* Actions */}
@@ -223,8 +140,6 @@ export default function FocusPage() {
           </Button>
         </div>
       </main>
-
-      {/* Wave Background Removed */}
     </div>
   );
 }

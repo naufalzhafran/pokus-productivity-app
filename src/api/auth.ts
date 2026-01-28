@@ -31,7 +31,7 @@ async function populateUserSessions(userId: string): Promise<void> {
         duration_planned: record.duration_planned,
         duration_actual: record.duration_actual,
         status: record.status,
-        tag: record.tag,
+        tags: record.tags || [],
         started_at: record.started_at,
         ended_at: record.ended_at,
         created_at: record.created,

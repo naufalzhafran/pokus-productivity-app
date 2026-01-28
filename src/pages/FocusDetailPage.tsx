@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router";
 import { Timer } from "@/components/features/timer";
 import { updateSessionStatus } from "@/api/focus";
 import { getLocalSession, LocalSession } from "@/lib/sync";
+import { TagDisplay } from "@/components/features/TagSelector";
 
 export default function FocusDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -74,6 +75,11 @@ export default function FocusDetailPage() {
           <h1 className="font-sans font-bold text-3xl md:text-4xl text-white/90">
             {session.title}
           </h1>
+          <TagDisplay
+            tags={session.tags}
+            size="md"
+            className="justify-center mt-2"
+          />
         </div>
 
         <Timer

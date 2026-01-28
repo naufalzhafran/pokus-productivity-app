@@ -1,7 +1,7 @@
 import { openDB, IDBPDatabase } from "idb";
 
 const DB_NAME = "pokus-offline";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 interface PokusDB {
   sessions: {
@@ -22,7 +22,7 @@ export interface LocalSession {
   duration_planned: number;
   duration_actual?: number;
   status: "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "ABANDONED";
-  tag?: string;
+  tags: string[];
   started_at?: string;
   ended_at?: string;
   created_at: string;

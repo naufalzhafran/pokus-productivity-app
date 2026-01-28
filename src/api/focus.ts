@@ -20,6 +20,7 @@ const GUEST_USER_ID = "guest";
 export async function createSession(
   title: string,
   duration: number,
+  tags: string[] = [],
 ): Promise<LocalSession> {
   const user = pb.authStore.record;
 
@@ -35,6 +36,7 @@ export async function createSession(
     title: title,
     duration_planned: duration,
     status: "PLANNED",
+    tags: tags,
     created_at: now,
     // Guest sessions are marked as "SYNCED" since they won't sync
     syncStatus: isGuest ? "SYNCED" : "PENDING",
@@ -54,6 +56,7 @@ export async function createSession(
         title: title,
         duration_planned: duration,
         status: "PLANNED",
+        tags: tags,
       },
     });
   }
@@ -152,7 +155,7 @@ async function fetchAndMergeRemoteSessions(
           duration_planned: remoteSession.duration_planned,
           duration_actual: remoteSession.duration_actual,
           status: remoteSession.status,
-          tag: remoteSession.tag,
+          tags: remoteSession.tags || [],
           started_at: remoteSession.started_at,
           ended_at: remoteSession.ended_at,
           created_at: remoteSession.created,
@@ -168,7 +171,7 @@ async function fetchAndMergeRemoteSessions(
           duration_planned: remoteSession.duration_planned,
           duration_actual: remoteSession.duration_actual,
           status: remoteSession.status,
-          tag: remoteSession.tag,
+          tags: remoteSession.tags || [],
           started_at: remoteSession.started_at,
           ended_at: remoteSession.ended_at,
           created_at: remoteSession.created,

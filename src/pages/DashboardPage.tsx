@@ -5,6 +5,7 @@ import { logout } from "@/api/auth";
 import { getSessions } from "@/api/focus";
 import { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { LocalSession } from "@/lib/sync";
+import { TagDisplay } from "@/components/features/TagSelector";
 import {
   Calendar,
   CheckCircle,
@@ -41,6 +42,7 @@ const SessionListItem = memo(function SessionListItem({
           <h3 className="font-medium text-slate-200 group-hover:text-white transition-colors">
             {session.title || "Untitled Session"}
           </h3>
+          <TagDisplay tags={session.tags} size="sm" className="mt-1" />
           <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
             <span>
               {new Date(session.created_at).toLocaleDateString(undefined, {
