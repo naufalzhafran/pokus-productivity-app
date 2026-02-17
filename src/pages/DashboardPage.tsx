@@ -23,27 +23,27 @@ const SessionListItem = memo(function SessionListItem({
   session,
 }: SessionListItemProps) {
   return (
-    <div className="bg-[#1e293b] hover:bg-[#283548] p-4 rounded-xl border border-[#334155] flex items-center justify-between group transition-all">
-      <div className="flex items-start gap-4">
+    <div className="flex items-center justify-between py-4 border-b border-border last:border-0">
+      <div className="flex items-start gap-3">
         {session.status === "COMPLETED" ? (
           <div className="mt-1">
-            <CheckCircle className="w-5 h-5 text-emerald-500" />
+            <CheckCircle className="w-4 h-4 text-emerald-500" />
           </div>
         ) : session.status === "ABANDONED" ? (
           <div className="mt-1">
-            <XCircle className="w-5 h-5 text-rose-500" />
+            <XCircle className="w-4 h-4 text-red-400" />
           </div>
         ) : (
           <div className="mt-1">
-            <div className="w-5 h-5 rounded-full border-2 border-slate-500 border-t-transparent animate-spin" />
+            <div className="w-4 h-4 rounded-full border-2 border-zinc-600 border-t-transparent animate-spin" />
           </div>
         )}
         <div>
-          <h3 className="font-medium text-slate-200 group-hover:text-white transition-colors">
+          <h3 className="font-medium text-foreground text-sm">
             {session.title || "Untitled Session"}
           </h3>
           <TagDisplay tags={session.tags} size="sm" className="mt-1" />
-          <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
             <span>
               {new Date(session.created_at).toLocaleDateString(undefined, {
                 weekday: "short",
@@ -51,7 +51,7 @@ const SessionListItem = memo(function SessionListItem({
                 day: "numeric",
               })}
             </span>
-            <span>•</span>
+            <span>·</span>
             <span>
               {new Date(session.created_at).toLocaleTimeString(undefined, {
                 hour: "2-digit",
@@ -63,12 +63,12 @@ const SessionListItem = memo(function SessionListItem({
       </div>
       <div className="text-right">
         <span
-          className={`text-lg font-bold ${session.status === "COMPLETED" ? "text-[#06b6d4]" : "text-slate-500"}`}
+          className={`text-lg font-bold ${session.status === "COMPLETED" ? "text-foreground" : "text-muted-foreground"}`}
         >
           {session.duration_actual || session.duration_planned}
-          <span className="text-xs ml-1 font-normal opacity-70">min</span>
+          <span className="text-xs ml-1 font-normal text-muted-foreground">min</span>
         </span>
-        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-600 mt-1">
+        <p className="text-[10px] uppercase font-medium tracking-wider text-muted-foreground mt-1">
           {session.status}
         </p>
       </div>
@@ -83,10 +83,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const now = new Date();
-    const day = now.getDay(); // 0 is Sunday
+    const day = now.getDay();
     const checkDate = new Date(now);
-    // Set to previous Monday (or keep today if Monday)
-    // Adjust 0 (Sunday) to 7 for simpler math if treating Monday as start
     const diff = (day === 0 ? -6 : 1) - day;
     checkDate.setDate(now.getDate() + diff);
     checkDate.setHours(0, 0, 0, 0);
@@ -140,10 +138,9 @@ export default function DashboardPage() {
       month: "short",
       day: "numeric",
     };
-    return `${currentWeekStart.toLocaleDateString("en-US", options)} - ${end.toLocaleDateString("en-US", options)}`;
+    return `${currentWeekStart.toLocaleDateString("en-US", options)} – ${end.toLocaleDateString("en-US", options)}`;
   }, [currentWeekStart]);
 
-  // Memoized stats calculations
   const totalSessions = useMemo(
     () => sessions.filter((s) => s.status === "COMPLETED").length,
     [sessions],
@@ -161,98 +158,81 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white p-4 md:p-8 font-sans pb-24">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-[#334155] gap-4">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 font-sans pb-24">
+      <div className="max-w-3xl mx-auto space-y-8">
+        {/* Header */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Dashboard
             </h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Welcome back, {user?.email}
+            <p className="text-muted-foreground text-sm mt-1">
+              {user?.email}
             </p>
           </div>
           <div className="flex gap-3 w-full md:w-auto">
             <Link to="/focus" className="flex-1 md:flex-none">
-              <Button className="w-full bg-[#06b6d4] hover:bg-[#0891b2] text-slate-900 font-bold transition-all">
+              <Button className="w-full">
                 Start Session
               </Button>
             </Link>
             <Button
               onClick={handleLogout}
               variant="ghost"
-              className="text-slate-400 hover:text-white hover:bg-white/10"
+              className="text-muted-foreground hover:text-foreground"
             >
               Log Out
             </Button>
           </div>
         </header>
 
-        {/* Weekly Stats & Navigation */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-3 bg-[#1e293b] rounded-2xl p-4 border border-[#334155] flex items-center justify-between shadow-md">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => changeWeek(-1)}
-              className="text-slate-400 hover:text-white hover:bg-white/5"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </Button>
-            <div className="flex items-center gap-2 text-slate-200 font-medium bg-[#0f172a] px-4 py-2 rounded-lg border border-[#334155]">
-              <Calendar className="w-4 h-4 text-[#06b6d4]" />
+        {/* Week Navigation + Stats inline */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => changeWeek(-1)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="w-4 h-4" />
               {weekRangeString}
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => changeWeek(1)}
-              className="text-slate-400 hover:text-white hover:bg-white/5"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </Button>
-          </div>
-
-          <div className="bg-[#1e293b] p-6 rounded-2xl border border-[#334155] shadow-md flex flex-col items-center justify-center gap-1 group hover:border-[#06b6d4]/50 transition-colors">
-            <span className="text-slate-400 text-sm font-medium uppercase tracking-wider">
-              Completed Sessions
-            </span>
-            <span className="text-4xl font-bold text-white group-hover:text-[#06b6d4] transition-colors">
-              {totalSessions}
-            </span>
-          </div>
-
-          <div className="bg-[#1e293b] p-6 rounded-2xl border border-[#334155] shadow-md flex flex-col items-center justify-center gap-1 group hover:border-[#06b6d4]/50 transition-colors md:col-span-2">
-            <span className="text-slate-400 text-sm font-medium uppercase tracking-wider">
-              Total Focus Time
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white group-hover:text-[#06b6d4] transition-colors">
-                {Math.round(totalMinutes)}
-              </span>
-              <span className="text-slate-500">minutes</span>
+            <div className="text-sm text-muted-foreground">
+              <span className="text-foreground font-semibold">{totalSessions}</span> sessions
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <span className="text-foreground font-semibold">{Math.round(totalMinutes)}</span> min
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => changeWeek(1)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Session History List */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-200 flex items-center gap-2 px-1">
-            <Clock className="w-5 h-5 text-[#06b6d4]" />
-            Session History
+        <section>
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            History
           </h2>
 
-          <div className="space-y-3">
+          <div className="rounded-lg border border-border bg-card px-4">
             {loading ? (
-              <div className="text-slate-500 text-center py-12 bg-[#1e293b] rounded-2xl border border-[#334155]">
-                Loading history...
+              <div className="text-muted-foreground text-center py-12 text-sm">
+                Loading...
               </div>
             ) : sessions.length === 0 ? (
-              <div className="text-slate-500 text-center py-12 bg-[#1e293b] rounded-2xl border border-[#334155] flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-slate-600" />
-                </div>
-                <p>No sessions recorded for this week.</p>
+              <div className="text-muted-foreground text-center py-12 text-sm">
+                No sessions this week.
               </div>
             ) : (
               sessions.map((session) => (

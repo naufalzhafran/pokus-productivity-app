@@ -48,16 +48,13 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6 text-foreground relative overflow-hidden">
-      <Card className="w-full max-w-md bg-secondary/30 border border-white/10 text-foreground z-10 transition-all duration-500 hover:bg-secondary/40">
+    <main className="flex min-h-screen items-center justify-center p-6 text-foreground">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4 pb-2">
-          <div className="mx-auto w-12 h-12 rounded-full border border-primary/50 p-1 mb-4">
-            <div className="w-full h-full bg-primary rounded-full" />
-          </div>
           <CardTitle className="text-3xl font-bold tracking-tight text-foreground">
             {isLogin ? "Welcome Back" : "Create Account"}
           </CardTitle>
-          <CardDescription className="text-muted-foreground">
+          <CardDescription>
             {isLogin
               ? "Sign in to continue your focus journey"
               : "Enter your details to get started"}
@@ -66,7 +63,7 @@ export default function LoginPage() {
         <CardContent className="space-y-6 pt-4">
           <form className="space-y-4" onSubmit={handleAuth}>
             {error && (
-              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-2 rounded text-sm">
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-2 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -79,7 +76,6 @@ export default function LoginPage() {
                 required
                 autoComplete="email"
                 disabled={isLoading}
-                className="bg-background/50 border-white/5 text-foreground placeholder:text-muted-foreground h-12 focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
               />
             </div>
             <div className="space-y-2">
@@ -91,14 +87,13 @@ export default function LoginPage() {
                 required
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 disabled={isLoading}
-                className="bg-background/50 border-white/5 text-foreground placeholder:text-muted-foreground h-12 focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
               />
             </div>
             <div className="flex flex-col gap-3 pt-2">
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-background font-bold text-lg transition-all hover:scale-[1.02]"
+                className="w-full h-12 text-base font-semibold"
               >
                 {isLoading ? "Loading..." : isLogin ? "Log In" : "Sign Up"}
               </Button>
@@ -110,7 +105,7 @@ export default function LoginPage() {
                 }}
                 disabled={isLoading}
                 variant="ghost"
-                className="w-full text-muted-foreground hover:text-foreground hover:bg-white/5"
+                className="w-full text-muted-foreground hover:text-foreground"
               >
                 {isLogin
                   ? "Create an account"
@@ -121,9 +116,9 @@ export default function LoginPage() {
           <div className="text-center pt-2">
             <Link
               to="/"
-              className="text-xs text-muted-foreground hover:text-primary transition-colors tracking-widest uppercase"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors tracking-widest uppercase"
             >
-              ← Back to Home
+              Back to Home
             </Link>
           </div>
         </CardContent>

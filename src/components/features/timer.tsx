@@ -23,7 +23,6 @@ export function Timer({
 }: TimerProps) {
   const storageKey = `pokus_timer_${sessionId}`;
 
-  // Initialize state from localStorage (SPA lazy init)
   const [timeLeft, setTimeLeft] = useState(() => {
     try {
       const saved = localStorage.getItem(storageKey);
@@ -55,13 +54,12 @@ export function Timer({
     } catch (error) {
       // Ignore error
     }
-    return true; // Default to auto-start
+    return true;
   });
 
   const [showConfirm, setShowConfirm] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
-  // Persist state whenever relevant values change
   useEffect(() => {
     localStorage.setItem(
       storageKey,
@@ -79,7 +77,6 @@ export function Timer({
         setTimeLeft((prev: number) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0) {
-      // Completed
       setIsActive(false);
       localStorage.removeItem(storageKey);
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -131,7 +128,6 @@ export function Timer({
     };
   }, [isActive, timeLeft, sessionTitle]);
 
-  // Calculate progress for potentially a progress bar
   const totalSeconds = initialDurationMinutes * 60;
   const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100;
 
@@ -148,7 +144,7 @@ export function Timer({
           max={initialDurationMinutes * 60}
           onChange={() => {}}
           size={500}
-          strokeWidth={15}
+          strokeWidth={6}
           readOnly={true}
           className="w-full h-full"
         >
@@ -162,29 +158,29 @@ export function Timer({
         <Button
           variant="ghost"
           size="icon"
-          className="h-20 w-20 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all transform hover:scale-110"
+          className="h-16 w-16 rounded-full bg-white/5 hover:bg-white/10 text-foreground"
           onClick={toggleTimer}
         >
           {isActive ? (
-            <Pause className="h-8 w-8 fill-current" />
+            <Pause className="h-7 w-7 fill-current" />
           ) : (
-            <Play className="h-8 w-8 ml-1 fill-current" />
+            <Play className="h-7 w-7 ml-1 fill-current" />
           )}
         </Button>
 
         <Button
           variant="ghost"
           size="icon"
-          className="h-20 w-20 rounded-full bg-white/10 hover:bg-red-500/80 text-white transition-all transform hover:scale-110"
+          className="h-16 w-16 rounded-full bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-foreground"
           onClick={handleStopClick}
         >
-          <Square className="h-6 w-6 fill-current" />
+          <Square className="h-5 w-5 fill-current" />
         </Button>
       </div>
 
       {/* Minimalist Progress Line */}
       <div
-        className="fixed bottom-0 left-0 h-1 bg-cyan-400 transition-all duration-1000 ease-linear z-20"
+        className="fixed bottom-0 left-0 h-px bg-blue-500/60 transition-all duration-1000 ease-linear z-20"
         style={{ width: `${progress}%` }}
       />
 

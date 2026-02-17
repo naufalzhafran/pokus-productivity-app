@@ -20,18 +20,15 @@ export default function FocusDetailPage() {
         return;
       }
 
-      // If we already have session from navigation state, use it
       if (session) {
         return;
       }
 
-      // Try to load from local storage first (instant)
       const localSession = await getLocalSession(id);
 
       if (localSession) {
         setSession(localSession);
       } else {
-        // Session not found locally, redirect
         console.error("Session not found:", id);
         navigate("/dashboard");
       }
@@ -48,7 +45,6 @@ export default function FocusDetailPage() {
       actualDuration?: number,
     ) => {
       try {
-        // Update status locally first (instant), sync to Supabase in background
         await updateSessionStatus(sessionId, status, actualDuration);
         navigate("/focus");
       } catch (error) {
@@ -58,21 +54,15 @@ export default function FocusDetailPage() {
     [navigate],
   );
 
-  // No loading state - we either have the session from nav state or local storage
   if (!session) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden font-sans">
-      {/* Wave Background Removed */}
-
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden font-sans">
       <div className="z-10 text-center space-y-12 md:space-y-24 w-full max-w-4xl px-4">
-        <div className="space-y-4 mb-8">
-          <div className="bg-white/10 rounded-full px-4 py-1 inline-flex items-center gap-2 text-sm font-medium tracking-wide">
-            <span className="text-white/70 uppercase">FOCUSING</span>
-          </div>
-          <h1 className="font-sans font-bold text-3xl md:text-4xl text-white/90">
+        <div className="space-y-3 mb-8">
+          <h1 className="font-sans font-bold text-3xl md:text-4xl text-foreground">
             {session.title}
           </h1>
           <TagDisplay

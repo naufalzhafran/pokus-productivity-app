@@ -17,7 +17,7 @@ export function CircularDurationInput({
   onChange,
   max = 60,
   size = 320,
-  strokeWidth = 8,
+  strokeWidth = 6,
   className,
   readOnly = false,
   children,
@@ -25,21 +25,15 @@ export function CircularDurationInput({
   const [isDragging, setIsDragging] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // We use a fixed coordinate system for the SVG internals (0,0) to (size, size)
-  // resizing is handled by CSS on the root div
   const center = size / 2;
   const radius = center - strokeWidth * 2;
   const circumference = 2 * Math.PI * radius;
 
-  // Calculate angle from value
-  // Value 0 is at top (-90 deg), so we map 0..max to 0..360
   const normalizedValue = Math.min(Math.max(0, value), max);
   const angle = (normalizedValue / max) * 360;
 
-  // Progress calculations
   const progressOffset = circumference - (angle / 360) * circumference;
 
-  // Thumb position
   const thumbAngleRad = (angle - 90) * (Math.PI / 180);
   const thumbX = center + radius * Math.cos(thumbAngleRad);
   const thumbY = center + radius * Math.sin(thumbAngleRad);
@@ -51,14 +45,10 @@ export function CircularDurationInput({
       const dx = clientX - (rect.left + rect.width / 2);
       const dy = clientY - (rect.top + rect.height / 2);
 
-      // Calculate angle in degrees, offset by 90 (so 0 is top)
       let theta = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
       if (theta < 0) theta += 360;
 
-      // Calculate value based on angle
       const newValue = Math.round((theta / 360) * max);
-
-      // Handle the wraparound case near 0/60
       return Math.min(Math.max(0, newValue), max);
     },
     [max],
@@ -90,7 +80,7 @@ export function CircularDurationInput({
         "relative flex items-center justify-center select-none touch-none aspect-square w-full h-auto",
         className,
       )}
-      style={{ maxWidth: size }} // Optional max-width constraint if provided
+      style={{ maxWidth: size }}
     >
       <svg
         ref={svgRef}
@@ -109,7 +99,7 @@ export function CircularDurationInput({
           cy={center}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.1)"
+          stroke="rgba(255,255,255,0.06)"
           strokeWidth={strokeWidth}
         />
 
@@ -119,7 +109,7 @@ export function CircularDurationInput({
           cy={center}
           r={radius}
           fill="none"
-          stroke="#06b6d4" // Cyan-500
+          stroke="hsl(217 91% 60%)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -134,9 +124,9 @@ export function CircularDurationInput({
             <circle
               cx={thumbX}
               cy={thumbY}
-              r={strokeWidth * 1.5}
-              fill="#fff"
-              className="shadow-lg filter drop-shadow-md cursor-grab active:cursor-grabbing transition-transform"
+              r={strokeWidth * 1.2}
+              fill="rgba(255,255,255,0.8)"
+              className="cursor-grab active:cursor-grabbing"
             />
             <circle
               cx={thumbX}
@@ -148,7 +138,6 @@ export function CircularDurationInput({
           </>
         )}
       </svg>
-      {/* Centered Children Container with responsive text sizing hack or absolute positioning */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         {children}
       </div>

@@ -30,11 +30,11 @@ export function Modal({
   if (!mounted || !isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white text-slate-900 border-2 border-black p-6 md:p-8 max-w-md w-full space-y-6 shadow-none animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-card text-foreground border border-border rounded-lg p-6 md:p-8 max-w-md w-full space-y-6 animate-in fade-in zoom-in-95 duration-200">
         <div className="space-y-2 text-center">
-          <h3 className="text-2xl font-serif font-bold">{title}</h3>
-          <p className="text-muted-foreground font-sans">{description}</p>
+          <h3 className="text-2xl font-bold">{title}</h3>
+          <p className="text-muted-foreground">{description}</p>
         </div>
         <div className="flex gap-4 pt-2 justify-center">
           <Button variant="outline" onClick={onClose} className="w-full">
@@ -42,7 +42,7 @@ export function Modal({
           </Button>
           <Button
             onClick={onConfirm}
-            className="w-full bg-black text-white hover:bg-black/90"
+            className="w-full"
           >
             {confirmText}
           </Button>

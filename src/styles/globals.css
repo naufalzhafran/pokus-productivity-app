@@ -4,36 +4,35 @@
 
 @layer base {
   :root {
-    /* Sea Water Theme */
-    --background: 222 47% 10%; /* Deep Ocean Blue #0c1221 */
-    --foreground: 210 40% 98%;
+    --background: 240 6% 4%;       /* #0a0a0b near-black */
+    --foreground: 240 5% 90%;      /* #e4e4e7 zinc-200 */
 
-    --card: 222 47% 10%; /* Same as background for now, will handle transparency in utility */
-    --card-foreground: 210 40% 98%;
+    --card: 240 5% 8%;             /* #141416 dark surface */
+    --card-foreground: 240 5% 90%;
 
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 5% 8%;
+    --popover-foreground: 240 5% 90%;
 
-    --primary: 180 100% 50%; /* Electric Aqua */
-    --primary-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;        /* #3b82f6 blue-500 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 20%; /* Deep Sea Foam */
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 4% 12%;       /* #1e1e22 */
+    --secondary-foreground: 240 5% 65%;
 
-    --muted: 217 33% 20%;
-    --muted-foreground: 215 20% 70%;
+    --muted: 240 4% 12%;
+    --muted-foreground: 240 4% 45%; /* #71717a zinc-500 */
 
-    --accent: 190 90% 50%; /* Bright Blue/Cyan */
-    --accent-foreground: 222 47% 11%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62.8% 40%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 180 100% 50%;
+    --border: 240 4% 14%;
+    --input: 240 4% 14%;
+    --ring: 217 91% 60%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 }
 
@@ -42,7 +41,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground selection:bg-cyan-500/30 selection:text-cyan-100;
+    @apply bg-background text-foreground selection:bg-blue-500/20 selection:text-blue-100;
     min-height: 100vh;
   }
 }
