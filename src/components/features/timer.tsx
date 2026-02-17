@@ -59,6 +59,7 @@ export function Timer({
 
   const [showConfirm, setShowConfirm] = useState(false);
   const intervalRef = useRef<number | null>(null);
+  const endTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     localStorage.setItem(
@@ -73,8 +74,16 @@ export function Timer({
 
   useEffect(() => {
     if (isActive && timeLeft > 0) {
+      // Set the target end time based on current wall clock + remaining time
+      endTimeRef.current = Date.now() + timeLeft * 1000;
+
       intervalRef.current = setInterval(() => {
-        setTimeLeft((prev: number) => prev - 1);
+        const remaining = Math.round((endTimeRef.current! - Date.now()) / 1000);
+        if (remaining <= 0) {
+          setTimeLeft(0);
+        } else {
+          setTimeLeft(remaining);
+        }
       }, 1000);
     } else if (timeLeft === 0) {
       setIsActive(false);
