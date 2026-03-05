@@ -88,7 +88,6 @@ export default defineConfig({
             "tailwind-merge",
             "tailwindcss-animate",
           ],
-          pocketbase: ["pocketbase"],
         },
       },
     },

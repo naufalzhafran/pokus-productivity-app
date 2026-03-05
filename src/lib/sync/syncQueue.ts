@@ -1,5 +1,5 @@
 import { getDB, SyncOperation } from "./db";
-import { getClient } from "@/lib/pocketbase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 1000;
@@ -8,19 +8,12 @@ const MAX_DELAY_MS = 30000;
 let isProcessing = false;
 let syncTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-/**
- * Calculate exponential backoff delay
- */
 function getBackoffDelay(retryCount: number): number {
   const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCount), MAX_DELAY_MS);
-  // Add jitter (±10%)
   const jitter = delay * 0.1 * (Math.random() * 2 - 1);
   return Math.round(delay + jitter);
 }
 
-/**
- * Add an operation to the sync queue
- */
 export async function addToSyncQueue(
   operation: Omit<
     SyncOperation,
@@ -38,37 +31,26 @@ export async function addToSyncQueue(
 
   await db.put("syncQueue", syncOp);
 
-  // Trigger processing if online
   if (navigator.onLine) {
     scheduleSyncProcessing();
   }
 }
 
-/**
- * Get all pending sync operations
- */
 export async function getPendingOperations(): Promise<SyncOperation[]> {
   const db = await getDB();
   return db.getAll("syncQueue");
 }
 
-/**
- * Remove an operation from the queue
- */
 async function removeFromQueue(id: string): Promise<void> {
   const db = await getDB();
   await db.delete("syncQueue", id);
 }
 
-/**
- * Update retry count and next retry time for an operation
- */
 async function updateOperationRetry(operation: SyncOperation): Promise<void> {
   const db = await getDB();
   const newRetryCount = operation.retryCount + 1;
 
   if (newRetryCount >= MAX_RETRIES) {
-    // Max retries reached, remove from queue (could move to failed queue)
     console.warn(
       `Sync operation ${operation.id} failed after ${MAX_RETRIES} retries`,
     );
@@ -85,29 +67,30 @@ async function updateOperationRetry(operation: SyncOperation): Promise<void> {
   await db.put("syncQueue", updatedOp);
 }
 
-/**
- * Process a single sync operation
- */
 async function processOperation(operation: SyncOperation): Promise<boolean> {
-  const pb = getClient();
+  const supabase = getSupabaseClient();
 
   try {
     switch (operation.type) {
       case "CREATE": {
-        await pb.collection(operation.table).create(operation.data);
+        await supabase.from(operation.table).insert(operation.data);
         break;
       }
 
       case "UPDATE": {
         const { id, ...updateData } = operation.data;
-        await pb.collection(operation.table).update(id as string, updateData);
+        await supabase
+          .from(operation.table)
+          .update(updateData)
+          .eq("id", id as string);
         break;
       }
 
       case "DELETE": {
-        await pb
-          .collection(operation.table)
-          .delete(operation.data.id as string);
+        await supabase
+          .from(operation.table)
+          .delete()
+          .eq("id", operation.data.id as string);
         break;
       }
     }
@@ -119,9 +102,6 @@ async function processOperation(operation: SyncOperation): Promise<boolean> {
   }
 }
 
-/**
- * Process all pending sync operations
- */
 export async function processSyncQueue(): Promise<void> {
   if (isProcessing || !navigator.onLine) {
     return;
@@ -135,7 +115,6 @@ export async function processSyncQueue(): Promise<void> {
     const now = Date.now();
 
     for (const operation of operations) {
-      // Skip if not ready for retry
       if (operation.nextRetryAt > now) {
         continue;
       }
@@ -145,7 +124,6 @@ export async function processSyncQueue(): Promise<void> {
       if (success) {
         await removeFromQueue(operation.id);
 
-        // Update local session sync status if this was a session operation
         if (operation.table === "pokus_sessions") {
           const { markSessionSynced } = await import("./sessionStore");
           await markSessionSynced(operation.data.id as string);
@@ -155,7 +133,6 @@ export async function processSyncQueue(): Promise<void> {
       }
     }
 
-    // Check if there are more operations to process later
     const remaining = await db.getAll("syncQueue");
     if (remaining.length > 0) {
       const nextRetry = Math.min(...remaining.map((op) => op.nextRetryAt));
@@ -167,9 +144,6 @@ export async function processSyncQueue(): Promise<void> {
   }
 }
 
-/**
- * Schedule sync processing with delay
- */
 function scheduleSyncProcessing(delay: number = 0): void {
   if (syncTimeoutId) {
     clearTimeout(syncTimeoutId);
@@ -181,11 +155,7 @@ function scheduleSyncProcessing(delay: number = 0): void {
   }, delay);
 }
 
-/**
- * Initialize sync queue listeners
- */
 export function initSyncQueue(): void {
-  // Listen for online/offline events
   window.addEventListener("online", () => {
     console.log("Back online, processing sync queue...");
     processSyncQueue();
@@ -199,15 +169,11 @@ export function initSyncQueue(): void {
     }
   });
 
-  // Process queue on init if online
   if (navigator.onLine) {
     processSyncQueue();
   }
 }
 
-/**
- * Force sync all pending operations (for manual trigger)
- */
 export async function forceSyncAll(): Promise<void> {
   if (!navigator.onLine) {
     console.warn("Cannot force sync while offline");
