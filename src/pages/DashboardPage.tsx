@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Folder,
   XCircle,
 } from "lucide-react";
 
@@ -65,7 +66,7 @@ const SessionListItem = memo(function SessionListItem({
         <span
           className={`text-lg font-bold ${session.status === "COMPLETED" ? "text-foreground" : "text-muted-foreground"}`}
         >
-          {session.duration_actual || session.duration_planned}
+          {session.duration}
           <span className="text-xs ml-1 font-normal text-muted-foreground">min</span>
         </span>
         <p className="text-[10px] uppercase font-medium tracking-wider text-muted-foreground mt-1">
@@ -150,7 +151,7 @@ export default function DashboardPage() {
     () =>
       sessions.reduce((acc, s) => {
         if (s.status === "COMPLETED") {
-          return acc + (s.duration_actual || s.duration_planned || 0);
+          return acc + (s.duration || 0);
         }
         return acc;
       }, 0),
@@ -171,6 +172,15 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex gap-3 w-full md:w-auto">
+            <Link to="/projects">
+              <Button
+                variant="outline"
+                className="w-full md:w-auto"
+              >
+                <Folder className="w-4 h-4 mr-2" />
+                Projects
+              </Button>
+            </Link>
             <Link to="/focus" className="flex-1 md:flex-none">
               <Button className="w-full">
                 Start Session

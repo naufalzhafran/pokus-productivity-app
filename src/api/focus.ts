@@ -23,6 +23,7 @@ export async function createSession(
   title: string,
   duration: number,
   tags: string[] = [],
+  taskId?: string,
 ): Promise<LocalSession> {
   const userId = await getCurrentUserId();
 
@@ -35,9 +36,10 @@ export async function createSession(
     id: sessionId,
     user_id: finalUserId,
     title: title,
-    duration_planned: duration,
+    duration: duration,
     status: "PLANNED",
     tags: tags,
+    task_id: taskId,
     created_at: now,
     syncStatus: isGuest ? "SYNCED" : "PENDING",
   };
@@ -52,9 +54,10 @@ export async function createSession(
         id: sessionId,
         user_id: finalUserId,
         title: title,
-        duration_planned: duration,
+        duration: duration,
         status: "PLANNED",
         tag: tags[0] || null,
+        task_id: taskId || null,
       },
     });
   }
@@ -74,7 +77,7 @@ export async function updateSessionStatus(
 
   await updateLocalSession(sessionId, {
     status,
-    duration_actual: actualDuration,
+    duration: actualDuration,
     ended_at: endedAt,
   });
 
@@ -85,7 +88,7 @@ export async function updateSessionStatus(
       data: {
         id: sessionId,
         status,
-        duration_actual: actualDuration,
+        duration: actualDuration,
         ended_at: endedAt,
       },
     });
@@ -139,10 +142,10 @@ async function fetchAndMergeRemoteSessions(
           id: remoteSession.id,
           user_id: remoteSession.user_id,
           title: remoteSession.title,
-          duration_planned: remoteSession.duration_planned,
-          duration_actual: remoteSession.duration_actual,
+          duration: remoteSession.duration,
           status: remoteSession.status,
           tags: remoteSession.tag ? [remoteSession.tag] : [],
+          task_id: remoteSession.task_id,
           started_at: remoteSession.started_at,
           ended_at: remoteSession.ended_at,
           created_at: remoteSession.created_at,
@@ -154,10 +157,10 @@ async function fetchAndMergeRemoteSessions(
           id: remoteSession.id,
           user_id: remoteSession.user_id,
           title: remoteSession.title,
-          duration_planned: remoteSession.duration_planned,
-          duration_actual: remoteSession.duration_actual,
+          duration: remoteSession.duration,
           status: remoteSession.status,
           tags: remoteSession.tag ? [remoteSession.tag] : [],
+          task_id: remoteSession.task_id,
           started_at: remoteSession.started_at,
           ended_at: remoteSession.ended_at,
           created_at: remoteSession.created_at,

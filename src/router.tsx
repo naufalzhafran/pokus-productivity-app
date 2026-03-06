@@ -8,6 +8,8 @@ const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const FocusPage = lazy(() => import("@/pages/FocusPage"));
 const FocusDetailPage = lazy(() => import("@/pages/FocusDetailPage"));
+const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
+const ProjectDetailPage = lazy(() => import("@/pages/ProjectDetailPage"));
 
 // Protected route wrapper component
 function ProtectedLayout() {
@@ -59,8 +61,20 @@ export const router = createBrowserRouter([
         element: <ProtectedLayout />,
         children: [
           {
-            path: "/dashboard",
+            path: "/",
+            element: <ProjectsPage />,
+          },
+          {
+            path: "/history",
             element: <DashboardPage />,
+          },
+          {
+            path: "/projects",
+            element: <ProjectsPage />,
+          },
+          {
+            path: "/projects/:id",
+            element: <ProjectDetailPage />,
           },
         ],
       },

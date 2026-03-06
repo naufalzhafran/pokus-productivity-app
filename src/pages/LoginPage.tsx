@@ -34,7 +34,7 @@ export default function LoginPage() {
         await signUpWithEmail(email, password);
         toast.success("Account created successfully!");
       }
-      navigate("/dashboard");
+      navigate("/history");
     } catch (err) {
       console.error(err);
       setError(

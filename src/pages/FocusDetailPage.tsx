@@ -16,7 +16,7 @@ export default function FocusDetailPage() {
   useEffect(() => {
     async function loadSession() {
       if (!id) {
-        navigate("/dashboard");
+        navigate("/history");
         return;
       }
 
@@ -30,7 +30,7 @@ export default function FocusDetailPage() {
         setSession(localSession);
       } else {
         console.error("Session not found:", id);
-        navigate("/dashboard");
+        navigate("/history");
       }
     }
 
@@ -74,14 +74,14 @@ export default function FocusDetailPage() {
 
         <Timer
           key={session.id}
-          initialDurationMinutes={session.duration_planned}
+          initialDurationMinutes={session.duration}
           sessionId={session.id}
           onStop={() => handleUpdateStatus(session.id, "ABANDONED")}
           onComplete={() =>
             handleUpdateStatus(
               session.id,
               "COMPLETED",
-              session.duration_planned,
+              session.duration,
             )
           }
           sessionTitle={session.title}

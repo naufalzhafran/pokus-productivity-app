@@ -1,7 +1,7 @@
 import { openDB, IDBPDatabase } from "idb";
 
 const DB_NAME = "pokus-offline";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 interface PokusDB {
   sessions: {
@@ -19,15 +19,14 @@ interface PokusDB {
 export interface LocalSession {
   id: string;
   title: string;
-  duration_planned: number;
-  duration_actual?: number;
+  duration: number;
   status: "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "ABANDONED";
   tags: string[];
+  task_id?: string;
   started_at?: string;
   ended_at?: string;
   created_at: string;
   user_id: string;
-  // Sync metadata
   syncStatus: "SYNCED" | "PENDING" | "FAILED";
   lastSyncedAt?: string;
 }
@@ -50,20 +49,29 @@ export async function getDB(): Promise<IDBPDatabase<PokusDB>> {
   }
 
   dbInstance = await openDB<PokusDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      // Sessions store
-      if (!db.objectStoreNames.contains("sessions")) {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 2) {
+        if (!db.objectStoreNames.contains("sessions")) {
+          const sessionStore = db.createObjectStore("sessions", {
+            keyPath: "id",
+          });
+          sessionStore.createIndex("by-sync-status", "syncStatus");
+          sessionStore.createIndex("by-created-at", "created_at");
+        }
+
+        if (!db.objectStoreNames.contains("syncQueue")) {
+          const syncStore = db.createObjectStore("syncQueue", { keyPath: "id" });
+          syncStore.createIndex("by-next-retry", "nextRetryAt");
+        }
+      }
+
+      if (oldVersion === 2) {
+        db.deleteObjectStore("sessions");
         const sessionStore = db.createObjectStore("sessions", {
           keyPath: "id",
         });
         sessionStore.createIndex("by-sync-status", "syncStatus");
         sessionStore.createIndex("by-created-at", "created_at");
-      }
-
-      // Sync queue store
-      if (!db.objectStoreNames.contains("syncQueue")) {
-        const syncStore = db.createObjectStore("syncQueue", { keyPath: "id" });
-        syncStore.createIndex("by-next-retry", "nextRetryAt");
       }
     },
   });
@@ -78,18 +86,13 @@ export async function closeDB(): Promise<void> {
   }
 }
 
-/**
- * Clear all data from IndexedDB (used on logout)
- */
 export async function clearAllData(): Promise<void> {
   const db = await getDB();
 
-  // Clear all sessions
   const sessionTx = db.transaction("sessions", "readwrite");
   await sessionTx.objectStore("sessions").clear();
   await sessionTx.done;
 
-  // Clear sync queue
   const syncTx = db.transaction("syncQueue", "readwrite");
   await syncTx.objectStore("syncQueue").clear();
   await syncTx.done;
