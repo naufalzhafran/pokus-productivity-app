@@ -43,7 +43,7 @@ export async function updateLocalSession(
   const updated: LocalSession = {
     ...existing,
     ...updates,
-    syncStatus: "PENDING", // Mark as pending sync
+    syncStatus: "PENDING",
   };
 
   await db.put("sessions", updated);
@@ -94,17 +94,32 @@ export async function markSessionFailed(id: string): Promise<void> {
 }
 
 /**
- * Get sessions within a date range from local storage
+ * Efficiently get sessions by user ID and date range using cursor-based iteration
+ * This avoids loading all sessions into memory
  */
-export async function getLocalSessionsByDateRange(
+export async function getLocalSessionsByUserAndDateRange(
+  userId: string,
   startDate: Date,
   endDate: Date,
 ): Promise<LocalSession[]> {
   const db = await getDB();
-  const allSessions = await db.getAll("sessions");
+  const sessions: LocalSession[] = [];
+  const startTime = startDate.getTime();
+  const endTime = endDate.getTime();
 
-  return allSessions.filter((session) => {
-    const createdAt = new Date(session.created_at);
-    return createdAt >= startDate && createdAt <= endDate;
-  });
+  let cursor = await db
+    .transaction("sessions")
+    .store.index("by-user-id")
+    .openCursor(IDBKeyRange.only(userId));
+
+  while (cursor) {
+    const session = cursor.value;
+    const createdAt = new Date(session.created_at).getTime();
+    if (createdAt >= startTime && createdAt <= endTime) {
+      sessions.push(session);
+    }
+    cursor = await cursor.continue();
+  }
+
+  return sessions;
 }

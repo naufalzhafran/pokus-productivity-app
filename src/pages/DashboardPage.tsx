@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { logout } from "@/api/auth";
 import { getSessions } from "@/api/focus";
-import { useEffect, useState, useCallback, useMemo, memo } from "react";
+import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react";
 import { LocalSession } from "@/lib/sync";
 import { TagDisplay } from "@/components/features/TagSelector";
 import {
@@ -14,6 +14,7 @@ import {
   Clock,
   Folder,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 
 interface SessionListItemProps {
@@ -81,7 +82,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<LocalSession[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const now = new Date();
     const day = now.getDay();
@@ -91,28 +92,38 @@ export default function DashboardPage() {
     checkDate.setHours(0, 0, 0, 0);
     return checkDate;
   });
+  const hasInitialLoad = useRef(false);
+
+  const fetchSessions = useCallback(async (showLoading = false) => {
+    if (showLoading) {
+      setIsRefreshing(true);
+    }
+    try {
+      const endDate = new Date(currentWeekStart);
+      endDate.setDate(currentWeekStart.getDate() + 6);
+      endDate.setHours(23, 59, 59, 999);
+
+      const data = await getSessions(currentWeekStart, endDate);
+      setSessions(data || []);
+    } catch (error) {
+      console.error("Failed to fetch sessions", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [currentWeekStart]);
 
   useEffect(() => {
-    const fetchSessions = async () => {
-      setLoading(true);
-      try {
-        const endDate = new Date(currentWeekStart);
-        endDate.setDate(currentWeekStart.getDate() + 6);
-        endDate.setHours(23, 59, 59, 999);
-
-        const data = await getSessions(currentWeekStart, endDate);
-        setSessions(data || []);
-      } catch (error) {
-        console.error("Failed to fetch sessions", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) {
-      fetchSessions();
+    if (user && !hasInitialLoad.current) {
+      hasInitialLoad.current = true;
+      fetchSessions(false);
     }
-  }, [user, currentWeekStart]);
+  }, [user, fetchSessions]);
+
+  useEffect(() => {
+    if (user && hasInitialLoad.current) {
+      fetchSessions(false);
+    }
+  }, [user, currentWeekStart, fetchSessions]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -206,7 +217,7 @@ export default function DashboardPage() {
           >
             <ChevronLeft className="w-5 h-5" />
           </Button>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="w-4 h-4" />
               {weekRangeString}
@@ -217,6 +228,16 @@ export default function DashboardPage() {
             <div className="text-sm text-muted-foreground">
               <span className="text-foreground font-semibold">{Math.round(totalMinutes)}</span> min
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchSessions(true)}
+              disabled={isRefreshing}
+              className="text-muted-foreground hover:text-foreground h-7 px-2"
+            >
+              <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Syncing" : "Sync"}
+            </Button>
           </div>
           <Button
             variant="ghost"
@@ -233,14 +254,15 @@ export default function DashboardPage() {
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4" />
             History
+            {isRefreshing && (
+              <span className="text-xs normal-case font-normal text-muted-foreground ml-2">
+                Syncing...
+              </span>
+            )}
           </h2>
 
           <div className="rounded-lg border border-border bg-card px-4">
-            {loading ? (
-              <div className="text-muted-foreground text-center py-12 text-sm">
-                Loading...
-              </div>
-            ) : sessions.length === 0 ? (
+            {sessions.length === 0 ? (
               <div className="text-muted-foreground text-center py-12 text-sm">
                 No sessions this week.
               </div>

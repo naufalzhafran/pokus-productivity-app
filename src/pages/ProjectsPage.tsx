@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,35 +14,40 @@ import {
   Plus,
   Trash2,
   History,
+  RefreshCw,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 
 export default function ProjectsPage() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [creating, setCreating] = useState(false);
+  const hasInitialLoad = useRef(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchProjects();
+  const fetchProjects = useCallback(async (showLoading = false) => {
+    if (showLoading) {
+      setIsRefreshing(true);
     }
-  }, [user]);
-
-  const fetchProjects = async () => {
-    setLoading(true);
     try {
       const data = await getProjects();
-      setProjects(data);
+      setProjects(data || []);
     } catch (error) {
       console.error("Failed to fetch projects", error);
     } finally {
-      setLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user && !hasInitialLoad.current) {
+      hasInitialLoad.current = true;
+      fetchProjects(false);
+    }
+  }, [user, fetchProjects]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +74,7 @@ export default function ProjectsPage() {
 
     try {
       await deleteProject(id);
-      fetchProjects();
+      setProjects((prev) => prev.filter((p) => p.id !== id));
     } catch (error) {
       console.error("Failed to delete project", error);
     }
@@ -90,6 +95,16 @@ export default function ProjectsPage() {
             </div>
           </div>
           <div className="flex gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchProjects(true)}
+              disabled={isRefreshing}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Syncing" : "Sync"}
+            </Button>
             <Link to="/history">
               <Button variant="outline">
                 <History className="w-4 h-4 mr-2" />
@@ -103,11 +118,7 @@ export default function ProjectsPage() {
           </div>
         </header>
 
-        {loading ? (
-          <div className="text-muted-foreground text-center py-12 text-sm">
-            Loading...
-          </div>
-        ) : projects.length === 0 ? (
+        {projects.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
               <Folder className="w-8 h-8 text-zinc-500" />

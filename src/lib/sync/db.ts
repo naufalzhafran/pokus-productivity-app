@@ -1,18 +1,28 @@
 import { openDB, IDBPDatabase } from "idb";
 
 const DB_NAME = "pokus-offline";
-const DB_VERSION = 3;
+const DB_VERSION = 5;
 
 interface PokusDB {
   sessions: {
     key: string;
     value: LocalSession;
-    indexes: { "by-sync-status": string; "by-created-at": string };
+    indexes: { "by-sync-status": string; "by-created-at": string; "by-user-id": string };
   };
   syncQueue: {
     key: string;
     value: SyncOperation;
     indexes: { "by-next-retry": number };
+  };
+  projects: {
+    key: string;
+    value: LocalProject;
+    indexes: { "by-user-id": string };
+  };
+  tasks: {
+    key: string;
+    value: LocalTask;
+    indexes: { "by-project-id": string; "by-user-id": string };
   };
 }
 
@@ -41,6 +51,32 @@ export interface SyncOperation {
   createdAt: number;
 }
 
+export interface LocalProject {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  syncStatus: "SYNCED" | "PENDING" | "FAILED";
+  lastSyncedAt?: string;
+}
+
+export interface LocalTask {
+  id: string;
+  user_id: string;
+  project_id: string;
+  title: string;
+  description: string;
+  duration_minutes: number;
+  is_completed: boolean;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  syncStatus: "SYNCED" | "PENDING" | "FAILED";
+  lastSyncedAt?: string;
+}
+
 let dbInstance: IDBPDatabase<PokusDB> | null = null;
 
 export async function getDB(): Promise<IDBPDatabase<PokusDB>> {
@@ -57,6 +93,7 @@ export async function getDB(): Promise<IDBPDatabase<PokusDB>> {
           });
           sessionStore.createIndex("by-sync-status", "syncStatus");
           sessionStore.createIndex("by-created-at", "created_at");
+          sessionStore.createIndex("by-user-id", "user_id");
         }
 
         if (!db.objectStoreNames.contains("syncQueue")) {
@@ -72,6 +109,32 @@ export async function getDB(): Promise<IDBPDatabase<PokusDB>> {
         });
         sessionStore.createIndex("by-sync-status", "syncStatus");
         sessionStore.createIndex("by-created-at", "created_at");
+        sessionStore.createIndex("by-user-id", "user_id");
+      }
+
+      if (oldVersion === 3) {
+        if (db.objectStoreNames.contains("sessions")) {
+          const tx = db.transaction("sessions", "readwrite");
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (tx.objectStore("sessions") as any).createIndex("by-user-id", "user_id");
+        }
+      }
+
+      if (oldVersion < 5) {
+        if (!db.objectStoreNames.contains("projects")) {
+          const projectStore = db.createObjectStore("projects", {
+            keyPath: "id",
+          });
+          projectStore.createIndex("by-user-id", "user_id");
+        }
+
+        if (!db.objectStoreNames.contains("tasks")) {
+          const taskStore = db.createObjectStore("tasks", {
+            keyPath: "id",
+          });
+          taskStore.createIndex("by-project-id", "project_id");
+          taskStore.createIndex("by-user-id", "user_id");
+        }
       }
     },
   });

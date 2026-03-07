@@ -1,4 +1,15 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
+import {
+  saveLocalProject,
+  deleteLocalProject,
+  getLocalProjectsByUserId,
+  getLocalProject,
+  saveLocalTask,
+  getLocalTasksByProjectId,
+  LocalProject,
+  LocalTask,
+  addToSyncQueue,
+} from "@/lib/sync";
 
 const supabase = getSupabaseClient();
 
@@ -47,21 +58,40 @@ export async function createProject(
     throw new Error("User not authenticated");
   }
 
-  const { data, error } = await supabase
-    .from("projects")
-    .insert({
+  const projectId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  const localProject: LocalProject = {
+    id: projectId,
+    user_id: user.id,
+    name,
+    description,
+    created_at: now,
+    updated_at: now,
+    syncStatus: "PENDING",
+  };
+
+  await saveLocalProject(localProject);
+
+  addToSyncQueue({
+    type: "CREATE",
+    table: "projects",
+    data: {
+      id: projectId,
       user_id: user.id,
       name,
       description,
-    })
-    .select()
-    .single();
+    },
+  });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data;
+  return {
+    id: projectId,
+    user_id: user.id,
+    name,
+    description,
+    created_at: now,
+    updated_at: now,
+  };
 }
 
 export async function getProjects(): Promise<Project[]> {
@@ -73,20 +103,74 @@ export async function getProjects(): Promise<Project[]> {
     throw new Error("User not authenticated");
   }
 
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const localProjects = await getLocalProjectsByUserId(user.id);
 
-  if (error) {
-    throw new Error(error.message);
+  if (navigator.onLine) {
+    fetchAndMergeRemoteProjects(user.id);
   }
 
-  return data || [];
+  return localProjects.map((p) => ({
+    id: p.id,
+    user_id: p.user_id,
+    name: p.name,
+    description: p.description,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+  }));
+}
+
+async function fetchAndMergeRemoteProjects(userId: string): Promise<void> {
+  try {
+    const { data: records, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("user_id", userId)
+      .abortSignal(AbortSignal.timeout(5000));
+
+    if (error) {
+      console.error("Error fetching remote projects:", error);
+      return;
+    }
+
+    for (const remoteProject of records || []) {
+      const localProject = await getLocalProject(remoteProject.id);
+
+      if (!localProject) {
+        await saveLocalProject({
+          ...remoteProject,
+          syncStatus: "SYNCED",
+          lastSyncedAt: new Date().toISOString(),
+        });
+      } else if (localProject.syncStatus === "SYNCED") {
+        await saveLocalProject({
+          ...localProject,
+          name: remoteProject.name,
+          description: remoteProject.description,
+          updated_at: remoteProject.updated_at,
+          syncStatus: "SYNCED",
+          lastSyncedAt: new Date().toISOString(),
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error merging remote projects:", error);
+  }
 }
 
 export async function getProject(id: string): Promise<Project | null> {
+  const localProject = await getLocalProject(id);
+
+  if (localProject) {
+    return {
+      id: localProject.id,
+      user_id: localProject.user_id,
+      name: localProject.name,
+      description: localProject.description,
+      created_at: localProject.created_at,
+      updated_at: localProject.updated_at,
+    };
+  }
+
   const { data, error } = await supabase
     .from("projects")
     .select("*")
@@ -144,10 +228,30 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  const { error } = await supabase.from("projects").delete().eq("id", id);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (error) {
-    throw new Error(error.message);
+  const isGuest = !user;
+
+  const localProject = await getLocalProject(id);
+
+  if (localProject) {
+    await deleteLocalProject(id);
+
+    if (!isGuest) {
+      addToSyncQueue({
+        type: "DELETE",
+        table: "projects",
+        data: { id },
+      });
+    }
+  } else {
+    const { error } = await supabase.from("projects").delete().eq("id", id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
   }
 }
 
@@ -164,23 +268,50 @@ export async function createTask(
     throw new Error("User not authenticated");
   }
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .insert({
+  const taskId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  const localTask: LocalTask = {
+    id: taskId,
+    user_id: user.id,
+    project_id: projectId,
+    title,
+    description,
+    duration_minutes: 0,
+    is_completed: false,
+    completed_at: null,
+    created_at: now,
+    updated_at: now,
+    syncStatus: "PENDING",
+  };
+
+  await saveLocalTask(localTask);
+
+  addToSyncQueue({
+    type: "CREATE",
+    table: "tasks",
+    data: {
+      id: taskId,
       user_id: user.id,
       project_id: projectId,
       title,
       description,
       duration_minutes: 0,
-    })
-    .select()
-    .single();
+    },
+  });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data;
+  return {
+    id: taskId,
+    user_id: user.id,
+    project_id: projectId,
+    title,
+    description,
+    duration_minutes: 0,
+    is_completed: false,
+    completed_at: null,
+    created_at: now,
+    updated_at: now,
+  };
 }
 
 export async function getTasksByProject(projectId: string): Promise<Task[]> {
@@ -192,18 +323,20 @@ export async function getTasksByProject(projectId: string): Promise<Task[]> {
     throw new Error("User not authenticated");
   }
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("project_id", projectId)
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const localTasks = await getLocalTasksByProjectId(projectId);
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data || [];
+  return localTasks.map((t) => ({
+    id: t.id,
+    user_id: t.user_id,
+    project_id: t.project_id,
+    title: t.title,
+    description: t.description,
+    duration_minutes: t.duration_minutes,
+    is_completed: t.is_completed,
+    completed_at: t.completed_at,
+    created_at: t.created_at,
+    updated_at: t.updated_at,
+  }));
 }
 
 export async function getAllTasks(): Promise<TaskWithProject[]> {

@@ -3,7 +3,7 @@ import {
   saveLocalSession,
   updateLocalSession,
   getLocalSession,
-  getLocalSessionsByDateRange,
+  getLocalSessionsByUserAndDateRange,
   LocalSession,
   addToSyncQueue,
 } from "@/lib/sync";
@@ -100,40 +100,44 @@ export async function getSessions(
   endDate: Date,
 ): Promise<LocalSession[]> {
   const userId = await getCurrentUserId();
-
-  const localSessions = await getLocalSessionsByDateRange(startDate, endDate);
-
   const userIdToUse = userId ?? GUEST_USER_ID;
-  const userSessions = localSessions.filter((s) => s.user_id === userIdToUse);
+
+  const localSessions = await getLocalSessionsByUserAndDateRange(
+    userIdToUse,
+    startDate,
+    endDate,
+  );
 
   if (userId && navigator.onLine) {
     fetchAndMergeRemoteSessions(userId, startDate, endDate);
   }
 
-  return userSessions.sort(
+  return localSessions.sort(
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 }
 
-async function fetchAndMergeRemoteSessions(
+export async function fetchSessionsFromRemote(
   userId: string,
   startDate: Date,
   endDate: Date,
-): Promise<void> {
+): Promise<LocalSession[]> {
   try {
     const { data: records, error } = await supabase
       .from("pokus_sessions")
       .select("*")
       .eq("user_id", userId)
       .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString());
+      .lte("created_at", endDate.toISOString())
+      .abortSignal(AbortSignal.timeout(5000));
 
     if (error) {
       console.error("Error fetching remote sessions:", error);
-      return;
+      return [];
     }
 
+    const sessions: LocalSession[] = [];
     for (const remoteSession of records || []) {
       const localSession = await getLocalSession(remoteSession.id);
 
@@ -152,6 +156,7 @@ async function fetchAndMergeRemoteSessions(
           syncStatus: "SYNCED",
           lastSyncedAt: new Date().toISOString(),
         });
+        sessions.push(remoteSession as LocalSession);
       } else if (localSession.syncStatus === "SYNCED") {
         await saveLocalSession({
           id: remoteSession.id,
@@ -167,9 +172,20 @@ async function fetchAndMergeRemoteSessions(
           syncStatus: "SYNCED",
           lastSyncedAt: new Date().toISOString(),
         });
+        sessions.push(remoteSession as LocalSession);
       }
     }
+    return sessions;
   } catch (error) {
     console.error("Error merging remote sessions:", error);
+    return [];
   }
+}
+
+async function fetchAndMergeRemoteSessions(
+  userId: string,
+  startDate: Date,
+  endDate: Date,
+): Promise<void> {
+  await fetchSessionsFromRemote(userId, startDate, endDate);
 }
