@@ -8,6 +8,9 @@ echo "=============================="
 # Configuration
 DOMAIN="${1:-pokus.madebynz.xyz}"
 SOURCE_DIR="${2:-$HOME/pokus}"
+if [ "$EUID" -eq 0 ] && [ "$SOURCE_DIR" = "$HOME/pokus" ]; then
+  SOURCE_DIR="$(eval echo ~$(whoami))/pokus"
+fi
 APP_DIR="/var/www/pokus"
 NODE_VERSION="22"
 

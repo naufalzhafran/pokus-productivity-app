@@ -7,6 +7,7 @@ import {
   createTask,
   deleteTask,
   toggleTaskComplete,
+  updateTask,
   ProjectWithTasks,
   Task,
 } from "@/api/projects";
@@ -19,6 +20,7 @@ import {
   Circle,
   Clock,
   Play,
+  Pencil,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 
@@ -29,6 +31,8 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<ProjectWithTasks | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -88,6 +92,30 @@ export default function ProjectDetailPage() {
       fetchProject();
     } catch (error) {
       console.error("Failed to delete task", error);
+    }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setNewTaskTitle(task.title);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim() || !editingTask) return;
+
+    setCreating(true);
+    try {
+      await updateTask(editingTask.id, { title: newTaskTitle.trim() });
+      setNewTaskTitle("");
+      setShowEditModal(false);
+      setEditingTask(null);
+      fetchProject();
+    } catch (error) {
+      console.error("Failed to update task", error);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -197,6 +225,7 @@ export default function ProjectDetailPage() {
                       task={task}
                       onToggle={() => handleToggleTask(task.id)}
                       onDelete={() => handleDeleteTask(task.id)}
+                      onEdit={() => handleEditTask(task)}
                       onStartFocus={() =>
                         navigate(`/focus?taskId=${task.id}`)
                       }
@@ -218,6 +247,7 @@ export default function ProjectDetailPage() {
                       task={task}
                       onToggle={() => handleToggleTask(task.id)}
                       onDelete={() => handleDeleteTask(task.id)}
+                      onEdit={() => handleEditTask(task)}
                       onStartFocus={() =>
                         navigate(`/focus?taskId=${task.id}`)
                       }
@@ -234,9 +264,28 @@ export default function ProjectDetailPage() {
         <CreateTaskModal
           title={newTaskTitle}
           onChange={setNewTaskTitle}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => {
+            setShowCreateModal(false);
+            setNewTaskTitle("");
+          }}
           onSubmit={handleCreateTask}
           loading={creating}
+          submitLabel="Add Task"
+        />
+      )}
+
+      {showEditModal && editingTask && (
+        <CreateTaskModal
+          title={newTaskTitle}
+          onChange={setNewTaskTitle}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingTask(null);
+            setNewTaskTitle("");
+          }}
+          onSubmit={handleUpdateTask}
+          loading={creating}
+          submitLabel="Save Changes"
         />
       )}
     </div>
@@ -247,10 +296,11 @@ interface TaskItemProps {
   task: Task;
   onToggle: () => void;
   onDelete: () => void;
+  onEdit: () => void;
   onStartFocus: () => void;
 }
 
-function TaskItem({ task, onToggle, onDelete, onStartFocus }: TaskItemProps) {
+function TaskItem({ task, onToggle, onDelete, onEdit, onStartFocus }: TaskItemProps) {
   return (
     <div className="flex items-center justify-between p-4 group">
       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -289,6 +339,14 @@ function TaskItem({ task, onToggle, onDelete, onStartFocus }: TaskItemProps) {
         <Button
           variant="ghost"
           size="icon"
+          onClick={onEdit}
+          title="Edit task"
+        >
+          <Pencil className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onStartFocus}
           title="Start focus session"
         >
@@ -320,6 +378,7 @@ interface CreateTaskModalProps {
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
   loading: boolean;
+  submitLabel?: string;
 }
 
 function CreateTaskModal({
@@ -328,6 +387,7 @@ function CreateTaskModal({
   onClose,
   onSubmit,
   loading,
+  submitLabel = "Add Task",
 }: CreateTaskModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -341,9 +401,13 @@ function CreateTaskModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-card text-foreground border border-border rounded-lg p-6 md:p-8 max-w-md w-full space-y-6 animate-in fade-in zoom-in-95 duration-200">
         <div>
-          <h3 className="text-2xl font-bold">Add Task</h3>
+          <h3 className="text-2xl font-bold">
+            {submitLabel === "Add Task" ? "Add Task" : "Edit Task"}
+          </h3>
           <p className="text-muted-foreground text-sm mt-1">
-            What do you want to work on?
+            {submitLabel === "Add Task"
+              ? "What do you want to work on?"
+              : "Update the task title"}
           </p>
         </div>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -371,7 +435,7 @@ function CreateTaskModal({
               className="w-full"
               disabled={!title.trim() || loading}
             >
-              {loading ? "Adding..." : "Add Task"}
+              {loading ? "Saving..." : submitLabel}
             </Button>
           </div>
         </form>
