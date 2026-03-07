@@ -85,7 +85,7 @@ export async function getDB(): Promise<IDBPDatabase<PokusDB>> {
   }
 
   dbInstance = await openDB<PokusDB>(DB_NAME, DB_VERSION, {
-    upgrade(db, oldVersion) {
+    upgrade(db, oldVersion, _newVersion) {
       if (oldVersion < 2) {
         if (!db.objectStoreNames.contains("sessions")) {
           const sessionStore = db.createObjectStore("sessions", {
@@ -99,24 +99,6 @@ export async function getDB(): Promise<IDBPDatabase<PokusDB>> {
         if (!db.objectStoreNames.contains("syncQueue")) {
           const syncStore = db.createObjectStore("syncQueue", { keyPath: "id" });
           syncStore.createIndex("by-next-retry", "nextRetryAt");
-        }
-      }
-
-      if (oldVersion === 2) {
-        db.deleteObjectStore("sessions");
-        const sessionStore = db.createObjectStore("sessions", {
-          keyPath: "id",
-        });
-        sessionStore.createIndex("by-sync-status", "syncStatus");
-        sessionStore.createIndex("by-created-at", "created_at");
-        sessionStore.createIndex("by-user-id", "user_id");
-      }
-
-      if (oldVersion === 3) {
-        if (db.objectStoreNames.contains("sessions")) {
-          const tx = db.transaction("sessions", "readwrite");
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (tx.objectStore("sessions") as any).createIndex("by-user-id", "user_id");
         }
       }
 
