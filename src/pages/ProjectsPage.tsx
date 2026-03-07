@@ -22,6 +22,7 @@ export default function ProjectsPage() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
@@ -39,6 +40,7 @@ export default function ProjectsPage() {
       console.error("Failed to fetch projects", error);
     } finally {
       setIsRefreshing(false);
+      setIsInitialLoading(false);
     }
   }, []);
 
@@ -118,7 +120,24 @@ export default function ProjectsPage() {
           </div>
         </header>
 
-        {projects.length === 0 ? (
+        {isInitialLoading ? (
+          <div className="grid gap-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-border bg-card p-4 animate-pulse"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-zinc-800" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-32 bg-zinc-800 rounded" />
+                    <div className="h-3 w-48 bg-zinc-800/50 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : projects.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
               <Folder className="w-8 h-8 text-zinc-500" />
