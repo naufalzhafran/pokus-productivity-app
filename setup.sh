@@ -49,37 +49,44 @@ if [ ! -d "$SOURCE_DIR" ]; then
     exit 1
 fi
 
-# Update system
-echo -e "${YELLOW}📦 Updating system packages...${NC}"
-apt update && apt upgrade -y
+# Check if dist folder exists
+if [ ! -d "$SOURCE_DIR/dist" ]; then
+    echo -e "${YELLOW}🔨 Building app first...${NC}"
+    cd $SOURCE_DIR
+    sudo -u $ORIGINAL_USER npm install
+    sudo -u $ORIGINAL_USER npm run build
+fi
 
-# Install Node.js
-echo -e "${YELLOW}📦 Installing Node.js $NODE_VERSION...${NC}"
+# Update system (only first time)
 if ! command -v node &> /dev/null; then
+    echo -e "${YELLOW}📦 Updating system packages...${NC}"
+    apt update && apt upgrade -y
+
+    # Install Node.js
+    echo -e "${YELLOW}📦 Installing Node.js $NODE_VERSION...${NC}"
     curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
     apt install -y nodejs
+
+    # Install Nginx
+    echo -e "${YELLOW}📦 Installing Nginx...${NC}"
+    apt install -y nginx
 fi
 
 echo -e "${GREEN}✅ Node.js version: $(node -v)${NC}"
 
-# Install Nginx
-echo -e "${YELLOW}📦 Installing Nginx...${NC}"
-apt install -y nginx
-
 # Navigate to source directory
 cd $SOURCE_DIR
 
-# If git repo exists, pull latest
+# Pull latest changes (if git exists)
 if [ -d ".git" ]; then
     echo -e "${YELLOW}📥 Pulling latest changes...${NC}"
     sudo -u $ORIGINAL_USER git pull origin main 2>/dev/null || sudo -u $ORIGINAL_USER git pull origin master 2>/dev/null || true
 fi
 
-# Install dependencies
+# Install dependencies and build
 echo -e "${YELLOW}📦 Installing dependencies...${NC}"
 sudo -u $ORIGINAL_USER npm install
 
-# Build app
 echo -e "${YELLOW}🔨 Building production app...${NC}"
 sudo -u $ORIGINAL_USER npm run build
 
@@ -90,9 +97,12 @@ fi
 
 echo -e "${GREEN}✅ Build successful${NC}"
 
-# Copy dist to app directory
+# Create app directory and copy files
 echo -e "${YELLOW}📁 Copying build to $APP_DIR...${NC}"
 mkdir -p $APP_DIR
+
+# Remove old files and copy new ones
+rm -rf $APP_DIR/*
 cp -r $SOURCE_DIR/dist/* $APP_DIR/
 
 # Also copy manifest if exists
@@ -100,8 +110,22 @@ if [ -f "$SOURCE_DIR/public/manifest.webmanifest" ]; then
     cp $SOURCE_DIR/public/manifest.webmanifest $APP_DIR/
 fi
 
-# Configure Nginx
+# Set proper permissions
+chmod -R 755 $APP_DIR
+
+# Verify files were copied
+if [ ! -f "$APP_DIR/index.html" ]; then
+    echo -e "${RED}❌ Failed to copy files!${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Files copied successfully${NC}"
+
+# Configure Nginx - Simple HTTP only (don't auto-configure HTTPS)
 echo -e "${YELLOW}⚙️  Configuring Nginx...${NC}"
+
+# Remove any existing certbot configs for this domain
+rm -f /etc/nginx/sites-available/pokus-*
 
 cat > /etc/nginx/sites-available/pokus << EOF
 server {
@@ -159,8 +183,6 @@ echo "=============================="
 echo ""
 echo -e "${GREEN}🌐 App URL: http://$DOMAIN${NC}"
 echo ""
-echo "Next steps:"
-echo "  1. Set DNS A record pointing to this server"
-echo "  2. Enable HTTPS with Let's Encrypt:"
-echo "     apt install certbot python3-certbot-nginx"
-echo "     certbot --nginx -d $DOMAIN"
+echo "To enable HTTPS later, run:"
+echo "  sudo apt install certbot python3-certbot-nginx"
+echo "  sudo certbot --nginx -d $DOMAIN"
