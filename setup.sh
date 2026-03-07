@@ -5,12 +5,21 @@ set -e
 echo "🚀 Pokus Deployment Script"
 echo "=============================="
 
+# Get original user who called sudo
+ORIGINAL_USER="${SUDO_USER:-$(whoami)}"
+ORIGINAL_HOME=$(getent passwd "$ORIGINAL_USER" | cut -d: -f6)
+
 # Configuration
-DOMAIN="${1:-pokus.madebynz.xyz}"
-SOURCE_DIR="${2:-$HOME/pokus}"
-if [ "$EUID" -eq 0 ] && [ "$SOURCE_DIR" = "$HOME/pokus" ]; then
-  SOURCE_DIR="$(eval echo ~$(whoami))/pokus"
+DOMAIN="${1:-$2}"
+if [ -z "$DOMAIN" ]; then
+    DOMAIN="pokus.madebynz.xyz"
 fi
+
+SOURCE_DIR="${2:-$ORIGINAL_HOME/pokus}"
+if [ -z "$SOURCE_DIR" ]; then
+    SOURCE_DIR="$ORIGINAL_HOME/pokus"
+fi
+
 APP_DIR="/var/www/pokus"
 NODE_VERSION="22"
 
@@ -63,16 +72,16 @@ cd $SOURCE_DIR
 # If git repo exists, pull latest
 if [ -d ".git" ]; then
     echo -e "${YELLOW}📥 Pulling latest changes...${NC}"
-    git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
+    sudo -u $ORIGINAL_USER git pull origin main 2>/dev/null || sudo -u $ORIGINAL_USER git pull origin master 2>/dev/null || true
 fi
 
 # Install dependencies
 echo -e "${YELLOW}📦 Installing dependencies...${NC}"
-npm install
+sudo -u $ORIGINAL_USER npm install
 
 # Build app
 echo -e "${YELLOW}🔨 Building production app...${NC}"
-npm run build
+sudo -u $ORIGINAL_USER npm run build
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Build failed!${NC}"
@@ -86,7 +95,7 @@ echo -e "${YELLOW}📁 Copying build to $APP_DIR...${NC}"
 mkdir -p $APP_DIR
 cp -r $SOURCE_DIR/dist/* $APP_DIR/
 
-# Also copy manifest and other public files if needed
+# Also copy manifest if exists
 if [ -f "$SOURCE_DIR/public/manifest.webmanifest" ]; then
     cp $SOURCE_DIR/public/manifest.webmanifest $APP_DIR/
 fi
