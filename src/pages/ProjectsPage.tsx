@@ -13,7 +13,6 @@ import {
   Folder,
   Plus,
   Trash2,
-  History,
   RefreshCw,
 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -83,114 +82,102 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 font-sans pb-24">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Projects
-              </h1>
-              <p className="text-muted-foreground text-sm mt-1">
-                Organize your work into projects
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-3">
+    <div className="min-h-screen bg-background text-foreground p-4 font-sans pb-4">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            Projects
+          </h1>
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => fetchProjects(true)}
               disabled={isRefreshing}
               className="text-muted-foreground hover:text-foreground"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-              {isRefreshing ? "Syncing" : "Sync"}
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
             </Button>
-            <Link to="/history">
-              <Button variant="outline">
-                <History className="w-4 h-4 mr-2" />
-                History
-              </Button>
-            </Link>
-            <Button onClick={() => setShowCreateModal(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
+            <Button 
+              size="sm" 
+              onClick={() => setShowCreateModal(true)}
+              className="gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New</span>
             </Button>
           </div>
-        </header>
+        </div>
 
         {isInitialLoading ? (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="rounded-lg border border-border bg-card p-4 animate-pulse"
+                className="rounded-lg border border-border bg-card p-3 animate-pulse"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-zinc-800" />
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800" />
                   <div className="space-y-2">
-                    <div className="h-4 w-32 bg-zinc-800 rounded" />
-                    <div className="h-3 w-48 bg-zinc-800/50 rounded" />
+                    <div className="h-4 w-24 bg-zinc-800 rounded" />
+                    <div className="h-3 w-32 bg-zinc-800/50 rounded" />
                   </div>
                 </div>
               </div>
             ))}
           </div>
         ) : projects.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-              <Folder className="w-8 h-8 text-zinc-500" />
+          <div className="text-center py-10">
+            <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mx-auto mb-3">
+              <Folder className="w-6 h-6 text-zinc-500" />
             </div>
-            <h3 className="text-lg font-medium text-foreground mb-2">
+            <h3 className="text-base font-medium text-foreground mb-1">
               No projects yet
             </h3>
-            <p className="text-muted-foreground text-sm mb-6">
-              Create your first project to start organizing tasks
+            <p className="text-muted-foreground text-sm mb-4">
+              Create a project to get started
             </p>
-            <Button onClick={() => setShowCreateModal(true)}>
-              <Plus className="w-4 h-4 mr-2" />
+            <Button onClick={() => setShowCreateModal(true)} size="sm">
+              <Plus className="w-4 h-4 mr-1.5" />
               Create Project
             </Button>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {projects.map((project) => (
               <Link
                 key={project.id}
                 to={`/projects/${project.id}`}
                 className="block group"
               >
-                <div className="rounded-lg border border-border bg-card p-4 hover:border-zinc-600 transition-colors">
+                <div className="rounded-lg border border-border bg-card p-3 hover:border-zinc-600 transition-colors">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center">
-                        <Folder className="w-5 h-5 text-zinc-400" />
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                        <Folder className="w-4 h-4 text-zinc-400" />
                       </div>
-                      <div>
-                        <h3 className="font-medium text-foreground">
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-foreground truncate">
                           {project.name}
                         </h3>
                         {project.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">
+                          <p className="text-xs text-muted-foreground line-clamp-1">
                             {project.description}
                           </p>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDeleteProject(project.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-400" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDeleteProject(project.id);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-400" />
+                    </Button>
                   </div>
                 </div>
               </Link>

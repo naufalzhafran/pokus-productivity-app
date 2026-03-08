@@ -128,8 +128,8 @@ export default function ProjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-4 md:p-8 font-sans pb-24">
-        <div className="max-w-3xl mx-auto text-center py-12 text-muted-foreground">
+      <div className="min-h-screen bg-background text-foreground p-4 font-sans">
+        <div className="max-w-3xl mx-auto text-center py-8 text-muted-foreground">
           Loading...
         </div>
       </div>
@@ -144,53 +144,53 @@ export default function ProjectDetailPage() {
   const completedTasks = project.tasks.filter((t) => t.is_completed);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 font-sans pb-24">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <header className="flex items-center gap-4">
+    <div className="min-h-screen bg-background text-foreground p-4 font-sans pb-4">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <header className="flex items-center gap-3">
           <Link to="/projects">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="flex-shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold tracking-tight text-foreground truncate">
               {project.name}
             </h1>
             {project.description && (
-              <p className="text-muted-foreground text-sm mt-1">
+              <p className="text-sm text-muted-foreground truncate">
                 {project.description}
               </p>
             )}
           </div>
-          <Button onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Task
+          <Button onClick={() => setShowCreateModal(true)} size="sm">
+            <Plus className="w-4 h-4 mr-1" />
+            <span className="hidden sm:inline">Add</span>
           </Button>
         </header>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-lg border border-border bg-card p-4 text-center">
-            <div className="text-2xl font-bold text-foreground">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+            <div className="text-lg font-bold text-foreground">
               {project.total_tasks}
             </div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">
-              Total Tasks
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wider">
+              Tasks
             </div>
           </div>
-          <div className="rounded-lg border border-border bg-card p-4 text-center">
-            <div className="text-2xl font-bold text-emerald-500">
+          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+            <div className="text-lg font-bold text-emerald-500">
               {project.completed_tasks}
             </div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">
-              Completed
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wider">
+              Done
             </div>
           </div>
-          <div className="rounded-lg border border-border bg-card p-4 text-center">
-            <div className="text-2xl font-bold text-foreground">
+          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+            <div className="text-lg font-bold text-foreground">
               {formatDuration(project.total_duration)}
             </div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">
-              Total Time
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wider">
+              Time
             </div>
           </div>
         </div>

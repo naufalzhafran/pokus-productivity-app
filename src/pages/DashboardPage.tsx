@@ -1,7 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { logout } from "@/api/auth";
 import { getSessions } from "@/api/focus";
 import { useEffect, useState, useCallback, useMemo, memo, useRef } from "react";
 import { LocalSession } from "@/lib/sync";
@@ -12,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Folder,
   XCircle,
   RefreshCw,
 } from "lucide-react";
@@ -80,7 +77,6 @@ const SessionListItem = memo(function SessionListItem({
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [sessions, setSessions] = useState<LocalSession[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -127,15 +123,6 @@ export default function DashboardPage() {
     }
   }, [user, currentWeekStart, fetchSessions]);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await logout();
-      navigate("/");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  }, [navigate]);
-
   const changeWeek = useCallback((direction: -1 | 1) => {
     setCurrentWeekStart((prev) => {
       const newStart = new Date(prev);
@@ -172,44 +159,23 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 font-sans pb-24">
-      <div className="max-w-3xl mx-auto space-y-8">
-        {/* Header */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Dashboard
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {user?.email}
-            </p>
-          </div>
-          <div className="flex gap-3 w-full md:w-auto">
-            <Link to="/projects">
-              <Button
-                variant="outline"
-                className="w-full md:w-auto"
-              >
-                <Folder className="w-4 h-4 mr-2" />
-                Projects
-              </Button>
-            </Link>
-            <Link to="/focus" className="flex-1 md:flex-none">
-              <Button className="w-full">
-                Start Session
-              </Button>
-            </Link>
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Log Out
-            </Button>
-          </div>
-        </header>
+    <div className="min-h-screen bg-background text-foreground p-4 font-sans pb-4">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            History
+          </h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => fetchSessions(true)}
+            disabled={isRefreshing}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
 
-        {/* Week Navigation + Stats inline */}
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
@@ -219,27 +185,9 @@ export default function DashboardPage() {
           >
             <ChevronLeft className="w-5 h-5" />
           </Button>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="w-4 h-4" />
-              {weekRangeString}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <span className="text-foreground font-semibold">{totalSessions}</span> sessions
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <span className="text-foreground font-semibold">{Math.round(totalMinutes)}</span> min
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => fetchSessions(true)}
-              disabled={isRefreshing}
-              className="text-muted-foreground hover:text-foreground h-7 px-2"
-            >
-              <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
-              {isRefreshing ? "Syncing" : "Sync"}
-            </Button>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="w-4 h-4" />
+            {weekRangeString}
           </div>
           <Button
             variant="ghost"
@@ -251,36 +199,49 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {/* Session History List */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-border bg-card p-3 text-center">
+            <div className="text-xl font-bold text-foreground">
+              {totalSessions}
+            </div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              Sessions
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-3 text-center">
+            <div className="text-xl font-bold text-foreground">
+              {Math.round(totalMinutes)}
+            </div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              Minutes
+            </div>
+          </div>
+        </div>
+
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            History
-            {isRefreshing && (
-              <span className="text-xs normal-case font-normal text-muted-foreground ml-2">
-                Syncing...
-              </span>
-            )}
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Clock className="w-3 h-3" />
+            Sessions
           </h2>
 
-          <div className="rounded-lg border border-border bg-card px-4">
+          <div className="rounded-lg border border-border bg-card px-3">
             {isInitialLoading ? (
-              <div className="space-y-4 py-4">
+              <div className="space-y-3 py-4">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="flex items-center justify-between animate-pulse">
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full bg-zinc-800" />
                       <div className="space-y-2">
-                        <div className="h-4 w-40 bg-zinc-800 rounded" />
-                        <div className="h-3 w-24 bg-zinc-800/50 rounded" />
+                        <div className="h-4 w-32 bg-zinc-800 rounded" />
+                        <div className="h-3 w-20 bg-zinc-800/50 rounded" />
                       </div>
                     </div>
-                    <div className="h-5 w-12 bg-zinc-800 rounded" />
+                    <div className="h-5 w-10 bg-zinc-800 rounded" />
                   </div>
                 ))}
               </div>
             ) : sessions.length === 0 ? (
-              <div className="text-muted-foreground text-center py-12 text-sm">
+              <div className="text-muted-foreground text-center py-8 text-sm">
                 No sessions this week.
               </div>
             ) : (
