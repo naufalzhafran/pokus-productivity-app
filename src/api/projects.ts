@@ -105,6 +105,19 @@ export async function getProjects(): Promise<Project[]> {
 
   const localProjects = await getLocalProjectsByUserId(userId);
 
+  if (navigator.onLine && localProjects.length === 0) {
+    await fetchAndMergeRemoteProjects(userId);
+    const updatedLocalProjects = await getLocalProjectsByUserId(userId);
+    return updatedLocalProjects.map((p) => ({
+      id: p.id,
+      user_id: p.user_id,
+      name: p.name,
+      description: p.description,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+    }));
+  }
+
   if (navigator.onLine) {
     fetchAndMergeRemoteProjects(userId);
   }
