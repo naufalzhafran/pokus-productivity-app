@@ -5,10 +5,12 @@ import {
   useState,
   ReactNode,
   useMemo,
+  useRef,
 } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { setCachedUserId } from "@/lib/authCache";
+import { syncAllUserData } from "@/api/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +27,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = getSupabaseClient();
+  const previousUserId = useRef<string | null>(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -34,6 +37,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setCachedUserId(user?.id ?? null);
       setUser(user);
       setLoading(false);
+
+      if (user?.id) {
+        previousUserId.current = user.id;
+      }
     };
 
     initAuth();
@@ -42,9 +49,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       (_event: string, session: Session | null) => {
-        setCachedUserId(session?.user?.id ?? null);
+        const newUserId = session?.user?.id ?? null;
+        setCachedUserId(newUserId);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        if (newUserId && newUserId !== previousUserId.current) {
+          previousUserId.current = newUserId;
+          syncAllUserData(newUserId);
+        }
       },
     );
 
