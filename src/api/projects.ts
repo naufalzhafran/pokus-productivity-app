@@ -10,6 +10,7 @@ import {
   LocalTask,
   addToSyncQueue,
 } from "@/lib/sync";
+import { getCachedUserId } from "@/lib/authCache";
 
 const supabase = getSupabaseClient();
 
@@ -50,11 +51,9 @@ export async function createProject(
   name: string,
   description: string = "",
 ): Promise<Project> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = getCachedUserId();
 
-  if (!user) {
+  if (!userId) {
     throw new Error("User not authenticated");
   }
 
@@ -63,7 +62,7 @@ export async function createProject(
 
   const localProject: LocalProject = {
     id: projectId,
-    user_id: user.id,
+    user_id: userId,
     name,
     description,
     created_at: now,
@@ -78,7 +77,7 @@ export async function createProject(
     table: "projects",
     data: {
       id: projectId,
-      user_id: user.id,
+      user_id: userId,
       name,
       description,
     },
@@ -86,7 +85,7 @@ export async function createProject(
 
   return {
     id: projectId,
-    user_id: user.id,
+    user_id: userId,
     name,
     description,
     created_at: now,
@@ -95,18 +94,16 @@ export async function createProject(
 }
 
 export async function getProjects(): Promise<Project[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = getCachedUserId();
 
-  if (!user) {
-    throw new Error("User not authenticated");
+  if (!userId) {
+    return [];
   }
 
-  const localProjects = await getLocalProjectsByUserId(user.id);
+  const localProjects = await getLocalProjectsByUserId(userId);
 
   if (navigator.onLine) {
-    fetchAndMergeRemoteProjects(user.id);
+    fetchAndMergeRemoteProjects(userId);
   }
 
   return localProjects.map((p) => ({
@@ -228,11 +225,9 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = getCachedUserId();
 
-  const isGuest = !user;
+  const isGuest = !userId;
 
   const localProject = await getLocalProject(id);
 
@@ -260,11 +255,9 @@ export async function createTask(
   title: string,
   description: string = "",
 ): Promise<Task> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = getCachedUserId();
 
-  if (!user) {
+  if (!userId) {
     throw new Error("User not authenticated");
   }
 
@@ -273,7 +266,7 @@ export async function createTask(
 
   const localTask: LocalTask = {
     id: taskId,
-    user_id: user.id,
+    user_id: userId,
     project_id: projectId,
     title,
     description,
@@ -292,7 +285,7 @@ export async function createTask(
     table: "tasks",
     data: {
       id: taskId,
-      user_id: user.id,
+      user_id: userId,
       project_id: projectId,
       title,
       description,
@@ -302,7 +295,7 @@ export async function createTask(
 
   return {
     id: taskId,
-    user_id: user.id,
+    user_id: userId,
     project_id: projectId,
     title,
     description,
@@ -315,12 +308,10 @@ export async function createTask(
 }
 
 export async function getTasksByProject(projectId: string): Promise<Task[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = getCachedUserId();
 
-  if (!user) {
-    throw new Error("User not authenticated");
+  if (!userId) {
+    return [];
   }
 
   const localTasks = await getLocalTasksByProjectId(projectId);
@@ -340,12 +331,10 @@ export async function getTasksByProject(projectId: string): Promise<Task[]> {
 }
 
 export async function getAllTasks(): Promise<TaskWithProject[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = getCachedUserId();
 
-  if (!user) {
-    throw new Error("User not authenticated");
+  if (!userId) {
+    return [];
   }
 
   const { data, error } = await supabase
@@ -354,7 +343,7 @@ export async function getAllTasks(): Promise<TaskWithProject[]> {
       *,
       projects:project_id (name)
     `)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("is_completed", false)
     .order("created_at", { ascending: false });
 

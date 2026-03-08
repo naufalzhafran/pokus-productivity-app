@@ -8,6 +8,7 @@ import {
 } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { setCachedUserId } from "@/lib/authCache";
 
 interface AuthContextType {
   user: User | null;
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      setCachedUserId(user?.id ?? null);
       setUser(user);
       setLoading(false);
     };
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       (_event: string, session: Session | null) => {
+        setCachedUserId(session?.user?.id ?? null);
         setUser(session?.user ?? null);
         setLoading(false);
       },

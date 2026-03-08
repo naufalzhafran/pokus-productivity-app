@@ -7,10 +7,9 @@ import {
   LocalSession,
   addToSyncQueue,
 } from "@/lib/sync";
+import { getCachedUserId, GUEST_USER_ID } from "@/lib/authCache";
 
 const supabase = getSupabaseClient();
-
-const GUEST_USER_ID = "guest";
 
 export async function getCurrentUserId(): Promise<string | null> {
   const {
@@ -25,7 +24,7 @@ export async function createSession(
   tags: string[] = [],
   taskId?: string,
 ): Promise<LocalSession> {
-  const userId = await getCurrentUserId();
+  const userId = getCachedUserId();
 
   const sessionId = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -99,7 +98,7 @@ export async function getSessions(
   startDate: Date,
   endDate: Date,
 ): Promise<LocalSession[]> {
-  const userId = await getCurrentUserId();
+  const userId = getCachedUserId();
   const userIdToUse = userId ?? GUEST_USER_ID;
 
   const localSessions = await getLocalSessionsByUserAndDateRange(
