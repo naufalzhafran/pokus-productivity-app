@@ -17,6 +17,17 @@ export async function saveLocalTask(task: LocalTask): Promise<void> {
   await db.put("tasks", task);
 }
 
+export async function updateLocalTask(
+  id: string,
+  updates: Partial<LocalTask>,
+): Promise<void> {
+  const db = await getDB();
+  const existing = await db.get("tasks", id);
+  if (existing) {
+    await db.put("tasks", { ...existing, ...updates });
+  }
+}
+
 export async function deleteLocalTask(id: string): Promise<void> {
   const db = await getDB();
   await db.delete("tasks", id);

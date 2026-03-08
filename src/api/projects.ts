@@ -5,7 +5,10 @@ import {
   getLocalProjectsByUserId,
   getLocalProject,
   saveLocalTask,
+  deleteLocalTask,
   getLocalTasksByProjectId,
+  getLocalTask,
+  updateLocalTask,
   LocalProject,
   LocalTask,
   addToSyncQueue,
@@ -358,6 +361,23 @@ export async function getAllTasks(): Promise<TaskWithProject[]> {
 }
 
 export async function getTask(id: string): Promise<Task | null> {
+  const localTask = await getLocalTask(id);
+
+  if (localTask) {
+    return {
+      id: localTask.id,
+      user_id: localTask.user_id,
+      project_id: localTask.project_id,
+      title: localTask.title,
+      description: localTask.description,
+      duration_minutes: localTask.duration_minutes,
+      is_completed: localTask.is_completed,
+      completed_at: localTask.completed_at,
+      created_at: localTask.created_at,
+      updated_at: localTask.updated_at,
+    };
+  }
+
   const { data, error } = await supabase
     .from("tasks")
     .select("*")
@@ -365,7 +385,7 @@ export async function getTask(id: string): Promise<Task | null> {
     .single();
 
   if (error) {
-    throw new Error(error.message);
+    return null;
   }
 
   return data;
@@ -375,13 +395,44 @@ export async function updateTask(
   id: string,
   data: Partial<Pick<Task, "title" | "description" | "duration_minutes" | "is_completed">>,
 ): Promise<Task> {
+  const userId = getCachedUserId();
+  const now = new Date().toISOString();
   const updateData: Record<string, unknown> = {
     ...data,
-    updated_at: new Date().toISOString(),
+    updated_at: now,
   };
 
   if (data.is_completed !== undefined) {
-    updateData.completed_at = data.is_completed ? new Date().toISOString() : null;
+    updateData.completed_at = data.is_completed ? now : null;
+  }
+
+  if (userId) {
+    await updateLocalTask(id, {
+      ...updateData,
+      syncStatus: "PENDING",
+    } as Partial<LocalTask>);
+
+    addToSyncQueue({
+      type: "UPDATE",
+      table: "tasks",
+      data: { id, ...updateData },
+    });
+  }
+
+  const localTask = await getLocalTask(id);
+  if (localTask) {
+    return {
+      id: localTask.id,
+      user_id: localTask.user_id,
+      project_id: localTask.project_id,
+      title: localTask.title,
+      description: localTask.description,
+      duration_minutes: localTask.duration_minutes,
+      is_completed: localTask.is_completed,
+      completed_at: localTask.completed_at,
+      created_at: localTask.created_at,
+      updated_at: localTask.updated_at,
+    };
   }
 
   const { data: updated, error } = await supabase
@@ -399,6 +450,22 @@ export async function updateTask(
 }
 
 export async function deleteTask(id: string): Promise<void> {
+  const userId = getCachedUserId();
+  const localTask = await getLocalTask(id);
+
+  if (localTask) {
+    await deleteLocalTask(id);
+
+    if (userId) {
+      addToSyncQueue({
+        type: "DELETE",
+        table: "tasks",
+        data: { id },
+      });
+    }
+    return;
+  }
+
   const { error } = await supabase.from("tasks").delete().eq("id", id);
 
   if (error) {
