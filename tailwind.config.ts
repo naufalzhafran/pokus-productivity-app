@@ -14,8 +14,8 @@ const config = {
     },
     extend: {
       fontFamily: {
-        sans: ["Space Grotesk", "sans-serif"],
-        mono: ["monospace"],
+        sans: ["Avenir Next", "Trebuchet MS", "ui-sans-serif", "sans-serif"],
+        mono: ["Menlo", "Consolas", "ui-monospace", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -73,7 +73,7 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [],
 } satisfies Config;
 
 export default config;

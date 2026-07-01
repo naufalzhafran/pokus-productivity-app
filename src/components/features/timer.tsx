@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Square } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -8,7 +8,6 @@ interface TimerProps {
   initialDurationMinutes: number;
   sessionId: string;
   onComplete?: () => void;
-  onExit?: () => void;
   onStop?: () => void;
   sessionTitle?: string;
 }
@@ -17,13 +16,12 @@ export function Timer({
   initialDurationMinutes,
   sessionId,
   onComplete,
-  onExit,
   onStop,
   sessionTitle = "Focus Session",
 }: TimerProps) {
   const storageKey = `pokus_timer_${sessionId}`;
 
-  const [timeLeft, setTimeLeft] = useState(() => {
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
@@ -45,13 +43,13 @@ export function Timer({
     return initialDurationMinutes * 60;
   });
 
-  const [isActive, setIsActive] = useState(() => {
+  const [isActive, setIsActive] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         return JSON.parse(saved).isActive;
       }
-    } catch (error) {
+    } catch {
       // Ignore error
     }
     return true;
@@ -60,6 +58,7 @@ export function Timer({
   const [showConfirm, setShowConfirm] = useState(false);
   const intervalRef = useRef<number | null>(null);
   const endTimeRef = useRef<number | null>(null);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     localStorage.setItem(
@@ -80,13 +79,14 @@ export function Timer({
       intervalRef.current = setInterval(() => {
         const remaining = Math.round((endTimeRef.current! - Date.now()) / 1000);
         if (remaining <= 0) {
+          setIsActive(false);
           setTimeLeft(0);
         } else {
           setTimeLeft(remaining);
         }
       }, 1000);
-    } else if (timeLeft === 0) {
-      setIsActive(false);
+    } else if (timeLeft === 0 && !completedRef.current) {
+      completedRef.current = true;
       localStorage.removeItem(storageKey);
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (onComplete) onComplete();
@@ -97,7 +97,7 @@ export function Timer({
     };
   }, [isActive, timeLeft, onComplete, storageKey]);
 
-  const toggleTimer = () => setIsActive(!isActive);
+  const toggleTimer = () => setIsActive((active) => !active);
 
   const handleStopClick = () => {
     setIsActive(false);
@@ -107,11 +107,7 @@ export function Timer({
   const handleConfirmStop = () => {
     setShowConfirm(false);
     localStorage.removeItem(storageKey);
-    if (onStop) {
-      onStop();
-    } else if (onExit) {
-      onExit();
-    }
+    onStop?.();
   };
 
   const handleCancelStop = () => {
@@ -145,7 +141,7 @@ export function Timer({
       <div
         className="relative flex justify-center w-full max-w-[500px] aspect-square mx-auto px-4"
         style={
-          { viewTransitionName: "focus-timer-container" } as React.CSSProperties
+          { viewTransitionName: "focus-timer-container" } as CSSProperties
         }
       >
         <CircularDurationInput
@@ -157,7 +153,7 @@ export function Timer({
           readOnly={true}
           className="w-full h-full"
         >
-          <div className="font-sans font-semibold text-[15vw] md:text-[140px] tracking-tight leading-none tabular-nums text-center select-none pointer-events-none">
+          <div className="font-sans font-semibold text-6xl leading-none tabular-nums text-center select-none pointer-events-none sm:text-7xl md:text-8xl lg:text-[140px]">
             {formatTime(timeLeft)}
           </div>
         </CircularDurationInput>
@@ -167,6 +163,7 @@ export function Timer({
         <Button
           variant="ghost"
           size="icon"
+          aria-label={isActive ? "Pause timer" : "Resume timer"}
           className="h-16 w-16 rounded-full bg-white/5 hover:bg-white/10 text-foreground"
           onClick={toggleTimer}
         >
@@ -180,6 +177,7 @@ export function Timer({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Stop timer"
           className="h-16 w-16 rounded-full bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-foreground"
           onClick={handleStopClick}
         >
@@ -196,9 +194,9 @@ export function Timer({
       <Modal
         isOpen={showConfirm}
         onClose={handleCancelStop}
-        title="Break Focus?"
-        description="Are you sure you want to abandon execution? This session will be marked as abandoned."
-        confirmText="Abandon"
+        title="Stop Pomodoro?"
+        description="The current countdown will be cleared and you will return to setup."
+        confirmText="Stop"
         onConfirm={handleConfirmStop}
       />
     </div>

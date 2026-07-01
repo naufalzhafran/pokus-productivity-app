@@ -41,8 +41,14 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground selection:bg-blue-500/20 selection:text-blue-100;
+    @apply bg-background text-foreground selection:bg-blue-500/20 selection:text-blue-100 antialiased;
+    font-family: "Avenir Next", "Trebuchet MS", ui-sans-serif, sans-serif;
     min-height: 100vh;
+  }
+
+  button,
+  input {
+    font: inherit;
   }
 }
 
