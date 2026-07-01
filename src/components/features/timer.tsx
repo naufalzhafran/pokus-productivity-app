@@ -12,6 +12,25 @@ interface TimerProps {
   sessionTitle?: string;
 }
 
+function ClockDigits({ value }: { value: string }) {
+  return (
+    <div
+      className="clock-digits timer-digits flex justify-center"
+      aria-label={value}
+    >
+      {value.split("").map((character, index) => (
+        <span
+          key={`${index}-${character}`}
+          className={character === ":" ? "duration-separator" : "duration-digit"}
+          aria-hidden="true"
+        >
+          {character}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function Timer({
   initialDurationMinutes,
   sessionId,
@@ -135,11 +154,18 @@ export function Timer({
 
   const totalSeconds = initialDurationMinutes * 60;
   const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100;
+  const isUrgent = timeLeft <= 60;
+  const isFinalCountdown = timeLeft <= 10;
 
   return (
-    <div className="flex flex-col items-center space-y-12 w-full">
+    <div
+      className="timer-stage flex w-full flex-col items-center space-y-12"
+      data-active={isActive}
+      data-urgent={isUrgent}
+      data-final={isFinalCountdown}
+    >
       <div
-        className="relative flex justify-center w-full max-w-[500px] aspect-square mx-auto px-4"
+        className="timer-shell relative mx-auto flex aspect-square w-full max-w-[500px] justify-center px-4"
         style={
           { viewTransitionName: "focus-timer-container" } as CSSProperties
         }
@@ -153,18 +179,16 @@ export function Timer({
           readOnly={true}
           className="w-full h-full"
         >
-          <div className="font-sans font-semibold text-6xl leading-none tabular-nums text-center select-none pointer-events-none sm:text-7xl md:text-8xl lg:text-[140px]">
-            {formatTime(timeLeft)}
-          </div>
+          <ClockDigits value={formatTime(timeLeft)} />
         </CircularDurationInput>
       </div>
 
-      <div className="flex gap-6 z-20">
+      <div className="z-20 flex gap-6">
         <Button
           variant="ghost"
           size="icon"
           aria-label={isActive ? "Pause timer" : "Resume timer"}
-          className="h-16 w-16 rounded-full bg-white/5 hover:bg-white/10 text-foreground"
+          className="h-16 w-16 rounded-full bg-white/5 text-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white/10 active:scale-95"
           onClick={toggleTimer}
         >
           {isActive ? (
@@ -178,7 +202,7 @@ export function Timer({
           variant="ghost"
           size="icon"
           aria-label="Stop timer"
-          className="h-16 w-16 rounded-full bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-foreground"
+          className="h-16 w-16 rounded-full bg-white/5 text-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:bg-red-500/20 hover:text-red-400 active:scale-95"
           onClick={handleStopClick}
         >
           <Square className="h-5 w-5 fill-current" />
@@ -187,7 +211,7 @@ export function Timer({
 
       {/* Minimalist Progress Line */}
       <div
-        className="fixed bottom-0 left-0 h-px bg-blue-500/60 transition-all duration-1000 ease-linear z-20"
+        className="fixed bottom-0 left-0 z-20 h-px bg-blue-500/60 transition-all duration-1000 ease-linear"
         style={{ width: `${progress}%` }}
       />
 

@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type CSSProperties } from "react";
+import { flushSync } from "react-dom";
 import { RotateCcw, TimerReset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
@@ -6,8 +7,31 @@ import { Timer } from "@/components/features/timer";
 
 const PRESETS = [15, 25, 45, 60];
 
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (update: () => void) => { finished: Promise<void> };
+};
+
 function formatDuration(minutes: number) {
   return `${minutes.toString().padStart(2, "0")}:00`;
+}
+
+function ClockDigits({ value }: { value: string }) {
+  return (
+    <div
+      className="clock-digits duration-value flex justify-center"
+      aria-label={value}
+    >
+      {value.split("").map((character, index) => (
+        <span
+          key={`${index}-${character}`}
+          className={character === ":" ? "duration-separator" : "duration-digit"}
+          aria-hidden="true"
+        >
+          {character}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function App() {
@@ -17,23 +41,51 @@ export default function App() {
 
   const sessionTitle = `${duration}-minute Pomodoro`;
 
+  const runActionTransition = useCallback((action: string, update: () => void) => {
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const transitionDocument = document as ViewTransitionDocument;
+
+    if (!transitionDocument.startViewTransition || prefersReducedMotion) {
+      update();
+      return;
+    }
+
+    document.documentElement.dataset.transitionAction = action;
+
+    const transition = transitionDocument.startViewTransition(() => {
+      flushSync(update);
+    });
+
+    transition.finished.finally(() => {
+      delete document.documentElement.dataset.transitionAction;
+    });
+  }, []);
+
   const handleDurationChange = useCallback((value: number) => {
     setDuration(Math.max(1, value));
   }, []);
 
   const startTimer = useCallback(() => {
-    setSessionId(`pomodoro-${Date.now()}`);
-    setMode("running");
-  }, []);
+    runActionTransition("start", () => {
+      setSessionId(`pomodoro-${Date.now()}`);
+      setMode("running");
+    });
+  }, [runActionTransition]);
 
   const resetTimer = useCallback(() => {
-    setSessionId(`pomodoro-${Date.now()}`);
-    setMode("setup");
-  }, []);
+    runActionTransition("reset", () => {
+      setSessionId(`pomodoro-${Date.now()}`);
+      setMode("setup");
+    });
+  }, [runActionTransition]);
 
   const completeTimer = useCallback(() => {
-    setMode("complete");
-  }, []);
+    runActionTransition("complete", () => {
+      setMode("complete");
+    });
+  }, [runActionTransition]);
 
   return (
     <main className="min-h-screen overflow-hidden bg-background text-foreground">
@@ -56,7 +108,7 @@ export default function App() {
               size="icon"
               aria-label="Reset timer"
               onClick={resetTimer}
-              className="h-11 w-11 rounded-full"
+              className="h-11 w-11 rounded-full transition-transform duration-300 hover:rotate-[-35deg]"
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
@@ -65,7 +117,7 @@ export default function App() {
 
         <section className="flex flex-1 flex-col items-center justify-center gap-8 py-10">
           {mode === "running" ? (
-            <div className="w-full max-w-3xl text-center">
+            <div className="screen-panel w-full max-w-3xl text-center">
               <div className="mb-8">
                 <p className="text-sm uppercase text-muted-foreground">
                   Focus session
@@ -85,31 +137,31 @@ export default function App() {
             </div>
           ) : (
             <div className="grid w-full items-center gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="flex justify-center lg:justify-end">
-                <div className="relative w-[min(78vw,430px)]">
+              <div className="screen-panel flex justify-center lg:justify-end">
+                <div
+                  className="timer-shell setup-dial relative mx-auto flex aspect-square w-full max-w-[500px] justify-center px-4"
+                  style={
+                    {
+                      viewTransitionName: "focus-timer-container",
+                    } as CSSProperties
+                  }
+                >
                   <CircularDurationInput
                     value={duration}
                     onChange={handleDurationChange}
                     max={60}
-                    size={430}
-                    strokeWidth={8}
-                    className="w-full"
+                    size={500}
+                    strokeWidth={6}
+                    className="w-full h-full"
                   >
-                    <div className="text-center">
-                      <div className="font-mono text-6xl font-semibold leading-none tracking-normal text-foreground md:text-7xl">
-                        {formatDuration(duration)}
-                      </div>
-                      <div className="mt-4 text-xs font-semibold uppercase text-muted-foreground">
-                        minutes
-                      </div>
-                    </div>
+                    <ClockDigits value={formatDuration(duration)} />
                   </CircularDurationInput>
                 </div>
               </div>
 
-              <div className="mx-auto flex w-full max-w-sm flex-col gap-5 lg:mx-0">
+              <div className="screen-panel mx-auto flex w-full max-w-sm flex-col gap-5 lg:mx-0">
                 {mode === "complete" ? (
-                  <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-blue-100">
+                  <div className="complete-banner rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-blue-100">
                     Session complete. Reset or start another Pomodoro.
                   </div>
                 ) : null}
@@ -121,7 +173,7 @@ export default function App() {
                       type="button"
                       variant={duration === preset ? "default" : "outline"}
                       onClick={() => setDuration(preset)}
-                      className="h-11 px-0"
+                      className="h-11 px-0 transition-transform duration-200 hover:-translate-y-0.5"
                     >
                       {preset}
                     </Button>
@@ -133,7 +185,7 @@ export default function App() {
                   size="lg"
                   disabled={duration <= 0}
                   onClick={startTimer}
-                  className="h-14 gap-2 text-base font-semibold"
+                  className="h-14 gap-2 text-base font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
                 >
                   <TimerReset className="h-5 w-5" />
                   Start Pomodoro
