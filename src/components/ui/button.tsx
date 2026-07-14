@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const baseClasses =
@@ -16,38 +16,28 @@ const sizeClasses = {
   icon: "h-10 w-10",
 };
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: keyof typeof variantClasses;
   size?: keyof typeof sizeClasses;
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      className,
-      variant = "default",
-      size = "default",
-      type = "button",
-      ...props
-    },
-    ref,
-  ) => {
-    return (
-      <button
-        className={cn(
-          baseClasses,
-          variantClasses[variant],
-          sizeClasses[size],
-          className,
-        )}
-        ref={ref}
-        type={type}
-        {...props}
-      />
-    );
-  },
-);
-Button.displayName = "Button";
-
-export { Button };
+export function Button({
+  className,
+  variant = "default",
+  size = "default",
+  type = "button",
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={cn(
+        baseClasses,
+        variantClasses[variant],
+        sizeClasses[size],
+        className,
+      )}
+      type={type}
+      {...props}
+    />
+  );
+}

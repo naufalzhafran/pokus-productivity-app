@@ -7,9 +7,9 @@ import { CircularDurationInput } from "@/components/features/CircularDurationInp
 interface TimerProps {
   initialDurationMinutes: number;
   sessionId: string;
-  onComplete?: () => void;
-  onStop?: () => void;
-  sessionTitle?: string;
+  onComplete: () => void;
+  onStop: () => void;
+  sessionTitle: string;
 }
 
 function ClockDigits({ value }: { value: string }) {
@@ -36,7 +36,7 @@ export function Timer({
   sessionId,
   onComplete,
   onStop,
-  sessionTitle = "Focus Session",
+  sessionTitle,
 }: TimerProps) {
   const storageKey = `pokus_timer_${sessionId}`;
 
@@ -108,7 +108,7 @@ export function Timer({
       completedRef.current = true;
       localStorage.removeItem(storageKey);
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (onComplete) onComplete();
+      onComplete();
     }
 
     return () => {
@@ -126,7 +126,7 @@ export function Timer({
   const handleConfirmStop = () => {
     setShowConfirm(false);
     localStorage.removeItem(storageKey);
-    onStop?.();
+    onStop();
   };
 
   const handleCancelStop = () => {

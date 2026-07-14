@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 interface CircularDurationInputProps {
   value: number;
   onChange: (value: number) => void;
-  max?: number;
-  size?: number;
-  strokeWidth?: number;
+  max: number;
+  size: number;
+  strokeWidth: number;
   className?: string;
   children?: React.ReactNode;
   readOnly?: boolean;
@@ -15,9 +15,9 @@ interface CircularDurationInputProps {
 export function CircularDurationInput({
   value,
   onChange,
-  max = 60,
-  size = 320,
-  strokeWidth = 6,
+  max,
+  size,
+  strokeWidth,
   className,
   readOnly = false,
   children,

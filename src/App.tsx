@@ -18,7 +18,7 @@ function formatDuration(minutes: number) {
 function ClockDigits({ value }: { value: string }) {
   return (
     <div
-      className="clock-digits duration-value flex justify-center"
+      className="clock-digits flex justify-center"
       aria-label={value}
     >
       {value.split("").map((character, index) => (
@@ -183,7 +183,6 @@ export default function App() {
                 <Button
                   type="button"
                   size="lg"
-                  disabled={duration <= 0}
                   onClick={startTimer}
                   className="h-14 gap-2 text-base font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
                 >

@@ -4,35 +4,14 @@
 
 @layer base {
   :root {
-    --background: 240 6% 4%;       /* #0a0a0b near-black */
-    --foreground: 240 5% 90%;      /* #e4e4e7 zinc-200 */
-
-    --card: 240 5% 8%;             /* #141416 dark surface */
-    --card-foreground: 240 5% 90%;
-
-    --popover: 240 5% 8%;
-    --popover-foreground: 240 5% 90%;
-
-    --primary: 217 91% 60%;        /* #3b82f6 blue-500 */
+    --background: 240 6% 4%;
+    --foreground: 240 5% 90%;
+    --card: 240 5% 8%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 240 4% 12%;       /* #1e1e22 */
-    --secondary-foreground: 240 5% 65%;
-
-    --muted: 240 4% 12%;
-    --muted-foreground: 240 4% 45%; /* #71717a zinc-500 */
-
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-
+    --muted-foreground: 240 4% 45%;
     --border: 240 4% 14%;
-    --input: 240 4% 14%;
     --ring: 217 91% 60%;
-
-    --radius: 0.5rem;
   }
 }
 
@@ -46,8 +25,7 @@
     min-height: 100vh;
   }
 
-  button,
-  input {
+  button {
     font: inherit;
   }
 }
@@ -129,10 +107,6 @@
     text-shadow:
       0 0 22px hsl(0 72% 51% / 0.24),
       0 0 54px hsl(42 95% 58% / 0.14);
-  }
-
-  .duration-value {
-    font-variant-numeric: tabular-nums;
   }
 
   .clock-digits {
@@ -325,7 +299,6 @@
 
   @media (prefers-reduced-motion: reduce) {
     .screen-panel,
-    .duration-value,
     .duration-digit,
     .complete-banner,
     ::view-transition-old(root),
@@ -335,13 +308,5 @@
       animation: none !important;
       transition-duration: 0.01ms !important;
     }
-  }
-
-  .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  
-  .safe-area-top {
-    padding-top: env(safe-area-inset-top);
   }
 }

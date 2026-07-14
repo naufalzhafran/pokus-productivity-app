@@ -7,7 +7,7 @@ interface ModalProps {
   title: string;
   description: string;
   onConfirm: () => void;
-  confirmText?: string;
+  confirmText: string;
   cancelText?: string;
 }
 
@@ -17,7 +17,7 @@ export function Modal({
   title,
   description,
   onConfirm,
-  confirmText = "Confirm",
+  confirmText,
   cancelText = "Cancel",
 }: ModalProps) {
   if (!isOpen) return null;
