@@ -165,7 +165,7 @@ export function Timer({
       data-final={isFinalCountdown}
     >
       <div
-        className="timer-shell relative mx-auto flex aspect-square w-full max-w-[500px] justify-center px-4"
+        className="timer-shell relative mx-auto flex aspect-square w-full max-w-[540px] justify-center"
         style={
           { viewTransitionName: "focus-timer-container" } as CSSProperties
         }
@@ -174,8 +174,8 @@ export function Timer({
           value={timeLeft}
           max={initialDurationMinutes * 60}
           onChange={() => {}}
-          size={500}
-          strokeWidth={6}
+          size={540}
+          strokeWidth={12}
           readOnly={true}
           className="w-full h-full"
         >

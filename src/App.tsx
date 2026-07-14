@@ -139,7 +139,7 @@ export default function App() {
             <div className="grid w-full items-center gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="screen-panel flex justify-center lg:justify-end">
                 <div
-                  className="timer-shell setup-dial relative mx-auto flex aspect-square w-full max-w-[500px] justify-center px-4"
+                  className="timer-shell setup-dial relative mx-auto flex aspect-square w-full max-w-[560px] justify-center"
                   style={
                     {
                       viewTransitionName: "focus-timer-container",
@@ -149,10 +149,12 @@ export default function App() {
                   <CircularDurationInput
                     value={duration}
                     onChange={handleDurationChange}
+                    min={1}
                     max={60}
-                    size={500}
-                    strokeWidth={6}
+                    size={560}
+                    strokeWidth={12}
                     className="w-full h-full"
+                    ariaLabel="Pomodoro duration in minutes"
                   >
                     <ClockDigits value={formatDuration(duration)} />
                   </CircularDurationInput>

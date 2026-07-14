@@ -4,33 +4,39 @@ import { cn } from "@/lib/utils";
 interface CircularDurationInputProps {
   value: number;
   onChange: (value: number) => void;
+  min?: number;
   max: number;
   size: number;
   strokeWidth: number;
   className?: string;
   children?: React.ReactNode;
   readOnly?: boolean;
+  ariaLabel?: string;
 }
 
 export function CircularDurationInput({
   value,
   onChange,
+  min = 0,
   max,
   size,
   strokeWidth,
   className,
   readOnly = false,
+  ariaLabel = "Timer duration",
   children,
 }: CircularDurationInputProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const center = size / 2;
   const radius = center - strokeWidth * 2;
   const circumference = 2 * Math.PI * radius;
 
-  const normalizedValue = Math.min(Math.max(0, value), max);
-  const angle = (normalizedValue / max) * 360;
+  const normalizedValue = Math.min(Math.max(min, value), max);
+  const range = max - min;
+  const angle = range === 0 ? 0 : ((normalizedValue - min) / range) * 360;
 
   const progressOffset = circumference - (angle / 360) * circumference;
 
@@ -48,36 +54,79 @@ export function CircularDurationInput({
       let theta = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
       if (theta < 0) theta += 360;
 
-      const newValue = Math.round((theta / 360) * max);
-      return Math.min(Math.max(0, newValue), max);
+      const newValue = Math.round((theta / 360) * (max - min) + min);
+      return Math.min(Math.max(min, newValue), max);
     },
-    [max],
+    [max, min],
   );
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (readOnly) return;
+    isDraggingRef.current = true;
     setIsDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
+    svgRef.current?.setPointerCapture(e.pointerId);
     const newVal = calculateValueFromPointer(e.clientX, e.clientY);
     if (newVal !== undefined) onChange(newVal);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging || readOnly) return;
+    if (!isDraggingRef.current || readOnly) return;
     const newVal = calculateValueFromPointer(e.clientX, e.clientY);
     if (newVal !== undefined) onChange(newVal);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (readOnly) return;
+    isDraggingRef.current = false;
     setIsDragging(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (svgRef.current?.hasPointerCapture(e.pointerId)) {
+      svgRef.current.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerCancel = () => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
+    if (readOnly) return;
+
+    let nextValue = value;
+    switch (e.key) {
+      case "ArrowUp":
+      case "ArrowRight":
+        nextValue += 1;
+        break;
+      case "ArrowDown":
+      case "ArrowLeft":
+        nextValue -= 1;
+        break;
+      case "PageUp":
+        nextValue += 5;
+        break;
+      case "PageDown":
+        nextValue -= 5;
+        break;
+      case "Home":
+        nextValue = min;
+        break;
+      case "End":
+        nextValue = max;
+        break;
+      default:
+        return;
+    }
+
+    e.preventDefault();
+    onChange(Math.min(Math.max(min, nextValue), max));
   };
 
   return (
     <div
       className={cn(
-        "relative flex items-center justify-center select-none touch-none aspect-square w-full h-auto",
+        "relative flex items-center justify-center select-none aspect-square w-full h-auto",
+        isDragging && "is-dragging",
         className,
       )}
       style={{ maxWidth: size }}
@@ -87,12 +136,35 @@ export function CircularDurationInput({
         viewBox={`0 0 ${size} ${size}`}
         className={cn(
           "w-full h-full block",
-          readOnly ? "cursor-default" : "cursor-pointer",
+          readOnly
+            ? "cursor-default"
+            : "cursor-pointer focus-visible:outline-none",
         )}
-        onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={handlePointerCancel}
+        onKeyDown={handleKeyDown}
+        role={readOnly ? undefined : "slider"}
+        aria-label={readOnly ? undefined : ariaLabel}
+        aria-valuemin={readOnly ? undefined : min}
+        aria-valuemax={readOnly ? undefined : max}
+        aria-valuenow={readOnly ? undefined : normalizedValue}
+        tabIndex={readOnly ? undefined : 0}
       >
+        {!readOnly && (
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke="transparent"
+            strokeWidth={Math.max(72, strokeWidth * 4)}
+            className="bezel-hit-area"
+            onPointerDown={handlePointerDown}
+          />
+        )}
+
         {/* Track */}
         <circle
           cx={center}
@@ -101,6 +173,7 @@ export function CircularDurationInput({
           fill="none"
           stroke="rgba(255,255,255,0.06)"
           strokeWidth={strokeWidth}
+          className="pointer-events-none"
         />
 
         {/* Progress */}
@@ -115,7 +188,7 @@ export function CircularDurationInput({
           strokeDasharray={circumference}
           strokeDashoffset={progressOffset}
           transform={`rotate(-90 ${center} ${center})`}
-          className="transition-all duration-75 ease-out"
+          className="pointer-events-none transition-[stroke-dashoffset] duration-75 ease-out"
         />
 
         {/* Thumb */}
@@ -124,16 +197,18 @@ export function CircularDurationInput({
             <circle
               cx={thumbX}
               cy={thumbY}
-              r={strokeWidth * 1.2}
-              fill="rgba(255,255,255,0.8)"
-              className="cursor-grab active:cursor-grabbing"
+              r={strokeWidth * 1.15}
+              fill="hsl(217 91% 60%)"
+              stroke="hsl(240 6% 4%)"
+              strokeWidth={strokeWidth * 0.45}
+              className="pointer-events-none bezel-thumb"
             />
             <circle
               cx={thumbX}
               cy={thumbY}
-              r={strokeWidth * 3}
-              fill="transparent"
-              className="cursor-grab active:cursor-grabbing"
+              r={strokeWidth * 0.5}
+              fill="rgba(255,255,255,0.94)"
+              className="pointer-events-none"
             />
           </>
         )}
