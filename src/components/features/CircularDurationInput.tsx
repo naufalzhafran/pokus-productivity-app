@@ -125,7 +125,7 @@ export function CircularDurationInput({
   return (
     <div
       className={cn(
-        "relative flex items-center justify-center select-none aspect-square w-full h-auto",
+        "relative flex aspect-square h-auto w-full select-none items-center justify-center",
         isDragging && "is-dragging",
         className,
       )}
@@ -135,7 +135,7 @@ export function CircularDurationInput({
         ref={svgRef}
         viewBox={`0 0 ${size} ${size}`}
         className={cn(
-          "w-full h-full block",
+          "block size-full",
           readOnly
             ? "cursor-default"
             : "cursor-pointer focus-visible:outline-none",
@@ -171,7 +171,7 @@ export function CircularDurationInput({
           cy={center}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="var(--muted)"
           strokeWidth={strokeWidth}
           className="pointer-events-none"
         />
@@ -182,7 +182,7 @@ export function CircularDurationInput({
           cy={center}
           r={radius}
           fill="none"
-          stroke="hsl(217 91% 60%)"
+          stroke="var(--primary)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -198,8 +198,8 @@ export function CircularDurationInput({
               cx={thumbX}
               cy={thumbY}
               r={strokeWidth * 1.15}
-              fill="hsl(217 91% 60%)"
-              stroke="hsl(240 6% 4%)"
+              fill="var(--primary)"
+              stroke="var(--background)"
               strokeWidth={strokeWidth * 0.45}
               className="pointer-events-none bezel-thumb"
             />
@@ -207,7 +207,7 @@ export function CircularDurationInput({
               cx={thumbX}
               cy={thumbY}
               r={strokeWidth * 0.5}
-              fill="rgba(255,255,255,0.94)"
+              fill="var(--primary-foreground)"
               className="pointer-events-none"
             />
           </>

@@ -1,15 +1,40 @@
 import { useEffect, useState, useRef, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Square } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 
 interface TimerProps {
   initialDurationMinutes: number;
   sessionId: string;
   onComplete: () => void;
-  onStop: () => void;
+  onStop: (options: TimerStopOptions) => void;
   sessionTitle: string;
+  taskTitle?: string;
+}
+
+export interface TimerStopOptions {
+  saveElapsedTime: boolean;
+  elapsedSeconds: number;
+}
+
+function formatElapsedTime(seconds: number) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+
+  if (hours > 0) return `${hours}h ${minutes}m ${remainingSeconds}s`;
+  if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
+  return `${remainingSeconds}s`;
 }
 
 function ClockDigits({ value }: { value: string }) {
@@ -37,6 +62,7 @@ export function Timer({
   onComplete,
   onStop,
   sessionTitle,
+  taskTitle,
 }: TimerProps) {
   const storageKey = `pokus_timer_${sessionId}`;
 
@@ -123,10 +149,13 @@ export function Timer({
     setShowConfirm(true);
   };
 
-  const handleConfirmStop = () => {
+  const handleConfirmStop = (saveElapsedTime: boolean) => {
     setShowConfirm(false);
     localStorage.removeItem(storageKey);
-    onStop();
+    onStop({
+      saveElapsedTime,
+      elapsedSeconds: Math.max(0, initialDurationMinutes * 60 - timeLeft),
+    });
   };
 
   const handleCancelStop = () => {
@@ -152,14 +181,12 @@ export function Timer({
     };
   }, [isActive, timeLeft, sessionTitle]);
 
-  const totalSeconds = initialDurationMinutes * 60;
-  const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100;
   const isUrgent = timeLeft <= 60;
   const isFinalCountdown = timeLeft <= 10;
 
   return (
     <div
-      className="timer-stage flex w-full flex-col items-center space-y-12"
+      className="timer-stage flex w-full flex-col items-center gap-12"
       data-active={isActive}
       data-urgent={isUrgent}
       data-final={isFinalCountdown}
@@ -177,52 +204,72 @@ export function Timer({
           size={540}
           strokeWidth={12}
           readOnly={true}
-          className="w-full h-full"
+          className="size-full"
         >
           <ClockDigits value={formatTime(timeLeft)} />
         </CircularDurationInput>
       </div>
 
-      <div className="z-20 flex gap-6">
+      <div className="flex gap-4">
         <Button
-          variant="ghost"
+          variant="secondary"
           size="icon"
           aria-label={isActive ? "Pause timer" : "Resume timer"}
-          className="h-16 w-16 rounded-full bg-white/5 text-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:bg-white/10 active:scale-95"
+          className="size-14 rounded-full"
           onClick={toggleTimer}
         >
           {isActive ? (
-            <Pause className="h-7 w-7 fill-current" />
+            <Pause className="fill-current" />
           ) : (
-            <Play className="h-7 w-7 ml-1 fill-current" />
+            <Play className="fill-current" />
           )}
         </Button>
 
         <Button
-          variant="ghost"
+          variant="destructive"
           size="icon"
           aria-label="Stop timer"
-          className="h-16 w-16 rounded-full bg-white/5 text-foreground transition-transform duration-200 hover:-translate-y-0.5 hover:bg-red-500/20 hover:text-red-400 active:scale-95"
+          className="size-14 rounded-full"
           onClick={handleStopClick}
         >
-          <Square className="h-5 w-5 fill-current" />
+          <Square className="fill-current" />
         </Button>
       </div>
 
-      {/* Minimalist Progress Line */}
-      <div
-        className="fixed bottom-0 left-0 z-20 h-px bg-blue-500/60 transition-all duration-1000 ease-linear"
-        style={{ width: `${progress}%` }}
-      />
-
-      <Modal
-        isOpen={showConfirm}
-        onClose={handleCancelStop}
-        title="Stop Pomodoro?"
-        description="The current countdown will be cleared and you will return to setup."
-        confirmText="Stop"
-        onConfirm={handleConfirmStop}
-      />
+      <AlertDialog
+        open={showConfirm}
+        onOpenChange={(open) => !open && handleCancelStop()}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Stop Pomodoro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {taskTitle
+                ? `You focused for ${formatElapsedTime(Math.max(0, initialDurationMinutes * 60 - timeLeft))}. Save this time to “${taskTitle}” or discard it?`
+                : "The current countdown will be cleared and you will return to setup."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelStop}>
+              {taskTitle ? "Continue" : "Cancel"}
+            </AlertDialogCancel>
+            {taskTitle ? (
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => handleConfirmStop(false)}
+              >
+                Discard
+              </AlertDialogAction>
+            ) : null}
+            <AlertDialogAction
+              variant={taskTitle ? "default" : "destructive"}
+              onClick={() => handleConfirmStop(Boolean(taskTitle))}
+            >
+              {taskTitle ? "Save time" : "Stop"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

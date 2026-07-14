@@ -1,14 +1,25 @@
-import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  description: string;
-  onConfirm: () => void;
-  confirmText: string;
+  description?: string;
+  onConfirm?: () => void;
+  confirmText?: string;
   cancelText?: string;
+  secondaryText?: string;
+  onSecondary?: () => void;
+  children?: ReactNode;
 }
 
 export function Modal({
@@ -19,26 +30,36 @@ export function Modal({
   onConfirm,
   confirmText,
   cancelText = "Cancel",
+  secondaryText,
+  onSecondary,
+  children,
 }: ModalProps) {
-  if (!isOpen) return null;
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : null}
+        </DialogHeader>
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-card text-foreground border border-border rounded-lg p-6 md:p-8 max-w-md w-full space-y-6">
-        <div className="space-y-2 text-center">
-          <h3 className="text-2xl font-bold">{title}</h3>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
-        <div className="flex gap-4 pt-2 justify-center">
-          <Button variant="outline" onClick={onClose} className="w-full">
-            {cancelText}
-          </Button>
-          <Button onClick={onConfirm} className="w-full">
-            {confirmText}
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+        {children ?? (
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              {cancelText}
+            </Button>
+            {onSecondary && secondaryText ? (
+              <Button variant="destructive" onClick={onSecondary}>
+                {secondaryText}
+              </Button>
+            ) : null}
+            {onConfirm && confirmText ? (
+              <Button onClick={onConfirm}>{confirmText}</Button>
+            ) : null}
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
