@@ -1,154 +1,233 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { pb } from "@/lib/pocketbase";
+import {
+  COLLECTIONS,
+  createPocketBaseId,
+  listTasks,
+  taskToRecord,
+} from "@/lib/pocketbase-records";
 import type { Task } from "@/types/task";
 
-const TASKS_STORAGE_KEY = "pokus_tasks_v1";
-
-function parseTask(value: unknown): Task | null {
-  if (!value || typeof value !== "object") return null;
-
-  const task = value as Partial<Task>;
-  if (
-    typeof task.id !== "string" ||
-    typeof task.title !== "string" ||
-    task.title.trim().length === 0 ||
-    typeof task.isDone !== "boolean" ||
-    typeof task.createdAt !== "number"
-  ) {
-    return null;
-  }
-
-  const storedTask = task as Partial<Task> & { focusedMinutes?: number };
-  const focusedSeconds =
-    typeof storedTask.focusedSeconds === "number" &&
-    Number.isFinite(storedTask.focusedSeconds) &&
-    storedTask.focusedSeconds >= 0
-      ? Math.floor(storedTask.focusedSeconds)
-      : typeof storedTask.focusedMinutes === "number" &&
-          Number.isFinite(storedTask.focusedMinutes) &&
-          storedTask.focusedMinutes >= 0
-        ? Math.floor(storedTask.focusedMinutes * 60)
-        : 0;
-
-  return {
-    id: task.id,
-    title: task.title.trim(),
-    isDone: task.isDone,
-    createdAt: task.createdAt,
-    focusedSeconds,
-    projectId: typeof task.projectId === "string" ? task.projectId : null,
-  };
-}
-
-function loadTasks() {
-  try {
-    const savedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
-    if (!savedTasks) return [];
-
-    const parsedTasks: unknown = JSON.parse(savedTasks);
-    if (!Array.isArray(parsedTasks)) return [];
-
-    return parsedTasks.reduce<Task[]>((validTasks, task) => {
-      const parsedTask = parseTask(task);
-      if (parsedTask) validTasks.push(parsedTask);
-      return validTasks;
-    }, []);
-  } catch (error) {
-    console.error("Failed to load tasks:", error);
-    return [];
-  }
-}
-
-function createTaskId() {
-  if (typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  return `task-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 export function useTasks() {
-  const [tasks, setTasks] = useState<Task[]>(loadTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const tasksRef = useRef<Task[]>([]);
+
+  const replaceTasks = useCallback((nextTasks: Task[]) => {
+    tasksRef.current = nextTasks;
+    setTasks(nextTasks);
+  }, []);
+
+  const refreshTasks = useCallback(async () => {
+    try {
+      replaceTasks(await listTasks());
+      setLoadError(null);
+    } catch (error) {
+      console.error("Failed to load tasks from PocketBase:", error);
+      setLoadError("Your tasks could not be loaded.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [replaceTasks]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
-    } catch (error) {
-      console.error("Failed to save tasks:", error);
-    }
-  }, [tasks]);
+    let isMounted = true;
 
-  const createTask = useCallback((title: string, projectId: string | null) => {
-    const normalizedTitle = title.trim();
-    if (!normalizedTitle) return null;
+    void listTasks()
+      .then((savedTasks) => {
+        if (isMounted) {
+          replaceTasks(savedTasks);
+          setLoadError(null);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load tasks from PocketBase:", error);
+        if (isMounted) setLoadError("Your tasks could not be loaded.");
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
 
-    const task: Task = {
-      id: createTaskId(),
-      title: normalizedTitle,
-      isDone: false,
-      createdAt: Date.now(),
-      focusedSeconds: 0,
-      projectId,
+    return () => {
+      isMounted = false;
     };
+  }, [replaceTasks]);
 
-    setTasks((currentTasks) => [task, ...currentTasks]);
-    return task;
-  }, []);
+  const createTask = useCallback(
+    async (title: string, projectId: string | null) => {
+      const normalizedTitle = title.trim();
+      if (!normalizedTitle) return null;
 
-  const setTaskDone = useCallback((taskId: string, isDone: boolean) => {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === taskId ? { ...task, isDone } : task,
-      ),
-    );
-  }, []);
+      const task: Task = {
+        id: createPocketBaseId(),
+        title: normalizedTitle,
+        isDone: false,
+        createdAt: Date.now(),
+        focusedSeconds: 0,
+        projectId,
+      };
 
-  const deleteTask = useCallback((taskId: string) => {
-    setTasks((currentTasks) =>
-      currentTasks.filter((task) => task.id !== taskId),
-    );
-  }, []);
+      try {
+        await pb
+        .collection(COLLECTIONS.tasks)
+          .create(taskToRecord(task), { requestKey: null });
+        replaceTasks([task, ...tasksRef.current]);
+        return task;
+      } catch (error) {
+        console.error("Failed to create task in PocketBase:", error);
+        throw error;
+      }
+    },
+    [replaceTasks],
+  );
 
-  const recordFocusTime = useCallback((taskId: string, seconds: number) => {
-    if (!Number.isFinite(seconds) || seconds <= 0) return;
+  const setTaskDone = useCallback(
+    async (taskId: string, isDone: boolean) => {
+      const previousTask = tasksRef.current.find((task) => task.id === taskId);
+      if (!previousTask) return false;
 
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              focusedSeconds: task.focusedSeconds + Math.floor(seconds),
-            }
-          : task,
-      ),
-    );
-  }, []);
+      replaceTasks(
+        tasksRef.current.map((task) =>
+          task.id === taskId ? { ...task, isDone } : task,
+        ),
+      );
+      try {
+        await pb.collection(COLLECTIONS.tasks).update(taskId, { isDone });
+        return true;
+      } catch (error) {
+        replaceTasks(
+          tasksRef.current.map((task) =>
+            task.id === taskId ? previousTask : task,
+          ),
+        );
+        console.error("Failed to update task in PocketBase:", error);
+        throw error;
+      }
+    },
+    [replaceTasks],
+  );
+
+  const deleteTask = useCallback(
+    async (taskId: string) => {
+      const deletedTask = tasksRef.current.find((task) => task.id === taskId);
+      if (!deletedTask) return false;
+
+      replaceTasks(tasksRef.current.filter((task) => task.id !== taskId));
+      try {
+        await pb.collection(COLLECTIONS.tasks).delete(taskId);
+        return true;
+      } catch (error) {
+        replaceTasks(
+          [deletedTask, ...tasksRef.current].sort(
+            (a, b) => b.createdAt - a.createdAt,
+          ),
+        );
+        console.error("Failed to delete task from PocketBase:", error);
+        throw error;
+      }
+    },
+    [replaceTasks],
+  );
+
+  const recordFocusTime = useCallback(
+    async (taskId: string, seconds: number) => {
+      if (!Number.isFinite(seconds) || seconds <= 0) return false;
+
+      const task = tasksRef.current.find((candidate) => candidate.id === taskId);
+      if (!task) return false;
+
+      const focusedSeconds = task.focusedSeconds + Math.floor(seconds);
+      replaceTasks(
+        tasksRef.current.map((candidate) =>
+          candidate.id === taskId
+            ? { ...candidate, focusedSeconds }
+            : candidate,
+        ),
+      );
+      try {
+        await pb
+          .collection(COLLECTIONS.tasks)
+          .update(taskId, { focusedSeconds });
+        return true;
+      } catch (error) {
+        replaceTasks(
+          tasksRef.current.map((candidate) =>
+            candidate.id === taskId ? task : candidate,
+          ),
+        );
+        console.error("Failed to save focused time to PocketBase:", error);
+        throw error;
+      }
+    },
+    [replaceTasks],
+  );
 
   const editTask = useCallback(
-    (taskId: string, title: string, projectId: string | null) => {
+    async (taskId: string, title: string, projectId: string | null) => {
       const normalizedTitle = title.trim();
-      if (!normalizedTitle) return;
+      if (!normalizedTitle) return false;
+      const previousTask = tasksRef.current.find((task) => task.id === taskId);
+      if (!previousTask) return false;
 
-      setTasks((currentTasks) =>
-        currentTasks.map((task) =>
+      replaceTasks(
+        tasksRef.current.map((task) =>
           task.id === taskId
             ? { ...task, title: normalizedTitle, projectId }
             : task,
         ),
       );
+      try {
+        await pb.collection(COLLECTIONS.tasks).update(taskId, {
+          title: normalizedTitle,
+          project: projectId ?? "",
+        });
+        return true;
+      } catch (error) {
+        replaceTasks(
+          tasksRef.current.map((task) =>
+            task.id === taskId ? previousTask : task,
+          ),
+        );
+        console.error("Failed to edit task in PocketBase:", error);
+        throw error;
+      }
     },
-    [],
+    [replaceTasks],
   );
 
-  const removeProjectFromTasks = useCallback((projectId: string) => {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.projectId === projectId ? { ...task, projectId: null } : task,
-      ),
-    );
-  }, []);
+  const removeProjectFromTasks = useCallback(
+    async (projectId: string) => {
+      const affectedTaskIds = tasksRef.current
+        .filter((task) => task.projectId === projectId)
+        .map((task) => task.id);
+
+      replaceTasks(
+        tasksRef.current.map((task) =>
+          task.projectId === projectId ? { ...task, projectId: null } : task,
+        ),
+      );
+
+      try {
+        await Promise.all(
+          affectedTaskIds.map((taskId) =>
+            pb.collection(COLLECTIONS.tasks).update(taskId, { project: "" }),
+          ),
+        );
+        return true;
+      } catch (error) {
+        console.error("Failed to remove project from tasks in PocketBase:", error);
+        await refreshTasks();
+        throw error;
+      }
+    },
+    [refreshTasks, replaceTasks],
+  );
 
   return {
     tasks,
+    isLoading,
+    loadError,
     createTask,
     setTaskDone,
     deleteTask,

@@ -19,4 +19,15 @@ export interface PomodoroSession {
   taskId: string | null;
   durationMinutes: number;
   mode: "running" | "complete";
+  remainingSeconds: number;
+  isActive: boolean;
+  lastTick: number;
+}
+
+export interface PomodoroHistoryEntry {
+  id: string;
+  taskId: string | null;
+  durationMinutes: number;
+  focusedSeconds: number;
+  completedAt: number;
 }

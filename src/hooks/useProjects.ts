@@ -1,95 +1,133 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { pb } from "@/lib/pocketbase";
+import {
+  COLLECTIONS,
+  createPocketBaseId,
+  listProjects,
+  projectToRecord,
+} from "@/lib/pocketbase-records";
 import type { Project } from "@/types/task";
 
-const PROJECTS_STORAGE_KEY = "pokus_projects_v1";
-
-function parseProject(value: unknown): Project | null {
-  if (!value || typeof value !== "object") return null;
-
-  const project = value as Partial<Project>;
-  if (
-    typeof project.id !== "string" ||
-    typeof project.title !== "string" ||
-    project.title.trim().length === 0 ||
-    typeof project.createdAt !== "number"
-  ) {
-    return null;
-  }
-
-  return {
-    id: project.id,
-    title: project.title.trim(),
-    createdAt: project.createdAt,
-    isDone: typeof project.isDone === "boolean" ? project.isDone : false,
-  };
-}
-
-function loadProjects() {
-  try {
-    const savedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-    if (!savedProjects) return [];
-
-    const parsedProjects: unknown = JSON.parse(savedProjects);
-    if (!Array.isArray(parsedProjects)) return [];
-
-    return parsedProjects.reduce<Project[]>((validProjects, project) => {
-      const parsedProject = parseProject(project);
-      if (parsedProject) validProjects.push(parsedProject);
-      return validProjects;
-    }, []);
-  } catch (error) {
-    console.error("Failed to load projects:", error);
-    return [];
-  }
-}
-
-function createProjectId() {
-  if (typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  return `project-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>(loadProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const projectsRef = useRef<Project[]>([]);
+
+  const replaceProjects = useCallback((nextProjects: Project[]) => {
+    projectsRef.current = nextProjects;
+    setProjects(nextProjects);
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
-    } catch (error) {
-      console.error("Failed to save projects:", error);
-    }
-  }, [projects]);
+    let isMounted = true;
 
-  const createProject = useCallback((title: string) => {
-    const normalizedTitle = title.trim();
-    if (!normalizedTitle) return null;
+    void listProjects()
+      .then((savedProjects) => {
+        if (isMounted) {
+          replaceProjects(savedProjects);
+          setLoadError(null);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load projects from PocketBase:", error);
+        if (isMounted) setLoadError("Your projects could not be loaded.");
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
 
-    const project: Project = {
-      id: createProjectId(),
-      title: normalizedTitle,
-      createdAt: Date.now(),
-      isDone: false,
+    return () => {
+      isMounted = false;
     };
+  }, [replaceProjects]);
 
-    setProjects((currentProjects) => [project, ...currentProjects]);
-    return project;
-  }, []);
+  const createProject = useCallback(
+    async (title: string) => {
+      const normalizedTitle = title.trim();
+      if (!normalizedTitle) return null;
 
-  const deleteProject = useCallback((projectId: string) => {
-    setProjects((currentProjects) =>
-      currentProjects.filter((project) => project.id !== projectId),
-    );
-  }, []);
+      const project: Project = {
+        id: createPocketBaseId(),
+        title: normalizedTitle,
+        createdAt: Date.now(),
+        isDone: false,
+      };
 
-  const setProjectDone = useCallback((projectId: string, isDone: boolean) => {
-    setProjects((currentProjects) =>
-      currentProjects.map((project) =>
-        project.id === projectId ? { ...project, isDone } : project,
-      ),
-    );
-  }, []);
+      try {
+        await pb
+        .collection(COLLECTIONS.projects)
+          .create(projectToRecord(project), { requestKey: null });
+        replaceProjects([project, ...projectsRef.current]);
+        return project;
+      } catch (error) {
+        console.error("Failed to create project in PocketBase:", error);
+        throw error;
+      }
+    },
+    [replaceProjects],
+  );
 
-  return { projects, createProject, deleteProject, setProjectDone };
+  const deleteProject = useCallback(
+    async (projectId: string) => {
+      const deletedProject = projectsRef.current.find(
+        (project) => project.id === projectId,
+      );
+      if (!deletedProject) return false;
+
+      replaceProjects(
+        projectsRef.current.filter((project) => project.id !== projectId),
+      );
+      try {
+        await pb.collection(COLLECTIONS.projects).delete(projectId);
+        return true;
+      } catch (error) {
+        replaceProjects(
+          [deletedProject, ...projectsRef.current].sort(
+            (a, b) => b.createdAt - a.createdAt,
+          ),
+        );
+        console.error("Failed to delete project from PocketBase:", error);
+        throw error;
+      }
+    },
+    [replaceProjects],
+  );
+
+  const setProjectDone = useCallback(
+    async (projectId: string, isDone: boolean) => {
+      const previousProject = projectsRef.current.find(
+        (project) => project.id === projectId,
+      );
+      if (!previousProject) return false;
+
+      replaceProjects(
+        projectsRef.current.map((project) =>
+          project.id === projectId ? { ...project, isDone } : project,
+        ),
+      );
+      try {
+        await pb.collection(COLLECTIONS.projects).update(projectId, { isDone });
+        return true;
+      } catch (error) {
+        replaceProjects(
+          projectsRef.current.map((project) =>
+            project.id === projectId ? previousProject : project,
+          ),
+        );
+        console.error("Failed to update project in PocketBase:", error);
+        throw error;
+      }
+    },
+    [replaceProjects],
+  );
+
+  return {
+    projects,
+    isLoading,
+    loadError,
+    createProject,
+    deleteProject,
+    setProjectDone,
+  };
 }

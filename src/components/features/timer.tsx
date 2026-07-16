@@ -15,9 +15,12 @@ import { CircularDurationInput } from "@/components/features/CircularDurationInp
 
 interface TimerProps {
   initialDurationMinutes: number;
-  sessionId: string;
+  initialRemainingSeconds: number;
+  initialIsActive: boolean;
+  initialLastTick: number;
   onComplete: () => void;
   onStop: (options: TimerStopOptions) => void;
+  onStateChange: (state: TimerState) => void;
   sessionTitle: string;
   taskTitle?: string;
 }
@@ -25,6 +28,12 @@ interface TimerProps {
 export interface TimerStopOptions {
   saveElapsedTime: boolean;
   elapsedSeconds: number;
+}
+
+export interface TimerState {
+  remainingSeconds: number;
+  isActive: boolean;
+  lastTick: number;
 }
 
 function formatElapsedTime(seconds: number) {
@@ -58,63 +67,32 @@ function ClockDigits({ value }: { value: string }) {
 
 export function Timer({
   initialDurationMinutes,
-  sessionId,
+  initialRemainingSeconds,
+  initialIsActive,
+  initialLastTick,
   onComplete,
   onStop,
+  onStateChange,
   sessionTitle,
   taskTitle,
 }: TimerProps) {
-  const storageKey = `pokus_timer_${sessionId}`;
+  const [restoredState] = useState(() => {
+    const elapsedSeconds = initialIsActive
+      ? Math.max(0, Math.floor((Date.now() - initialLastTick) / 1000))
+      : 0;
 
-  const [timeLeft, setTimeLeft] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const {
-          timeLeft: savedTime,
-          lastTick,
-          isActive: wasActive,
-        } = JSON.parse(saved);
-
-        if (wasActive) {
-          const elapsed = Math.floor((Date.now() - lastTick) / 1000);
-          return Math.max(0, savedTime - elapsed);
-        }
-        return savedTime;
-      }
-    } catch (error) {
-      console.error("Failed to parse saved timer state:", error);
-    }
-    return initialDurationMinutes * 60;
+    return {
+      timeLeft: Math.max(0, initialRemainingSeconds - elapsedSeconds),
+      isActive: initialIsActive,
+    };
   });
-
-  const [isActive, setIsActive] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        return JSON.parse(saved).isActive;
-      }
-    } catch {
-      // Ignore error
-    }
-    return true;
-  });
+  const [timeLeft, setTimeLeft] = useState(restoredState.timeLeft);
+  const [isActive, setIsActive] = useState(restoredState.isActive);
 
   const [showConfirm, setShowConfirm] = useState(false);
   const intervalRef = useRef<number | null>(null);
   const endTimeRef = useRef<number | null>(null);
   const completedRef = useRef(false);
-
-  useEffect(() => {
-    localStorage.setItem(
-      storageKey,
-      JSON.stringify({
-        timeLeft,
-        isActive,
-        lastTick: Date.now(),
-      }),
-    );
-  }, [timeLeft, isActive, storageKey]);
 
   useEffect(() => {
     if (isActive && timeLeft > 0) {
@@ -132,7 +110,6 @@ export function Timer({
       }, 1000);
     } else if (timeLeft === 0 && !completedRef.current) {
       completedRef.current = true;
-      localStorage.removeItem(storageKey);
       if (intervalRef.current) clearInterval(intervalRef.current);
       onComplete();
     }
@@ -140,18 +117,31 @@ export function Timer({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, timeLeft, onComplete, storageKey]);
+  }, [isActive, timeLeft, onComplete]);
 
-  const toggleTimer = () => setIsActive((active) => !active);
+  const toggleTimer = () => {
+    const nextIsActive = !isActive;
+    const lastTick = Date.now();
+    setIsActive(nextIsActive);
+    onStateChange({
+      remainingSeconds: timeLeft,
+      isActive: nextIsActive,
+      lastTick,
+    });
+  };
 
   const handleStopClick = () => {
     setIsActive(false);
     setShowConfirm(true);
+    onStateChange({
+      remainingSeconds: timeLeft,
+      isActive: false,
+      lastTick: Date.now(),
+    });
   };
 
   const handleConfirmStop = (saveElapsedTime: boolean) => {
     setShowConfirm(false);
-    localStorage.removeItem(storageKey);
     onStop({
       saveElapsedTime,
       elapsedSeconds: Math.max(0, initialDurationMinutes * 60 - timeLeft),
@@ -161,6 +151,11 @@ export function Timer({
   const handleCancelStop = () => {
     setShowConfirm(false);
     setIsActive(true);
+    onStateChange({
+      remainingSeconds: timeLeft,
+      isActive: true,
+      lastTick: Date.now(),
+    });
   };
 
   const formatTime = (seconds: number) => {
@@ -210,29 +205,29 @@ export function Timer({
         </CircularDurationInput>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex flex-wrap justify-center gap-3">
         <Button
           variant="secondary"
-          size="icon"
-          aria-label={isActive ? "Pause timer" : "Resume timer"}
-          className="size-14 rounded-full"
+          size="lg"
+          className="rounded-full px-6"
           onClick={toggleTimer}
         >
           {isActive ? (
-            <Pause className="fill-current" />
+            <Pause data-icon="inline-start" className="fill-current" />
           ) : (
-            <Play className="fill-current" />
+            <Play data-icon="inline-start" className="fill-current" />
           )}
+          {isActive ? "Pause" : "Resume"}
         </Button>
 
         <Button
           variant="destructive"
-          size="icon"
-          aria-label="Stop timer"
-          className="size-14 rounded-full"
+          size="lg"
+          className="rounded-full px-6"
           onClick={handleStopClick}
         >
-          <Square className="fill-current" />
+          <Square data-icon="inline-start" className="fill-current" />
+          Stop
         </Button>
       </div>
 

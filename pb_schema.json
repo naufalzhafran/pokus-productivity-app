@@ -1,0 +1,359 @@
+[
+  {
+    "id": "pbc_484305853",
+    "listRule": "owner = @request.auth.id",
+    "viewRule": "owner = @request.auth.id",
+    "createRule": "@request.auth.id != '' && owner = @request.auth.id",
+    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false",
+    "deleteRule": "owner = @request.auth.id",
+    "name": "projects",
+    "type": "base",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "_pb_users_auth_",
+        "help": "",
+        "hidden": false,
+        "id": "relation3479234172",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "owner",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text724990059",
+        "max": 120,
+        "min": 0,
+        "name": "title",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "bool2970678695",
+        "name": "isDone",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_projects_owner ON projects (owner)"
+    ],
+    "created": "2026-07-15 02:31:16.847Z",
+    "updated": "2026-07-15 02:31:16.847Z",
+    "system": false
+  },
+  {
+    "id": "pbc_2602490748",
+    "listRule": "owner = @request.auth.id",
+    "viewRule": "owner = @request.auth.id",
+    "createRule": "@request.auth.id != '' && owner = @request.auth.id && (project = '' || project.owner = @request.auth.id)",
+    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false && (project = '' || project.owner = @request.auth.id)",
+    "deleteRule": "owner = @request.auth.id",
+    "name": "tasks",
+    "type": "base",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "_pb_users_auth_",
+        "help": "",
+        "hidden": false,
+        "id": "relation3479234172",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "owner",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_484305853",
+        "help": "",
+        "hidden": false,
+        "id": "relation800313582",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "project",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text724990059",
+        "max": 120,
+        "min": 0,
+        "name": "title",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "bool2970678695",
+        "name": "isDone",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "number2125613391",
+        "max": null,
+        "min": 0,
+        "name": "focusedSeconds",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_tasks_owner ON tasks (owner)",
+      "CREATE INDEX idx_tasks_project ON tasks (project)"
+    ],
+    "created": "2026-07-15 02:31:16.849Z",
+    "updated": "2026-07-15 02:31:16.849Z",
+    "system": false
+  },
+  {
+    "id": "pbc_2747464433",
+    "listRule": "owner = @request.auth.id",
+    "viewRule": "owner = @request.auth.id",
+    "createRule": "@request.auth.id != '' && owner = @request.auth.id && (task = '' || task.owner = @request.auth.id)",
+    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false && (task = '' || task.owner = @request.auth.id)",
+    "deleteRule": "owner = @request.auth.id",
+    "name": "pomodoro_sessions",
+    "type": "base",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "_pb_users_auth_",
+        "help": "",
+        "hidden": false,
+        "id": "relation3479234172",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "owner",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_2602490748",
+        "help": "",
+        "hidden": false,
+        "id": "relation1384045349",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "task",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "number3473557905",
+        "max": 1440,
+        "min": 1,
+        "name": "durationMinutes",
+        "onlyInt": true,
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "select2546616235",
+        "maxSelect": 1,
+        "name": "mode",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "running",
+          "complete"
+        ]
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "number2225406563",
+        "max": null,
+        "min": 0,
+        "name": "remainingSeconds",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "bool2323052248",
+        "name": "isActive",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "number3650812994",
+        "max": null,
+        "min": 0,
+        "name": "lastTick",
+        "onlyInt": true,
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_pomodoro_sessions_owner_mode ON pomodoro_sessions (owner, mode)"
+    ],
+    "created": "2026-07-15 02:31:16.850Z",
+    "updated": "2026-07-15 02:31:16.850Z",
+    "system": false
+  }
+]
