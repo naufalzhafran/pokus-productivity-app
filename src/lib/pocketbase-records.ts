@@ -13,13 +13,13 @@ export const COLLECTIONS = {
   sessions: "pomodoro_sessions",
 } as const;
 
-interface ProjectRecord extends RecordModel {
+export interface ProjectRecord extends RecordModel {
   title: string;
   isDone: boolean;
   created: string;
 }
 
-interface TaskRecord extends RecordModel {
+export interface TaskRecord extends RecordModel {
   title: string;
   isDone: boolean;
   focusedSeconds: number;

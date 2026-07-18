@@ -1,6 +1,5 @@
-import { useEffect, useState, useRef, type CSSProperties } from "react";
-import { Button } from "@/components/ui/button";
-import { Play, Pause, Square } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Pause, Play, Square } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,16 +10,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 
 interface TimerProps {
-  initialDurationMinutes: number;
-  initialRemainingSeconds: number;
-  initialIsActive: boolean;
-  initialLastTick: number;
-  onComplete: () => void;
+  durationMinutes: number;
+  remainingSeconds: number;
+  isActive: boolean;
+  onToggle: () => void;
   onStop: (options: TimerStopOptions) => void;
-  onStateChange: (state: TimerState) => void;
   sessionTitle: string;
   taskTitle?: string;
 }
@@ -30,28 +28,23 @@ export interface TimerStopOptions {
   elapsedSeconds: number;
 }
 
-export interface TimerState {
-  remainingSeconds: number;
-  isActive: boolean;
-  lastTick: number;
+function formatTime(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes.toString().padStart(2, "0")}:${remainder
+    .toString()
+    .padStart(2, "0")}`;
 }
 
-function formatElapsedTime(seconds: number) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainingSeconds = seconds % 60;
-
-  if (hours > 0) return `${hours}h ${minutes}m ${remainingSeconds}s`;
-  if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
-  return `${remainingSeconds}s`;
+function formatElapsed(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes ? `${minutes}m ${remainder}s` : `${remainder}s`;
 }
 
 function ClockDigits({ value }: { value: string }) {
   return (
-    <div
-      className="clock-digits timer-digits flex justify-center"
-      aria-label={value}
-    >
+    <div className="clock-digits timer-digits flex justify-center" aria-label={value}>
       {value.split("").map((character, index) => (
         <span
           key={`${index}-${character}`}
@@ -66,151 +59,64 @@ function ClockDigits({ value }: { value: string }) {
 }
 
 export function Timer({
-  initialDurationMinutes,
-  initialRemainingSeconds,
-  initialIsActive,
-  initialLastTick,
-  onComplete,
+  durationMinutes,
+  remainingSeconds,
+  isActive,
+  onToggle,
   onStop,
-  onStateChange,
   sessionTitle,
   taskTitle,
 }: TimerProps) {
-  const [restoredState] = useState(() => {
-    const elapsedSeconds = initialIsActive
-      ? Math.max(0, Math.floor((Date.now() - initialLastTick) / 1000))
-      : 0;
-
-    return {
-      timeLeft: Math.max(0, initialRemainingSeconds - elapsedSeconds),
-      isActive: initialIsActive,
-    };
-  });
-  const [timeLeft, setTimeLeft] = useState(restoredState.timeLeft);
-  const [isActive, setIsActive] = useState(restoredState.isActive);
-
   const [showConfirm, setShowConfirm] = useState(false);
-  const intervalRef = useRef<number | null>(null);
-  const endTimeRef = useRef<number | null>(null);
-  const completedRef = useRef(false);
+  const elapsedSeconds = Math.max(
+    0,
+    durationMinutes * 60 - remainingSeconds,
+  );
+  const conciseTitle =
+    taskTitle && taskTitle.length > 100
+      ? `${taskTitle.slice(0, 97).replace(/\s+/g, " ")}…`
+      : taskTitle?.replace(/\s+/g, " ");
 
   useEffect(() => {
-    if (isActive && timeLeft > 0) {
-      // Set the target end time based on current wall clock + remaining time
-      endTimeRef.current = Date.now() + timeLeft * 1000;
-
-      intervalRef.current = setInterval(() => {
-        const remaining = Math.round((endTimeRef.current! - Date.now()) / 1000);
-        if (remaining <= 0) {
-          setIsActive(false);
-          setTimeLeft(0);
-        } else {
-          setTimeLeft(remaining);
-        }
-      }, 1000);
-    } else if (timeLeft === 0 && !completedRef.current) {
-      completedRef.current = true;
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      onComplete();
-    }
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isActive, timeLeft, onComplete]);
-
-  const toggleTimer = () => {
-    const nextIsActive = !isActive;
-    const lastTick = Date.now();
-    setIsActive(nextIsActive);
-    onStateChange({
-      remainingSeconds: timeLeft,
-      isActive: nextIsActive,
-      lastTick,
-    });
-  };
-
-  const handleStopClick = () => {
-    setIsActive(false);
-    setShowConfirm(true);
-    onStateChange({
-      remainingSeconds: timeLeft,
-      isActive: false,
-      lastTick: Date.now(),
-    });
-  };
-
-  const handleConfirmStop = (saveElapsedTime: boolean) => {
-    setShowConfirm(false);
-    onStop({
-      saveElapsedTime,
-      elapsedSeconds: Math.max(0, initialDurationMinutes * 60 - timeLeft),
-    });
-  };
-
-  const handleCancelStop = () => {
-    setShowConfirm(false);
-    setIsActive(true);
-    onStateChange({
-      remainingSeconds: timeLeft,
-      isActive: true,
-      lastTick: Date.now(),
-    });
-  };
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
-  useEffect(() => {
-    if (isActive) {
-      document.title = `${formatTime(timeLeft)} - ${sessionTitle}`;
-    } else {
-      document.title = "Pokus";
-    }
-
+    document.title = isActive
+      ? `${formatTime(remainingSeconds)} - ${sessionTitle}`
+      : "Pokus";
     return () => {
       document.title = "Pokus";
     };
-  }, [isActive, timeLeft, sessionTitle]);
-
-  const isUrgent = timeLeft <= 60;
-  const isFinalCountdown = timeLeft <= 10;
+  }, [isActive, remainingSeconds, sessionTitle]);
 
   return (
     <div
-      className="timer-stage flex w-full flex-col items-center gap-12"
+      className="timer-stage flex w-full flex-col items-center gap-6 md:gap-10"
       data-active={isActive}
-      data-urgent={isUrgent}
-      data-final={isFinalCountdown}
+      data-urgent={remainingSeconds <= 60}
+      data-final={remainingSeconds <= 10}
     >
-      <div
-        className="timer-shell relative mx-auto flex aspect-square w-full max-w-[540px] justify-center"
-        style={
-          { viewTransitionName: "focus-timer-container" } as CSSProperties
-        }
-      >
+      <p className="sr-only" role="status" aria-live="polite">
+        Timer {isActive ? "running" : "paused"}
+      </p>
+      <div className="timer-shell relative mx-auto flex aspect-square w-[min(78vw,54dvh,540px)] justify-center">
         <CircularDurationInput
-          value={timeLeft}
-          max={initialDurationMinutes * 60}
-          onChange={() => {}}
+          value={remainingSeconds}
+          max={durationMinutes * 60}
+          onChange={() => undefined}
           size={540}
           strokeWidth={12}
-          readOnly={true}
+          readOnly
           className="size-full"
         >
-          <ClockDigits value={formatTime(timeLeft)} />
+          <ClockDigits value={formatTime(remainingSeconds)} />
         </CircularDurationInput>
       </div>
 
       <div className="flex flex-wrap justify-center gap-3">
         <Button
+          type="button"
           variant="secondary"
           size="lg"
-          className="rounded-full px-6"
-          onClick={toggleTimer}
+          className="min-h-11 rounded-full px-6"
+          onClick={onToggle}
         >
           {isActive ? (
             <Pause data-icon="inline-start" className="fill-current" />
@@ -219,46 +125,48 @@ export function Timer({
           )}
           {isActive ? "Pause" : "Resume"}
         </Button>
-
         <Button
+          type="button"
           variant="destructive"
           size="lg"
-          className="rounded-full px-6"
-          onClick={handleStopClick}
+          className="min-h-11 rounded-full px-6"
+          onClick={() => setShowConfirm(true)}
         >
           <Square data-icon="inline-start" className="fill-current" />
           Stop
         </Button>
       </div>
 
-      <AlertDialog
-        open={showConfirm}
-        onOpenChange={(open) => !open && handleCancelStop()}
-      >
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Stop Pomodoro?</AlertDialogTitle>
             <AlertDialogDescription>
-              {taskTitle
-                ? `You focused for ${formatElapsedTime(Math.max(0, initialDurationMinutes * 60 - timeLeft))}. Save this time to “${taskTitle}” or discard it?`
-                : "The current countdown will be cleared and you will return to setup."}
+              {conciseTitle
+                ? `You focused for ${formatElapsed(elapsedSeconds)} on ${conciseTitle}. Save this time or discard it?`
+                : "The countdown will be cleared."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelStop}>
-              {taskTitle ? "Continue" : "Cancel"}
-            </AlertDialogCancel>
+            <AlertDialogCancel>Continue</AlertDialogCancel>
             {taskTitle ? (
               <AlertDialogAction
                 variant="destructive"
-                onClick={() => handleConfirmStop(false)}
+                onClick={() =>
+                  onStop({ saveElapsedTime: false, elapsedSeconds })
+                }
               >
                 Discard
               </AlertDialogAction>
             ) : null}
             <AlertDialogAction
               variant={taskTitle ? "default" : "destructive"}
-              onClick={() => handleConfirmStop(Boolean(taskTitle))}
+              onClick={() =>
+                onStop({
+                  saveElapsedTime: Boolean(taskTitle),
+                  elapsedSeconds,
+                })
+              }
             >
               {taskTitle ? "Save time" : "Stop"}
             </AlertDialogAction>

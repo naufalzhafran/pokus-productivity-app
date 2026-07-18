@@ -124,7 +124,7 @@
     @apply font-sans;
   }
   body {
-    @apply min-h-screen selection:bg-primary/20 selection:text-foreground antialiased bg-background text-foreground;
+    @apply relative min-h-screen selection:bg-primary/20 selection:text-foreground antialiased bg-background text-foreground;
   }
 
   input {
@@ -448,6 +448,15 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+
     .screen-panel,
     .duration-digit,
     .complete-banner,
@@ -457,6 +466,15 @@
     ::view-transition-new(focus-timer-container) {
       animation: none !important;
       transition-duration: 0.01ms !important;
+    }
+  }
+
+  @media (pointer: coarse) {
+    button,
+    [role="button"],
+    [role="menuitem"] {
+      min-height: 44px;
+      min-width: 44px;
     }
   }
 }

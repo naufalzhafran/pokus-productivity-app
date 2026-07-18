@@ -11,6 +11,10 @@ createRoot(document.getElementById("root")!).render(
     <AuthGate>
       <App />
     </AuthGate>
-    <Toaster position="bottom-center" closeButton />
+    <Toaster
+      position="bottom-center"
+      closeButton
+      mobileOffset={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
+    />
   </StrictMode>,
 );

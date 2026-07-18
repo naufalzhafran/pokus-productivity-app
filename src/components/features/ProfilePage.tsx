@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CheckCircle2, Clock3, History, LogOut } from "lucide-react";
 import { UserAvatar } from "@/components/features/UserAvatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
 import { pb } from "@/lib/pocketbase";
 import { getUserDisplayName } from "@/lib/user-profile";
@@ -26,6 +28,8 @@ import type { Task } from "@/types/task";
 
 interface ProfilePageProps {
   tasks: Task[];
+  openTaskId: string | null;
+  onOpenTask: (taskId: string | null) => void;
 }
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -47,9 +51,14 @@ function formatSessionCount(count: number) {
   return `${count} ${count === 1 ? "session" : "sessions"}`;
 }
 
-export function ProfilePage({ tasks }: ProfilePageProps) {
+export function ProfilePage({
+  tasks,
+  openTaskId,
+  onOpenTask,
+}: ProfilePageProps) {
   const record = pb.authStore.record;
   const { history, isLoading, error } = usePomodoroHistory();
+  const [visibleCount, setVisibleCount] = useState(25);
 
   if (!record) return null;
 
@@ -61,6 +70,7 @@ export function ProfilePage({ tasks }: ProfilePageProps) {
   );
   const completedTasks = tasks.filter((task) => task.isDone).length;
   const taskTitles = new Map(tasks.map((task) => [task.id, task.title]));
+  const openTask = tasks.find((task) => task.id === openTaskId) ?? null;
 
   return (
     <div className="screen-panel grid w-full max-w-5xl gap-5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -157,7 +167,7 @@ export function ProfilePage({ tasks }: ProfilePageProps) {
             </Empty>
           ) : (
             <ol className="flex flex-col">
-              {history.map((entry, index) => {
+              {history.slice(0, visibleCount).map((entry, index) => {
                 const completedInFull =
                   entry.focusedSeconds >= entry.durationMinutes * 60;
                 const completedDate = new Date(entry.completedAt);
@@ -174,9 +184,17 @@ export function ProfilePage({ tasks }: ProfilePageProps) {
                           <CheckCircle2 aria-hidden="true" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate font-medium">
-                            {taskTitle ?? "Open focus session"}
-                          </p>
+                          {entry.taskId && taskTitle ? (
+                            <button
+                              type="button"
+                              className="line-clamp-2 text-left font-medium whitespace-pre-wrap break-words hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              onClick={() => onOpenTask(entry.taskId)}
+                            >
+                              {taskTitle}
+                            </button>
+                          ) : (
+                            <p className="font-medium">Open focus session</p>
+                          )}
                           <p className="text-xs text-muted-foreground">
                             <time dateTime={completedDate.toISOString()}>
                               {dateFormatter.format(completedDate)}
@@ -196,10 +214,46 @@ export function ProfilePage({ tasks }: ProfilePageProps) {
                   </li>
                 );
               })}
+              {visibleCount < history.length ? (
+                <li className="pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setVisibleCount((count) => count + 25)}
+                  >
+                    Show 25 more sessions
+                  </Button>
+                </li>
+              ) : null}
             </ol>
           )}
         </CardContent>
       </Card>
+
+      <ResponsiveOverlay
+        open={Boolean(openTask)}
+        onOpenChange={(open) => !open && onOpenTask(null)}
+        title="Task details"
+        description="Task text from this focus session."
+      >
+        {openTask ? (
+          <div className="flex flex-col gap-4">
+            <p className="whitespace-pre-wrap break-words text-base leading-relaxed">
+              {openTask.title}
+            </p>
+            <Separator />
+            <div className="flex flex-wrap gap-2">
+              <Badge variant={openTask.isDone ? "secondary" : "outline"}>
+                {openTask.isDone ? "Completed" : "Open"}
+              </Badge>
+              <Badge variant="outline">
+                {formatFocusedTime(openTask.focusedSeconds)} focused
+              </Badge>
+            </div>
+          </div>
+        ) : null}
+      </ResponsiveOverlay>
     </div>
   );
 }

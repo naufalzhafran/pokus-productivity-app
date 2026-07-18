@@ -4,8 +4,15 @@ import {
   COLLECTIONS,
   createPocketBaseId,
   listTasks,
+  taskFromRecord,
   taskToRecord,
+  type TaskRecord,
 } from "@/lib/pocketbase-records";
+import {
+  runWithConcurrency,
+  TASK_TITLE_MAX_LENGTH,
+  validateTaskTitle,
+} from "@/lib/workspace";
 import type { Task } from "@/types/task";
 
 export function useTasks() {
@@ -18,18 +25,6 @@ export function useTasks() {
     tasksRef.current = nextTasks;
     setTasks(nextTasks);
   }, []);
-
-  const refreshTasks = useCallback(async () => {
-    try {
-      replaceTasks(await listTasks());
-      setLoadError(null);
-    } catch (error) {
-      console.error("Failed to load tasks from PocketBase:", error);
-      setLoadError("Your tasks could not be loaded.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [replaceTasks]);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,7 +52,8 @@ export function useTasks() {
   const createTask = useCallback(
     async (title: string, projectId: string | null) => {
       const normalizedTitle = title.trim();
-      if (!normalizedTitle) return null;
+      const validationError = validateTaskTitle(title);
+      if (validationError) throw new Error(validationError);
 
       const task: Task = {
         id: createPocketBaseId(),
@@ -69,11 +65,12 @@ export function useTasks() {
       };
 
       try {
-        await pb
-        .collection(COLLECTIONS.tasks)
-          .create(taskToRecord(task), { requestKey: null });
-        replaceTasks([task, ...tasksRef.current]);
-        return task;
+        const record = await pb
+          .collection(COLLECTIONS.tasks)
+          .create<TaskRecord>(taskToRecord(task), { requestKey: null });
+        const savedTask = taskFromRecord(record);
+        replaceTasks([savedTask, ...tasksRef.current]);
+        return savedTask;
       } catch (error) {
         console.error("Failed to create task in PocketBase:", error);
         throw error;
@@ -93,7 +90,15 @@ export function useTasks() {
         ),
       );
       try {
-        await pb.collection(COLLECTIONS.tasks).update(taskId, { isDone });
+        const record = await pb
+          .collection(COLLECTIONS.tasks)
+          .update<TaskRecord>(taskId, { isDone }, { requestKey: null });
+        const savedTask = taskFromRecord(record);
+        replaceTasks(
+          tasksRef.current.map((task) =>
+            task.id === taskId ? savedTask : task,
+          ),
+        );
         return true;
       } catch (error) {
         replaceTasks(
@@ -146,9 +151,19 @@ export function useTasks() {
         ),
       );
       try {
-        await pb
+        const record = await pb
           .collection(COLLECTIONS.tasks)
-          .update(taskId, { focusedSeconds });
+          .update<TaskRecord>(
+            taskId,
+            { focusedSeconds },
+            { requestKey: null },
+          );
+        const savedTask = taskFromRecord(record);
+        replaceTasks(
+          tasksRef.current.map((candidate) =>
+            candidate.id === taskId ? savedTask : candidate,
+          ),
+        );
         return true;
       } catch (error) {
         replaceTasks(
@@ -166,7 +181,8 @@ export function useTasks() {
   const editTask = useCallback(
     async (taskId: string, title: string, projectId: string | null) => {
       const normalizedTitle = title.trim();
-      if (!normalizedTitle) return false;
+      const validationError = validateTaskTitle(title);
+      if (validationError) throw new Error(validationError);
       const previousTask = tasksRef.current.find((task) => task.id === taskId);
       if (!previousTask) return false;
 
@@ -178,10 +194,22 @@ export function useTasks() {
         ),
       );
       try {
-        await pb.collection(COLLECTIONS.tasks).update(taskId, {
-          title: normalizedTitle,
-          project: projectId ?? "",
-        });
+        const record = await pb
+          .collection(COLLECTIONS.tasks)
+          .update<TaskRecord>(
+            taskId,
+            {
+              title: normalizedTitle,
+              project: projectId ?? "",
+            },
+            { requestKey: null },
+          );
+        const savedTask = taskFromRecord(record);
+        replaceTasks(
+          tasksRef.current.map((task) =>
+            task.id === taskId ? savedTask : task,
+          ),
+        );
         return true;
       } catch (error) {
         replaceTasks(
@@ -196,32 +224,61 @@ export function useTasks() {
     [replaceTasks],
   );
 
-  const removeProjectFromTasks = useCallback(
-    async (projectId: string) => {
-      const affectedTaskIds = tasksRef.current
-        .filter((task) => task.projectId === projectId)
-        .map((task) => task.id);
-
+  const reconcileDeletedProject = useCallback(
+    (projectId: string) => {
       replaceTasks(
         tasksRef.current.map((task) =>
           task.projectId === projectId ? { ...task, projectId: null } : task,
         ),
       );
+    },
+    [replaceTasks],
+  );
 
-      try {
-        await Promise.all(
-          affectedTaskIds.map((taskId) =>
-            pb.collection(COLLECTIONS.tasks).update(taskId, { project: "" }),
+  const bulkSetTaskDone = useCallback(
+    async (taskIds: string[], isDone: boolean) => {
+      const result = await runWithConcurrency(taskIds, async (taskId) => {
+        const record = await pb
+          .collection(COLLECTIONS.tasks)
+          .update<TaskRecord>(taskId, { isDone }, { requestKey: null });
+        const savedTask = taskFromRecord(record);
+        replaceTasks(
+          tasksRef.current.map((task) =>
+            task.id === taskId ? savedTask : task,
           ),
         );
-        return true;
-      } catch (error) {
-        console.error("Failed to remove project from tasks in PocketBase:", error);
-        await refreshTasks();
-        throw error;
-      }
+      });
+      return {
+        succeededIds: result.succeeded,
+        failedIds: result.failed,
+      };
     },
-    [refreshTasks, replaceTasks],
+    [replaceTasks],
+  );
+
+  const bulkMoveTasks = useCallback(
+    async (taskIds: string[], projectId: string | null) => {
+      const result = await runWithConcurrency(taskIds, async (taskId) => {
+        const record = await pb
+          .collection(COLLECTIONS.tasks)
+          .update<TaskRecord>(
+            taskId,
+            { project: projectId ?? "" },
+            { requestKey: null },
+          );
+        const savedTask = taskFromRecord(record);
+        replaceTasks(
+          tasksRef.current.map((task) =>
+            task.id === taskId ? savedTask : task,
+          ),
+        );
+      });
+      return {
+        succeededIds: result.succeeded,
+        failedIds: result.failed,
+      };
+    },
+    [replaceTasks],
   );
 
   return {
@@ -233,6 +290,9 @@ export function useTasks() {
     deleteTask,
     recordFocusTime,
     editTask,
-    removeProjectFromTasks,
+    reconcileDeletedProject,
+    bulkSetTaskDone,
+    bulkMoveTasks,
+    taskTitleMaxLength: TASK_TITLE_MAX_LENGTH,
   };
 }

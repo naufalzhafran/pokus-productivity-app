@@ -4,7 +4,9 @@ import {
   COLLECTIONS,
   createPocketBaseId,
   listProjects,
+  projectFromRecord,
   projectToRecord,
+  type ProjectRecord,
 } from "@/lib/pocketbase-records";
 import type { Project } from "@/types/task";
 
@@ -55,11 +57,12 @@ export function useProjects() {
       };
 
       try {
-        await pb
-        .collection(COLLECTIONS.projects)
-          .create(projectToRecord(project), { requestKey: null });
-        replaceProjects([project, ...projectsRef.current]);
-        return project;
+        const record = await pb
+          .collection(COLLECTIONS.projects)
+          .create<ProjectRecord>(projectToRecord(project), { requestKey: null });
+        const savedProject = projectFromRecord(record);
+        replaceProjects([savedProject, ...projectsRef.current]);
+        return savedProject;
       } catch (error) {
         console.error("Failed to create project in PocketBase:", error);
         throw error;
@@ -107,7 +110,19 @@ export function useProjects() {
         ),
       );
       try {
-        await pb.collection(COLLECTIONS.projects).update(projectId, { isDone });
+        const record = await pb
+          .collection(COLLECTIONS.projects)
+          .update<ProjectRecord>(
+            projectId,
+            { isDone },
+            { requestKey: null },
+          );
+        const savedProject = projectFromRecord(record);
+        replaceProjects(
+          projectsRef.current.map((project) =>
+            project.id === projectId ? savedProject : project,
+          ),
+        );
         return true;
       } catch (error) {
         replaceProjects(
@@ -122,6 +137,30 @@ export function useProjects() {
     [replaceProjects],
   );
 
+  const renameProject = useCallback(
+    async (projectId: string, title: string) => {
+      const normalizedTitle = title.trim();
+      if (!normalizedTitle || normalizedTitle.length > 120) {
+        throw new Error("Enter a project name up to 120 characters.");
+      }
+      const record = await pb
+        .collection(COLLECTIONS.projects)
+        .update<ProjectRecord>(
+          projectId,
+          { title: normalizedTitle },
+          { requestKey: null },
+        );
+      const savedProject = projectFromRecord(record);
+      replaceProjects(
+        projectsRef.current.map((project) =>
+          project.id === projectId ? savedProject : project,
+        ),
+      );
+      return savedProject;
+    },
+    [replaceProjects],
+  );
+
   return {
     projects,
     isLoading,
@@ -129,5 +168,6 @@ export function useProjects() {
     createProject,
     deleteProject,
     setProjectDone,
+    renameProject,
   };
 }
