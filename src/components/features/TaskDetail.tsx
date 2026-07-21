@@ -8,6 +8,7 @@ interface TaskDetailProps {
   task: Task;
   project?: Project;
   canFocus: boolean;
+  isPending?: boolean;
   onEdit: () => void;
   onFocus: () => void;
   onDelete: () => void;
@@ -26,12 +27,14 @@ export function TaskDetail({
   task,
   project,
   canFocus,
+  isPending = false,
   onEdit,
   onFocus,
   onDelete,
 }: TaskDetailProps) {
+  const conciseTitle = task.title.replace(/\s+/g, " ").trim().slice(0, 120);
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5" aria-busy={isPending}>
       <p className="whitespace-pre-wrap break-words text-base leading-relaxed">
         {task.title}
       </p>
@@ -59,7 +62,12 @@ export function TaskDetail({
         </dd>
       </dl>
       <div className="grid gap-2 sm:grid-cols-2">
-        <Button type="button" onClick={onEdit}>
+        <Button
+          type="button"
+          onClick={onEdit}
+          disabled={isPending}
+          aria-label={`Edit ${conciseTitle}`}
+        >
           Edit
         </Button>
         {!task.isDone ? (
@@ -67,17 +75,29 @@ export function TaskDetail({
             type="button"
             variant="outline"
             onClick={onFocus}
-            disabled={!canFocus}
+            disabled={!canFocus || isPending}
+            aria-describedby={!canFocus ? "task-detail-focus-help" : undefined}
+            aria-label={`Focus on ${conciseTitle}`}
           >
             <TimerReset data-icon="inline-start" />
             Focus
           </Button>
+        ) : null}
+        {!task.isDone && !canFocus ? (
+          <p
+            id="task-detail-focus-help"
+            className="text-sm text-muted-foreground sm:col-span-2"
+          >
+            Finish the current focus session before starting another.
+          </p>
         ) : null}
         <Button
           type="button"
           variant="destructive"
           className="sm:col-span-2"
           onClick={onDelete}
+          disabled={isPending}
+          aria-label={`Delete ${conciseTitle}`}
         >
           <Trash2 data-icon="inline-start" />
           Delete task

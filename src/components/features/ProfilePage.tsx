@@ -59,6 +59,7 @@ export function ProfilePage({
   const record = pb.authStore.record;
   const { history, isLoading, error } = usePomodoroHistory();
   const [visibleCount, setVisibleCount] = useState(25);
+  const [historyAnnouncement, setHistoryAnnouncement] = useState("");
 
   if (!record) return null;
 
@@ -130,7 +131,7 @@ export function ProfilePage({
         </CardHeader>
         <CardContent>
           {error ? (
-            <Empty>
+            <Empty role="alert">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <Clock3 />
@@ -166,6 +167,10 @@ export function ProfilePage({
               </EmptyHeader>
             </Empty>
           ) : (
+            <>
+            <p className="sr-only" role="status" aria-live="polite">
+              {historyAnnouncement}
+            </p>
             <ol className="flex flex-col">
               {history.slice(0, visibleCount).map((entry, index) => {
                 const completedInFull =
@@ -187,8 +192,9 @@ export function ProfilePage({
                           {entry.taskId && taskTitle ? (
                             <button
                               type="button"
-                              className="line-clamp-2 text-left font-medium whitespace-pre-wrap break-words hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="min-h-6 rounded-sm line-clamp-2 text-left font-medium whitespace-pre-wrap break-words hover:underline"
                               onClick={() => onOpenTask(entry.taskId)}
+                              aria-label={`Open task details for ${taskTitle}`}
                             >
                               {taskTitle}
                             </button>
@@ -220,13 +226,20 @@ export function ProfilePage({
                     type="button"
                     variant="outline"
                     className="w-full"
-                    onClick={() => setVisibleCount((count) => count + 25)}
+                    onClick={() => {
+                      const nextCount = Math.min(visibleCount + 25, history.length);
+                      setVisibleCount(nextCount);
+                      setHistoryAnnouncement(
+                        `${nextCount - visibleCount} more sessions shown. ${nextCount} of ${history.length} sessions visible.`,
+                      );
+                    }}
                   >
                     Show 25 more sessions
                   </Button>
                 </li>
               ) : null}
             </ol>
+            </>
           )}
         </CardContent>
       </Card>

@@ -6,13 +6,14 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { CheckCircle2, ListTodo, Minus, Plus, TimerReset } from "lucide-react";
+import { ListTodo, Minus, Plus, TimerReset } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, type AppPage } from "@/components/features/AppShell";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 import { SessionTask } from "@/components/features/SessionTask";
 import { TaskWorkspace } from "@/components/features/TaskWorkspace";
 import { Timer, type TimerStopOptions } from "@/components/features/timer";
+import { TimerCompletion } from "@/components/features/TimerCompletion";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -100,6 +101,10 @@ export default function App() {
   );
   const [page, setPage] = useState<AppPage>(getPageFromHash);
   const [profileTaskId, setProfileTaskId] = useState<string | null>(null);
+  const [appFeedback, setAppFeedback] = useState<{
+    kind: "status" | "alert";
+    message: string;
+  } | null>(null);
   const {
     session,
     setSession,
@@ -141,7 +146,13 @@ export default function App() {
         void recordFocusTime(
           completed.taskId,
           completed.durationMinutes * 60,
-        ).catch(() => toast.error("Focused time could not be saved."));
+        ).catch(() => {
+          toast.error("Focused time could not be saved.");
+          setAppFeedback({
+            kind: "alert",
+            message: "Focused time could not be saved.",
+          });
+        });
       }
       setSession({
         ...completed,
@@ -151,6 +162,7 @@ export default function App() {
         lastTick: Date.now(),
       });
       toast.success("Pomodoro complete.");
+      setAppFeedback({ kind: "status", message: "Pomodoro complete." });
     },
     [recordFocusTime, setSession],
   );
@@ -178,6 +190,12 @@ export default function App() {
     setPage(nextPage);
   }, []);
 
+  useEffect(() => {
+    if (currentSession?.mode === "complete" && page !== "timer") {
+      window.location.hash = "timer";
+    }
+  }, [currentSession?.mode, page]);
+
   const setDuration = (duration: number) =>
     setViewState((current) => ({
       ...current,
@@ -195,12 +213,15 @@ export default function App() {
       isActive: true,
       lastTick: Date.now(),
     });
+    setAppFeedback({ kind: "status", message: "Pomodoro started." });
     navigate("timer");
   };
 
   const setUpTimerForTask = (taskId: string) => {
     if (currentSession) {
-      toast.error("Finish the current session before starting another.");
+      const message = "Finish the current session before starting another.";
+      toast.error(message);
+      setAppFeedback({ kind: "alert", message });
       return;
     }
     const task = tasks.find((candidate) => candidate.id === taskId);
@@ -217,14 +238,22 @@ export default function App() {
       isActive: !currentSession.isActive,
       lastTick: Date.now(),
     });
+    setAppFeedback({
+      kind: "status",
+      message: currentSession.isActive ? "Pomodoro paused." : "Pomodoro resumed.",
+    });
   };
 
   const stopTimer = ({ saveElapsedTime, elapsedSeconds }: TimerStopOptions) => {
     if (!currentSession) return;
     if (saveElapsedTime && currentSession.taskId) {
-      void recordFocusTime(currentSession.taskId, elapsedSeconds).catch(() =>
-        toast.error("Focused time could not be saved."),
-      );
+      void recordFocusTime(currentSession.taskId, elapsedSeconds).catch(() => {
+          toast.error("Focused time could not be saved.");
+          setAppFeedback({
+            kind: "alert",
+            message: "Focused time could not be saved.",
+          });
+        });
       setSession({
         ...currentSession,
         mode: "complete",
@@ -235,8 +264,13 @@ export default function App() {
         isActive: false,
         lastTick: Date.now(),
       });
+      setAppFeedback({
+        kind: "status",
+        message: "Focused time saved. Session complete.",
+      });
     } else {
       setSession(null);
+      setAppFeedback({ kind: "status", message: "Pomodoro stopped." });
     }
   };
 
@@ -248,8 +282,16 @@ export default function App() {
         setViewState((current) => ({ ...current, scope: "all" }));
       }
       toast.success("Project deleted. Its tasks now have no project.");
+      setAppFeedback({
+        kind: "status",
+        message: "Project deleted. Its tasks now have no project.",
+      });
     } catch (error) {
       toast.error("The project could not be deleted.");
+      setAppFeedback({
+        kind: "alert",
+        message: "The project could not be deleted.",
+      });
       throw error;
     }
   };
@@ -261,8 +303,16 @@ export default function App() {
       if (isDone && session?.taskId === taskId) {
         setSession((current) => (current ? { ...current, taskId: null } : null));
       }
+      setAppFeedback({
+        kind: "status",
+        message: isDone ? "Task completed." : "Task reopened.",
+      });
     } catch (error) {
-      toast.error(isDone ? "Task could not be completed." : "Task could not be reopened.");
+      const message = isDone
+        ? "Task could not be completed."
+        : "Task could not be reopened.";
+      toast.error(message);
+      setAppFeedback({ kind: "alert", message });
       throw error;
     }
   };
@@ -275,8 +325,13 @@ export default function App() {
         setSession((current) => (current ? { ...current, taskId: null } : null));
       }
       toast.success("Task deleted.");
+      setAppFeedback({ kind: "status", message: "Task deleted." });
     } catch (error) {
       toast.error("The task could not be deleted.");
+      setAppFeedback({
+        kind: "alert",
+        message: "The task could not be deleted.",
+      });
       throw error;
     }
   };
@@ -297,10 +352,20 @@ export default function App() {
         navigate(nextPage);
       }}
     >
+      {appFeedback ? (
+        <p
+          className="sr-only"
+          role={appFeedback.kind}
+          aria-live={appFeedback.kind === "alert" ? "assertive" : "polite"}
+          aria-atomic="true"
+        >
+          {appFeedback.message}
+        </p>
+      ) : null}
       {page === "tasks" ? (
         <div className="screen-panel">
           {loadError ? (
-            <Card className="mb-5 border-destructive/30">
+            <Card className="mb-5 border-destructive/30" role="alert">
               <CardHeader>
                 <CardTitle>Some workspace data is unavailable</CardTitle>
                 <CardDescription>{loadError}</CardDescription>
@@ -347,9 +412,17 @@ export default function App() {
             onArchiveProject={async (projectId, archived) => {
               try {
                 await setProjectDone(projectId, archived);
-                toast.success(archived ? "Project archived." : "Project restored.");
+                const message = archived
+                  ? "Project archived."
+                  : "Project restored.";
+                toast.success(message);
+                setAppFeedback({ kind: "status", message });
               } catch (error) {
                 toast.error("The project could not be updated.");
+                setAppFeedback({
+                  kind: "alert",
+                  message: "The project could not be updated.",
+                });
                 throw error;
               }
             }}
@@ -410,6 +483,7 @@ export default function App() {
                 strokeWidth={12}
                 className="size-full"
                 ariaLabel="Pomodoro duration in minutes"
+                ariaValueText={`${viewState.lastDuration} ${viewState.lastDuration === 1 ? "minute" : "minutes"}`}
               >
                 <ClockDigits value={formatDuration(viewState.lastDuration)} />
               </CircularDurationInput>
@@ -418,56 +492,27 @@ export default function App() {
 
           <div className="screen-panel mx-auto flex w-full max-w-sm flex-col gap-4 lg:mx-0">
             {currentSession?.mode === "complete" ? (
-              <Card className="complete-banner">
-                <CardHeader>
-                  <CardTitle role="status" aria-live="polite">
-                    Session complete
-                  </CardTitle>
-                  <CardDescription>
-                    {currentSession.durationMinutes} focused minutes recorded.
-                  </CardDescription>
-                </CardHeader>
-                {sessionTask ? (
-                  <CardContent>
-                    <SessionTask title={sessionTask.title} isComplete />
-                  </CardContent>
-                ) : null}
-                <CardFooter className="grid gap-2">
-                  {sessionTask ? (
-                    <Button
-                      type="button"
-                      onClick={async () => {
+              <TimerCompletion
+                durationMinutes={currentSession.durationMinutes}
+                taskTitle={sessionTask?.title}
+                onMarkTaskDone={
+                  sessionTask
+                    ? async () => {
                         await handleStatusChange(sessionTask.id, true);
                         setSession(null);
                         navigate("tasks");
-                      }}
-                    >
-                      <CheckCircle2 data-icon="inline-start" />
-                      Mark done & view tasks
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setSession(null);
-                      setSelectedTaskId(sessionTask?.id ?? null);
-                    }}
-                  >
-                    Focus again
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setSession(null);
-                      navigate("tasks");
-                    }}
-                  >
-                    View tasks
-                  </Button>
-                </CardFooter>
-              </Card>
+                      }
+                    : undefined
+                }
+                onFocusAgain={() => {
+                  setSession(null);
+                  setSelectedTaskId(sessionTask?.id ?? null);
+                }}
+                onViewTasks={() => {
+                  setSession(null);
+                  navigate("tasks");
+                }}
+              />
             ) : (
               <>
                 <Card>

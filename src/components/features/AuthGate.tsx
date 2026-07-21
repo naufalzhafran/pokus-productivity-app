@@ -55,6 +55,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (isRestoring) document.title = "Restoring session | Pokus";
+  }, [isRestoring]);
+
   if (isRestoring) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">

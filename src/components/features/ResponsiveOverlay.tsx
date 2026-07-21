@@ -38,14 +38,19 @@ export function ResponsiveOverlay({
   if (isDesktop) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className={cn("w-full sm:max-w-lg", className)}>
+        <SheetContent
+          className={cn(
+            "w-full max-w-full pb-[env(safe-area-inset-bottom)] sm:max-w-lg",
+            className,
+          )}
+        >
           <SheetHeader>
             <SheetTitle>{title}</SheetTitle>
             {description ? (
               <SheetDescription>{description}</SheetDescription>
             ) : null}
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+          <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-6 pb-6">
             {children}
           </div>
         </SheetContent>
@@ -55,14 +60,14 @@ export function ResponsiveOverlay({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
-      <DrawerContent>
+      <DrawerContent className="max-h-[calc(100dvh-env(safe-area-inset-top)-1rem)]">
         <DrawerHeader>
           <DrawerTitle>{title}</DrawerTitle>
           {description ? (
             <DrawerDescription>{description}</DrawerDescription>
           ) : null}
         </DrawerHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {children}
         </div>
       </DrawerContent>

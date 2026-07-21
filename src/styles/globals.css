@@ -55,7 +55,7 @@
   --primary-foreground: oklch(0.97 0.014 254.604);
   --muted-foreground: oklch(0.553 0.013 58.071);
   --border: oklch(0.923 0.003 48.717);
-  --ring: oklch(0.709 0.01 56.259);
+  --ring: oklch(0.488 0.243 264.376);
   --card-foreground: oklch(0.147 0.004 49.25);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.147 0.004 49.25);
@@ -100,7 +100,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.553 0.013 58.071);
+  --ring: oklch(0.809 0.105 251.813);
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
   --chart-3: oklch(0.546 0.245 262.881);
@@ -133,6 +133,13 @@
 
   button {
     font: inherit;
+  }
+
+  :where(a, button, [role="button"], [role="menuitem"]):not(
+      [data-slot]
+    ):focus-visible {
+    outline: 3px solid var(--ring) !important;
+    outline-offset: 2px;
   }
 }
 
@@ -209,9 +216,10 @@
     touch-action: none;
   }
 
-  .setup-dial svg:focus,
   .setup-dial svg:focus-visible {
-    outline: none !important;
+    border-radius: 9999px;
+    outline: 4px solid var(--ring) !important;
+    outline-offset: 4px;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -503,6 +511,34 @@
     ::view-transition-new(focus-timer-container) {
       animation: none !important;
       transition-duration: 0.01ms !important;
+    }
+  }
+
+  @media (forced-colors: active) {
+    :focus-visible,
+    .setup-dial svg:focus-visible {
+      outline: 3px solid Highlight !important;
+      outline-offset: 3px;
+    }
+
+    .circular-track {
+      stroke: GrayText;
+    }
+
+    .circular-progress {
+      stroke: Highlight;
+    }
+
+    .circular-thumb {
+      stroke: Canvas;
+      fill: Highlight;
+    }
+
+    [aria-current="page"],
+    [aria-pressed="true"],
+    [data-checked] {
+      outline: 2px solid CanvasText;
+      outline-offset: -2px;
     }
   }
 

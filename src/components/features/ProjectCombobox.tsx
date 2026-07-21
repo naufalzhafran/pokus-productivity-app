@@ -18,6 +18,7 @@ interface ProjectComboboxProps {
   projects: Project[];
   value: string | null;
   onValueChange: (projectId: string | null) => void;
+  disabled?: boolean;
 }
 
 export function ProjectCombobox({
@@ -25,6 +26,7 @@ export function ProjectCombobox({
   projects,
   value,
   onValueChange,
+  disabled = false,
 }: ProjectComboboxProps) {
   const options: ProjectOption[] = [
     { label: "No project", value: null },
@@ -42,11 +44,13 @@ export function ProjectCombobox({
       value={selectedOption}
       onValueChange={(option) => onValueChange(option?.value ?? null)}
       itemToStringValue={(option) => option.label}
+      disabled={disabled}
     >
       <ComboboxInput
         id={id}
         className="w-full"
         placeholder="Search projects..."
+        disabled={disabled}
       />
       <ComboboxContent>
         <ComboboxEmpty>No projects found.</ComboboxEmpty>

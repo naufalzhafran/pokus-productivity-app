@@ -43,6 +43,7 @@ export function TaskEditor({
     const validationError = validateTaskTitle(title);
     if (validationError) {
       setError(validationError);
+      textareaRef.current?.focus();
       return;
     }
     setIsSaving(true);
@@ -55,13 +56,18 @@ export function TaskEditor({
           ? caught.message
           : "This task could not be saved.",
       );
+      textareaRef.current?.focus();
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-5"
+      aria-busy={isSaving}
+    >
       <FieldGroup>
         <Field data-invalid={Boolean(error)}>
           <FieldLabel htmlFor="task-editor-title">Task</FieldLabel>
@@ -77,11 +83,13 @@ export function TaskEditor({
             required
             disabled={isSaving}
             aria-invalid={Boolean(error)}
+            aria-describedby={error ? "task-editor-error task-editor-count" : "task-editor-count"}
             className="max-h-[45dvh] overflow-y-auto whitespace-pre-wrap break-words"
           />
           <div className="flex items-start justify-between gap-3">
-            <FieldError>{error}</FieldError>
+            <FieldError id="task-editor-error">{error}</FieldError>
             <span
+              id="task-editor-count"
               className="ml-auto text-xs tabular-nums text-muted-foreground"
               aria-live="polite"
             >
@@ -97,6 +105,7 @@ export function TaskEditor({
             projects={projects}
             value={projectId}
             onValueChange={setProjectId}
+            disabled={isSaving}
           />
         </Field>
       </FieldGroup>

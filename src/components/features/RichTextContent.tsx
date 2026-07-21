@@ -2,7 +2,10 @@ import { useMemo } from "react";
 import DOMPurify from "dompurify";
 
 export function RichTextContent({ html }: { html: string }) {
-  const cleanHtml = useMemo(() => DOMPurify.sanitize(html), [html]);
+  const cleanHtml = useMemo(
+    () => DOMPurify.sanitize(html, { ADD_ATTR: ["target", "rel"] }),
+    [html],
+  );
 
   return (
     <div

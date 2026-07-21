@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
   Folder,
@@ -27,6 +27,7 @@ function NavigationItems({
 }: ProjectNavigationProps & { onChosen?: () => void }) {
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(25);
+  const [announcement, setAnnouncement] = useState("");
   const filteredProjects = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return index.activeProjects;
@@ -34,6 +35,15 @@ function NavigationItems({
       project.title.toLocaleLowerCase().includes(needle),
     );
   }, [index.activeProjects, query]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setAnnouncement(
+        `${filteredProjects.length} matching ${filteredProjects.length === 1 ? "project" : "projects"}.`,
+      );
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [filteredProjects.length, query]);
 
   const choose = (nextScope: WorkspaceScope) => {
     onScopeChange(nextScope);
@@ -61,6 +71,9 @@ function NavigationItems({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
       <label className="relative">
         <span className="sr-only">Search projects</span>
         <Search
@@ -68,12 +81,25 @@ function NavigationItems({
           aria-hidden="true"
         />
         <Input
+          type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Find a project"
           className="pl-9"
         />
       </label>
+      {query ? (
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            setQuery("");
+            setAnnouncement("Project search cleared.");
+          }}
+        >
+          Clear project search
+        </Button>
+      ) : null}
       <ScrollArea className="min-h-0 flex-1">
         <nav aria-label="Project scopes" className="flex flex-col gap-1 pr-3">
           {item(
@@ -97,7 +123,16 @@ function NavigationItems({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setVisibleCount((count) => count + 25)}
+              onClick={() => {
+                const nextCount = Math.min(
+                  visibleCount + 25,
+                  filteredProjects.length,
+                );
+                setVisibleCount(nextCount);
+                setAnnouncement(
+                  `${nextCount - visibleCount} more projects shown. ${nextCount} of ${filteredProjects.length} projects visible.`,
+                );
+              }}
             >
               Show more projects
             </Button>
@@ -116,7 +151,7 @@ function NavigationItems({
 
 export function DesktopProjectNavigation(props: ProjectNavigationProps) {
   return (
-    <aside className="sticky top-24 hidden h-[calc(100dvh-7rem)] min-h-96 flex-col rounded-2xl border bg-card p-4 lg:flex">
+    <aside className="sticky top-24 hidden h-fit max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-2xl border bg-card p-4 lg:flex">
       <h2 className="mb-3 font-heading font-medium">Workspace</h2>
       <NavigationItems {...props} />
     </aside>

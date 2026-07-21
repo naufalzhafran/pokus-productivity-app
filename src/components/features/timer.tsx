@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pause, Play, Square } from "lucide-react";
 import {
   AlertDialog,
@@ -68,6 +68,13 @@ export function Timer({
   taskTitle,
 }: TimerProps) {
   const [showConfirm, setShowConfirm] = useState(false);
+  const [announcement, setAnnouncement] = useState(() =>
+    isActive
+      ? `Timer started for ${durationMinutes} ${durationMinutes === 1 ? "minute" : "minutes"}.`
+      : "Timer paused.",
+  );
+  const previousActive = useRef(isActive);
+  const previousRemaining = useRef(remainingSeconds);
   const elapsedSeconds = Math.max(
     0,
     durationMinutes * 60 - remainingSeconds,
@@ -78,13 +85,26 @@ export function Timer({
       : taskTitle?.replace(/\s+/g, " ");
 
   useEffect(() => {
-    document.title = isActive
-      ? `${formatTime(remainingSeconds)} - ${sessionTitle}`
-      : "Pokus";
-    return () => {
-      document.title = "Pokus";
-    };
+    document.title = `${isActive ? "" : "Paused · "}${formatTime(remainingSeconds)} · ${sessionTitle} | Pokus`;
   }, [isActive, remainingSeconds, sessionTitle]);
+
+  useEffect(() => {
+    const wasActive = previousActive.current;
+    const previousSeconds = previousRemaining.current;
+    let nextAnnouncement: string | null = null;
+
+    if (wasActive !== isActive) {
+      nextAnnouncement = isActive ? "Timer resumed." : "Timer paused.";
+    } else if (isActive && previousSeconds > 60 && remainingSeconds <= 60) {
+      nextAnnouncement = "One minute remaining.";
+    } else if (isActive && previousSeconds > 10 && remainingSeconds <= 10) {
+      nextAnnouncement = "Ten seconds remaining.";
+    }
+
+    previousActive.current = isActive;
+    previousRemaining.current = remainingSeconds;
+    if (nextAnnouncement) setAnnouncement(nextAnnouncement);
+  }, [isActive, remainingSeconds]);
 
   return (
     <div
@@ -93,10 +113,14 @@ export function Timer({
       data-urgent={remainingSeconds <= 60}
       data-final={remainingSeconds <= 10}
     >
-      <p className="sr-only" role="status" aria-live="polite">
-        Timer {isActive ? "running" : "paused"}
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
       </p>
-      <div className="timer-shell relative mx-auto flex aspect-square w-[min(78vw,54dvh,540px)] justify-center">
+      <div
+        className="timer-shell relative mx-auto flex aspect-square w-[min(78vw,54dvh,540px)] justify-center"
+        role="timer"
+        aria-label={`${formatTime(remainingSeconds)} remaining`}
+      >
         <CircularDurationInput
           value={remainingSeconds}
           max={durationMinutes * 60}
@@ -117,6 +141,7 @@ export function Timer({
           size="lg"
           className="min-h-11 rounded-full px-6"
           onClick={onToggle}
+          aria-label={isActive ? "Pause Pomodoro timer" : "Resume Pomodoro timer"}
         >
           {isActive ? (
             <Pause data-icon="inline-start" className="fill-current" />
@@ -131,6 +156,7 @@ export function Timer({
           size="lg"
           className="min-h-11 rounded-full px-6"
           onClick={() => setShowConfirm(true)}
+          aria-label="Stop Pomodoro timer"
         >
           <Square data-icon="inline-start" className="fill-current" />
           Stop
@@ -148,10 +174,13 @@ export function Timer({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Continue</AlertDialogCancel>
+            <AlertDialogCancel aria-label="Continue Pomodoro timer">
+              Continue
+            </AlertDialogCancel>
             {taskTitle ? (
               <AlertDialogAction
                 variant="destructive"
+                aria-label="Discard this focus session"
                 onClick={() =>
                   onStop({ saveElapsedTime: false, elapsedSeconds })
                 }
@@ -161,6 +190,7 @@ export function Timer({
             ) : null}
             <AlertDialogAction
               variant={taskTitle ? "default" : "destructive"}
+              aria-label={taskTitle ? "Save focused time and stop" : "Stop Pomodoro timer"}
               onClick={() =>
                 onStop({
                   saveElapsedTime: Boolean(taskTitle),

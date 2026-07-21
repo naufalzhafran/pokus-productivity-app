@@ -12,6 +12,7 @@ interface CircularDurationInputProps {
   children?: React.ReactNode;
   readOnly?: boolean;
   ariaLabel?: string;
+  ariaValueText?: string;
 }
 
 export function CircularDurationInput({
@@ -24,6 +25,7 @@ export function CircularDurationInput({
   className,
   readOnly = false,
   ariaLabel = "Timer duration",
+  ariaValueText,
   children,
 }: CircularDurationInputProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -150,6 +152,7 @@ export function CircularDurationInput({
         aria-valuemin={readOnly ? undefined : min}
         aria-valuemax={readOnly ? undefined : max}
         aria-valuenow={readOnly ? undefined : normalizedValue}
+        aria-valuetext={readOnly ? undefined : ariaValueText}
         tabIndex={readOnly ? undefined : 0}
       >
         {!readOnly && (
@@ -173,7 +176,7 @@ export function CircularDurationInput({
           fill="none"
           stroke="var(--muted)"
           strokeWidth={strokeWidth}
-          className="pointer-events-none"
+          className="circular-track pointer-events-none"
         />
 
         {/* Progress */}
@@ -188,7 +191,7 @@ export function CircularDurationInput({
           strokeDasharray={circumference}
           strokeDashoffset={progressOffset}
           transform={`rotate(-90 ${center} ${center})`}
-          className="pointer-events-none transition-[stroke-dashoffset] duration-75 ease-out"
+          className="circular-progress pointer-events-none transition-[stroke-dashoffset] duration-75 ease-out"
         />
 
         {/* Thumb */}
@@ -201,7 +204,7 @@ export function CircularDurationInput({
               fill="var(--primary)"
               stroke="var(--background)"
               strokeWidth={strokeWidth * 0.45}
-              className="pointer-events-none bezel-thumb"
+              className="circular-thumb pointer-events-none bezel-thumb"
             />
             <circle
               cx={thumbX}

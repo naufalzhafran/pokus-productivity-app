@@ -38,16 +38,31 @@ export function AppShell({
     headingRef.current?.focus({ preventScroll: true });
   }, [page]);
 
+  useEffect(() => {
+    if (page === "timer" && session?.mode === "running") return;
+    const title =
+      page === "timer" && session?.mode === "complete"
+        ? "Session complete"
+        : page === "timer"
+          ? "Set up timer"
+          : pageTitle(page);
+    document.title = `${title} | Pokus`;
+  }, [page, session?.mode]);
+
   const navItem = (
     value: AppPage,
     label: string,
     icon: React.ReactNode,
   ) => (
     <Button
-      type="button"
+      render={
+        <a
+          href={`#${value}`}
+          onClick={() => onNavigate(value)}
+        />
+      }
       variant={page === value ? "secondary" : "ghost"}
       className="min-h-11 flex-1 flex-col gap-0.5 px-2 text-xs sm:flex-row sm:text-sm"
-      onClick={() => onNavigate(value)}
       aria-current={page === value ? "page" : undefined}
       aria-label={
         value === "timer" && timerStatus

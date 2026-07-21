@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ClientResponseError } from "pocketbase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,10 @@ function getGoogleLoginError(error: unknown) {
 export function LoginForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    document.title = "Sign in | Pokus";
+  }, []);
 
   const handleGoogleLogin = () => {
     setErrorMessage(null);
@@ -83,6 +87,7 @@ export function LoginForm() {
                 disabled={isSubmitting}
                 aria-invalid={Boolean(errorMessage)}
                 aria-describedby={errorMessage ? "google-login-error" : undefined}
+                aria-busy={isSubmitting}
               >
                 {isSubmitting ? "Connecting to Google…" : "Continue with Google"}
               </Button>
