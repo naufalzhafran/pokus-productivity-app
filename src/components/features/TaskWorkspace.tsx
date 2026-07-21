@@ -189,6 +189,9 @@ export function TaskWorkspace({
   const deleteProject =
     projects.find((project) => project.id === deleteProjectId) ?? null;
   const activeProjects = index.activeProjects;
+  const selectedProject = viewState.scope.startsWith("project:")
+    ? (index.projectMap.get(viewState.scope.slice(8)) ?? null)
+    : null;
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
@@ -198,6 +201,13 @@ export function TaskWorkspace({
     key: K,
     value: WorkspaceViewState[K],
   ) => setViewState((current) => ({ ...current, [key]: value }));
+
+  const openProjectEditor = (project: Project) => {
+    setProjectTitle(project.title);
+    setProjectDescription(project.description);
+    setProjectError(null);
+    setProjectEditor(project);
+  };
 
   const initialProjectId = viewState.scope.startsWith("project:")
     ? viewState.scope.slice(8)
@@ -297,11 +307,24 @@ export function TaskWorkspace({
                   matching tasks
                 </p>
               </div>
-              <MobileProjectNavigation
-                index={index}
-                scope={viewState.scope}
-                onScopeChange={(scope) => updateViewState("scope", scope)}
-              />
+              <div className="flex items-center gap-2">
+                {selectedProject ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openProjectEditor(selectedProject)}
+                  >
+                    <Pencil data-icon="inline-start" />
+                    Edit project
+                  </Button>
+                ) : null}
+                <MobileProjectNavigation
+                  index={index}
+                  scope={viewState.scope}
+                  onScopeChange={(scope) => updateViewState("scope", scope)}
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -420,14 +443,9 @@ export function TaskWorkspace({
                           <DropdownMenuContent align="end">
                             <DropdownMenuGroup>
                               <DropdownMenuItem
-                                onClick={() => {
-                                  setProjectTitle(group.project!.title);
-                                  setProjectDescription(
-                                    group.project!.description,
-                                  );
-                                  setProjectError(null);
-                                  setProjectEditor(group.project!);
-                                }}
+                                onClick={() =>
+                                  openProjectEditor(group.project!)
+                                }
                               >
                                 <Pencil />
                                 Edit project
