@@ -62,8 +62,6 @@ export function RichTextEditor({
       bulletList: currentEditor?.isActive("bulletList") ?? false,
       orderedList: currentEditor?.isActive("orderedList") ?? false,
       blockquote: currentEditor?.isActive("blockquote") ?? false,
-      canUndo: currentEditor?.can().chain().focus().undo().run() ?? false,
-      canRedo: currentEditor?.can().chain().focus().redo().run() ?? false,
     }),
   });
 
@@ -164,7 +162,7 @@ export function RichTextEditor({
           variant="ghost"
           size="icon-sm"
           onClick={() => editor.chain().focus().undo().run()}
-          disabled={disabled || !formatting.canUndo}
+          disabled={disabled}
           aria-label="Undo"
         >
           <Undo2 />
@@ -174,7 +172,7 @@ export function RichTextEditor({
           variant="ghost"
           size="icon-sm"
           onClick={() => editor.chain().focus().redo().run()}
-          disabled={disabled || !formatting.canRedo}
+          disabled={disabled}
           aria-label="Redo"
         >
           <Redo2 />
