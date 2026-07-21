@@ -9,7 +9,6 @@ import {
   type TaskRecord,
 } from "@/lib/pocketbase-records";
 import {
-  runWithConcurrency,
   TASK_TITLE_MAX_LENGTH,
   validateTaskTitle,
 } from "@/lib/workspace";
@@ -235,52 +234,6 @@ export function useTasks() {
     [replaceTasks],
   );
 
-  const bulkSetTaskDone = useCallback(
-    async (taskIds: string[], isDone: boolean) => {
-      const result = await runWithConcurrency(taskIds, async (taskId) => {
-        const record = await pb
-          .collection(COLLECTIONS.tasks)
-          .update<TaskRecord>(taskId, { isDone }, { requestKey: null });
-        const savedTask = taskFromRecord(record);
-        replaceTasks(
-          tasksRef.current.map((task) =>
-            task.id === taskId ? savedTask : task,
-          ),
-        );
-      });
-      return {
-        succeededIds: result.succeeded,
-        failedIds: result.failed,
-      };
-    },
-    [replaceTasks],
-  );
-
-  const bulkMoveTasks = useCallback(
-    async (taskIds: string[], projectId: string | null) => {
-      const result = await runWithConcurrency(taskIds, async (taskId) => {
-        const record = await pb
-          .collection(COLLECTIONS.tasks)
-          .update<TaskRecord>(
-            taskId,
-            { project: projectId ?? "" },
-            { requestKey: null },
-          );
-        const savedTask = taskFromRecord(record);
-        replaceTasks(
-          tasksRef.current.map((task) =>
-            task.id === taskId ? savedTask : task,
-          ),
-        );
-      });
-      return {
-        succeededIds: result.succeeded,
-        failedIds: result.failed,
-      };
-    },
-    [replaceTasks],
-  );
-
   return {
     tasks,
     isLoading,
@@ -291,8 +244,6 @@ export function useTasks() {
     recordFocusTime,
     editTask,
     reconcileDeletedProject,
-    bulkSetTaskDone,
-    bulkMoveTasks,
     taskTitleMaxLength: TASK_TITLE_MAX_LENGTH,
   };
 }

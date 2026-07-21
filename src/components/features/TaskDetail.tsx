@@ -46,7 +46,7 @@ export function TaskDetail({
         <dt className="text-muted-foreground">Project</dt>
         <dd className="flex min-w-0 items-center gap-2">
           <Folder aria-hidden="true" />
-          <span className="truncate">{project?.title ?? "Inbox"}</span>
+          <span className="truncate">{project?.title ?? "No project"}</span>
         </dd>
         <dt className="text-muted-foreground">Focused</dt>
         <dd>{formatFocused(task.focusedSeconds)}</dd>

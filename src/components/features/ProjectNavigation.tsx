@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   Archive,
   Folder,
-  Inbox,
   ListTodo,
   Menu,
   Search,
@@ -82,12 +81,6 @@ function NavigationItems({
             "All tasks",
             index.activeOpenCount,
             <ListTodo data-icon="inline-start" />,
-          )}
-          {item(
-            "inbox",
-            "Inbox",
-            index.inboxCount,
-            <Inbox data-icon="inline-start" />,
           )}
           <p className="px-3 pb-1 pt-4 text-xs font-medium text-muted-foreground">
             Projects

@@ -19,7 +19,6 @@ export function loadWorkspacePreferences(userId: string): WorkspaceViewState {
     return {
       scope:
         saved.scope === "all" ||
-        saved.scope === "inbox" ||
         saved.scope === "archived" ||
         saved.scope?.startsWith("project:")
           ? saved.scope
@@ -32,9 +31,6 @@ export function loadWorkspacePreferences(userId: string): WorkspaceViewState {
       )
         ? saved.sort!
         : defaults.sort,
-      density: ["compact", "comfortable"].includes(saved.density ?? "")
-        ? saved.density!
-        : defaults.density,
       lastDuration:
         Number.isFinite(saved.lastDuration) &&
         saved.lastDuration! >= 1 &&

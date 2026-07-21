@@ -7,13 +7,8 @@ import {
 } from "react";
 import {
   Archive,
-  ChevronDown,
-  ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
   Folder,
-  Inbox,
-  ListChecks,
+  ListTodo,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -22,9 +17,7 @@ import {
   Search,
   TimerReset,
   Trash2,
-  X,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,13 +30,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,8 +62,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ProjectCombobox } from "@/components/features/ProjectCombobox";
 import {
   DesktopProjectNavigation,
   MobileProjectNavigation,
@@ -83,19 +75,11 @@ import {
   PROJECT_TITLE_MAX_LENGTH,
   selectWorkspaceGroups,
   TASK_BATCH_SIZE,
-  type TaskDensity,
   type TaskSort,
   type TaskStatusFilter,
   type WorkspaceViewState,
 } from "@/lib/workspace";
 import type { Project, Task } from "@/types/task";
-
-interface BulkResult {
-  succeededIds: string[];
-  failedIds: string[];
-}
-
-let rememberedExpandedGroups: Set<string> | null = null;
 
 interface TaskWorkspaceProps {
   tasks: Task[];
@@ -116,11 +100,6 @@ interface TaskWorkspaceProps {
     projectId: string | null,
   ) => Promise<unknown>;
   onDeleteTask: (taskId: string) => Promise<unknown>;
-  onBulkStatus: (taskIds: string[], isDone: boolean) => Promise<BulkResult>;
-  onBulkMove: (
-    taskIds: string[],
-    projectId: string | null,
-  ) => Promise<BulkResult>;
 }
 
 function formatFocusedTime(seconds: number) {
@@ -150,8 +129,6 @@ export function TaskWorkspace({
   onStatusChange,
   onEditTask,
   onDeleteTask,
-  onBulkStatus,
-  onBulkMove,
 }: TaskWorkspaceProps) {
   const index = useMemo(
     () => buildWorkspaceIndex(projects, tasks),
@@ -162,23 +139,7 @@ export function TaskWorkspace({
     () => selectWorkspaceGroups(index, viewState, search),
     [index, search, viewState],
   );
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    if (rememberedExpandedGroups) {
-      return new Set(rememberedExpandedGroups);
-    }
-    const initial = new Set(["inbox"]);
-    const firstNonEmpty = groups.find(
-      (group) => group.id !== "inbox" && group.tasks.length > 0,
-    );
-    if (firstNonEmpty) initial.add(firstNonEmpty.id);
-    rememberedExpandedGroups = new Set(initial);
-    return initial;
-  });
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkProjectId, setBulkProjectId] = useState<string | null>(null);
-  const [bulkPending, setBulkPending] = useState(false);
   const [editorTask, setEditorTask] = useState<Task | "new" | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
@@ -194,18 +155,6 @@ export function TaskWorkspace({
     projects.find((project) => project.id === deleteProjectId) ?? null;
   const activeProjects = index.activeProjects;
 
-  const displayedExpanded = useMemo(
-    () =>
-      search.trim()
-        ? new Set(groups.map((group) => group.id))
-        : expanded,
-    [expanded, groups, search],
-  );
-  const actionableSelectedIds = useMemo(() => {
-    const taskIds = new Set(tasks.map((task) => task.id));
-    return [...selectedIds].filter((id) => taskIds.has(id));
-  }, [selectedIds, tasks]);
-
   const updateViewState = <K extends keyof WorkspaceViewState>(
     key: K,
     value: WorkspaceViewState[K],
@@ -214,32 +163,6 @@ export function TaskWorkspace({
   const initialProjectId = viewState.scope.startsWith("project:")
     ? viewState.scope.slice(8)
     : null;
-
-  const closeSelection = () => {
-    setSelectionMode(false);
-    setSelectedIds(new Set());
-  };
-
-  const runBulk = async (
-    action: () => Promise<BulkResult>,
-    successMessage: string,
-  ) => {
-    setBulkPending(true);
-    try {
-      const result = await action();
-      setSelectedIds(new Set(result.failedIds));
-      if (result.failedIds.length) {
-        toast.error(
-          `${result.succeededIds.length} updated; ${result.failedIds.length} failed and remain selected.`,
-        );
-      } else {
-        toast.success(successMessage);
-        closeSelection();
-      }
-    } finally {
-      setBulkPending(false);
-    }
-  };
 
   const handleProjectSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -268,20 +191,6 @@ export function TaskWorkspace({
     }
   };
 
-  const toggleSelected = (taskId: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(taskId)) next.delete(taskId);
-      else next.add(taskId);
-      return next;
-    });
-  };
-
-  const rememberExpanded = (next: Set<string>) => {
-    rememberedExpandedGroups = new Set(next);
-    setExpanded(next);
-  };
-
   return (
     <div className="grid w-full items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
       <DesktopProjectNavigation
@@ -300,12 +209,10 @@ export function TaskWorkspace({
                     ? viewState.status === "open"
                       ? "All open tasks"
                       : "All tasks"
-                    : viewState.scope === "inbox"
-                      ? "Inbox"
-                      : viewState.scope === "archived"
-                        ? "Archived projects"
-                        : index.projectMap.get(viewState.scope.slice(8))?.title ??
-                          "Tasks"}
+                    : viewState.scope === "archived"
+                      ? "Archived projects"
+                      : index.projectMap.get(viewState.scope.slice(8))?.title ??
+                        "Tasks"}
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {groups.reduce((total, group) => total + group.tasks.length, 0)}{" "}
@@ -388,55 +295,6 @@ export function TaskWorkspace({
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <ToggleGroup
-                  variant="outline"
-                  value={[viewState.density]}
-                  onValueChange={(values) => {
-                    if (values[0]) {
-                      updateViewState("density", values[0] as TaskDensity);
-                    }
-                  }}
-                  aria-label="Task density"
-                >
-                  <ToggleGroupItem value="compact">Compact</ToggleGroupItem>
-                  <ToggleGroupItem value="comfortable">
-                    Comfortable
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <Button
-                  type="button"
-                  variant={selectionMode ? "secondary" : "outline"}
-                  onClick={() =>
-                    selectionMode ? closeSelection() : setSelectionMode(true)
-                  }
-                >
-                  {selectionMode ? (
-                    <X data-icon="inline-start" />
-                  ) : (
-                    <ListChecks data-icon="inline-start" />
-                  )}
-                  {selectionMode ? "Exit selection" : "Select"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Expand all groups"
-                  onClick={() =>
-                    rememberExpanded(new Set(groups.map((group) => group.id)))
-                  }
-                >
-                  <ChevronsUpDown />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Collapse all groups"
-                  onClick={() => rememberExpanded(new Set())}
-                >
-                  <ChevronsDownUp />
-                </Button>
               </div>
             </div>
           </CardHeader>
@@ -466,39 +324,20 @@ export function TaskWorkspace({
         ) : (
           <div className="flex flex-col gap-3">
             {groups.map((group) => {
-              const isOpen = displayedExpanded.has(group.id);
               const shown = visibleCounts[group.id] ?? TASK_BATCH_SIZE;
               const visibleTasks = group.tasks.slice(0, shown);
-              const GroupIcon = group.project ? Folder : Inbox;
+              const GroupIcon = group.project ? Folder : ListTodo;
               return (
-                <Collapsible
-                  key={group.id}
-                  open={isOpen}
-                  onOpenChange={(open) => {
-                    const next = new Set(expanded);
-                    if (open) next.add(group.id);
-                    else next.delete(group.id);
-                    rememberExpanded(next);
-                  }}
-                >
-                  <Card>
-                    <CardHeader className="flex-row items-center py-3">
-                      <CollapsibleTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="min-w-0 flex-1 justify-start"
-                          />
-                        }
-                      >
-                        {isOpen ? <ChevronDown /> : <ChevronRight />}
-                        <GroupIcon data-icon="inline-start" />
-                        <span className="truncate">
-                          {group.project?.title ?? "Inbox"}
-                        </span>
-                        <Badge variant="outline">{group.tasks.length}</Badge>
-                      </CollapsibleTrigger>
+                <Card key={group.id} size="sm">
+                  <CardHeader className="items-center">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <GroupIcon aria-hidden="true" />
+                      <CardTitle className="truncate">
+                        {group.project?.title ?? "No project"}
+                      </CardTitle>
+                      <Badge variant="outline">{group.tasks.length}</Badge>
+                    </div>
+                    <CardAction className="flex items-center gap-2">
                       <span className="hidden text-xs text-muted-foreground sm:inline">
                         {formatFocusedTime(group.focusedSeconds)}
                       </span>
@@ -536,12 +375,18 @@ export function TaskWorkspace({
                                   )
                                 }
                               >
-                                {group.project.isDone ? <RotateCcw /> : <Archive />}
+                                {group.project.isDone ? (
+                                  <RotateCcw />
+                                ) : (
+                                  <Archive />
+                                )}
                                 {group.project.isDone ? "Restore" : "Archive"}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 variant="destructive"
-                                onClick={() => setDeleteProjectId(group.project!.id)}
+                                onClick={() =>
+                                  setDeleteProjectId(group.project!.id)
+                                }
                               >
                                 <Trash2 />
                                 Delete project
@@ -550,191 +395,113 @@ export function TaskWorkspace({
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : null}
-                    </CardHeader>
-                    <CollapsibleContent>
-                      <CardContent className="pt-0">
-                        <ul className="flex flex-col gap-1" aria-label={`Tasks in ${group.project?.title ?? "Inbox"}`}>
-                          {visibleTasks.map((task) => (
-                            <li
-                              key={task.id}
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    <ul
+                      className="flex flex-col gap-1"
+                      aria-label={`Tasks in ${group.project?.title ?? "No project"}`}
+                    >
+                      {visibleTasks.map((task) => (
+                        <li
+                          key={task.id}
+                          className="group flex items-start gap-2 rounded-xl border border-transparent p-3 hover:bg-muted/50"
+                        >
+                          <Checkbox
+                            checked={task.isDone}
+                            onCheckedChange={() =>
+                              void onStatusChange(task.id, !task.isDone)
+                            }
+                            aria-label={
+                              task.isDone ? "Reopen task" : "Mark task complete"
+                            }
+                            className="mt-1 after:-inset-3.5"
+                          />
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={() => setDetailTaskId(task.id)}
+                          >
+                            <span
                               className={cn(
-                                "group flex items-start gap-2 rounded-xl border border-transparent hover:bg-muted/50",
-                                viewState.density === "compact" ? "p-2" : "p-3",
-                                selectedIds.has(task.id) && "bg-muted",
+                                "task-preview line-clamp-3 whitespace-pre-wrap break-words text-sm font-medium",
+                                task.isDone &&
+                                  "text-muted-foreground line-through",
                               )}
                             >
-                              {selectionMode ? (
-                                <Checkbox
-                                  checked={selectedIds.has(task.id)}
-                                  onCheckedChange={() => toggleSelected(task.id)}
-                                  aria-label={`Select ${previewTitle(task.title)}`}
-                                  className="mt-1 after:-inset-3.5"
-                                />
-                              ) : (
-                                <Checkbox
-                                  checked={task.isDone}
-                                  onCheckedChange={() =>
-                                    void onStatusChange(task.id, !task.isDone)
-                                  }
-                                  aria-label={
-                                    task.isDone
-                                      ? "Reopen task"
-                                      : "Mark task complete"
-                                  }
-                                  className="mt-1 after:-inset-3.5"
-                                />
-                              )}
-                              <button
-                                type="button"
-                                className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                onClick={() =>
-                                  selectionMode
-                                    ? toggleSelected(task.id)
-                                    : setDetailTaskId(task.id)
-                                }
-                              >
-                                <span
-                                  className={cn(
-                                    "task-preview whitespace-pre-wrap break-words text-sm font-medium",
-                                    viewState.density === "compact"
-                                      ? "line-clamp-2"
-                                      : "line-clamp-3",
-                                    task.isDone &&
-                                      "text-muted-foreground line-through",
-                                  )}
-                                >
-                                  {task.title}
-                                </span>
-                                <span className="mt-1 block text-xs text-muted-foreground">
-                                  {formatFocusedTime(task.focusedSeconds)}
-                                </span>
-                              </button>
-                              {!task.isDone && !selectionMode ? (
+                              {task.title}
+                            </span>
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              {formatFocusedTime(task.focusedSeconds)}
+                            </span>
+                          </button>
+                          {!task.isDone ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => onStartPomodoro(task.id)}
+                              disabled={!canStartPomodoro}
+                            >
+                              <TimerReset data-icon="inline-start" />
+                              <span className="hidden sm:inline">Focus</span>
+                            </Button>
+                          ) : null}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              render={
                                 <Button
                                   type="button"
-                                  size="sm"
-                                  onClick={() => onStartPomodoro(task.id)}
-                                  disabled={!canStartPomodoro}
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Task actions"
+                                />
+                              }
+                            >
+                              <MoreHorizontal />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuGroup>
+                                <DropdownMenuItem
+                                  onClick={() => setEditorTask(task)}
                                 >
-                                  <TimerReset data-icon="inline-start" />
-                                  <span className="hidden sm:inline">Focus</span>
-                                </Button>
-                              ) : null}
-                              {!selectionMode ? (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger
-                                    render={
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        aria-label="Task actions"
-                                      />
-                                    }
-                                  >
-                                    <MoreHorizontal />
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuGroup>
-                                      <DropdownMenuItem
-                                        onClick={() => setEditorTask(task)}
-                                      >
-                                        <Pencil />
-                                        Edit or move
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        variant="destructive"
-                                        onClick={() => setDeleteTaskId(task.id)}
-                                      >
-                                        <Trash2 />
-                                        Delete
-                                      </DropdownMenuItem>
-                                    </DropdownMenuGroup>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ul>
-                        {shown < group.tasks.length ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="mt-2 w-full"
-                            onClick={() =>
-                              setVisibleCounts((current) => ({
-                                ...current,
-                                [group.id]: shown + TASK_BATCH_SIZE,
-                              }))
-                            }
-                          >
-                            Show 25 more
-                          </Button>
-                        ) : null}
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
+                                  <Pencil />
+                                  Edit or move
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => setDeleteTaskId(task.id)}
+                                >
+                                  <Trash2 />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </li>
+                      ))}
+                    </ul>
+                    {shown < group.tasks.length ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="mt-2 w-full"
+                        onClick={() =>
+                          setVisibleCounts((current) => ({
+                            ...current,
+                            [group.id]: shown + TASK_BATCH_SIZE,
+                          }))
+                        }
+                      >
+                        Show 25 more
+                      </Button>
+                    ) : null}
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
         )}
       </div>
-
-      {selectionMode ? (
-        <div className="fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] rounded-2xl border bg-popover p-3 shadow-xl lg:bottom-4 lg:left-auto lg:right-4 lg:w-auto">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge>{actionableSelectedIds.length} selected</Badge>
-            <ProjectCombobox
-              id="bulk-move-project"
-              projects={activeProjects}
-              value={bulkProjectId}
-              onValueChange={setBulkProjectId}
-            />
-            <Button
-              type="button"
-              size="sm"
-              disabled={!actionableSelectedIds.length || bulkPending}
-              onClick={() =>
-                void runBulk(
-                  () => onBulkMove(actionableSelectedIds, bulkProjectId),
-                  "Tasks moved.",
-                )
-              }
-            >
-              Move
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!actionableSelectedIds.length || bulkPending}
-              onClick={() =>
-                void runBulk(
-                  () => onBulkStatus(actionableSelectedIds, true),
-                  "Tasks marked complete.",
-                )
-              }
-            >
-              Done
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!actionableSelectedIds.length || bulkPending}
-              onClick={() =>
-                void runBulk(
-                  () => onBulkStatus(actionableSelectedIds, false),
-                  "Tasks reopened.",
-                )
-              }
-            >
-              Reopen
-            </Button>
-          </div>
-        </div>
-      ) : null}
 
       <ResponsiveOverlay
         open={editorTask !== null}
@@ -852,7 +619,7 @@ export function TaskWorkspace({
             <AlertDialogTitle>Delete this project?</AlertDialogTitle>
             <AlertDialogDescription>
               The project will be permanently deleted. Its tasks will remain in
-              Inbox.
+              the workspace without a project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

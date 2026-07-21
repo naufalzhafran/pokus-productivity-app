@@ -55,7 +55,7 @@ function formatDuration(minutes: number) {
   return `${minutes.toString().padStart(2, "0")}:00`;
 }
 
-function compactTitle(title: string) {
+function summarizeTitle(title: string) {
   const oneLine = title.replace(/\s+/g, " ").trim();
   return oneLine.length > 80 ? `${oneLine.slice(0, 77)}…` : oneLine;
 }
@@ -114,8 +114,6 @@ export default function App() {
     recordFocusTime,
     editTask,
     reconcileDeletedProject,
-    bulkSetTaskDone,
-    bulkMoveTasks,
     isLoading: areTasksLoading,
     loadError: tasksLoadError,
   } = useTasks();
@@ -247,9 +245,9 @@ export default function App() {
       await deleteProject(projectId);
       reconcileDeletedProject(projectId);
       if (viewState.scope === `project:${projectId}`) {
-        setViewState((current) => ({ ...current, scope: "inbox" }));
+        setViewState((current) => ({ ...current, scope: "all" }));
       }
-      toast.success("Project deleted. Its tasks are in Inbox.");
+      toast.success("Project deleted. Its tasks now have no project.");
     } catch (error) {
       toast.error("The project could not be deleted.");
       throw error;
@@ -359,8 +357,6 @@ export default function App() {
             onStatusChange={handleStatusChange}
             onEditTask={editTask}
             onDeleteTask={handleDeleteTask}
-            onBulkStatus={bulkSetTaskDone}
-            onBulkMove={bulkMoveTasks}
           />
         </div>
       ) : page === "profile" ? (
@@ -390,7 +386,7 @@ export default function App() {
             remainingSeconds={remainingSeconds}
             isActive={currentSession.isActive}
             sessionTitle={
-              (sessionTask ? compactTitle(sessionTask.title) : null) ??
+              (sessionTask ? summarizeTitle(sessionTask.title) : null) ??
               `${currentSession.durationMinutes}-minute Pomodoro`
             }
             taskTitle={sessionTask?.title}

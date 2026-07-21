@@ -11,7 +11,6 @@ describe("workspace preference restoration", () => {
         scope: "project:abc",
         status: "completed",
         sort: "alphabetical",
-        density: "comfortable",
         lastDuration: 45,
         search: "transient",
       }),
@@ -21,7 +20,6 @@ describe("workspace preference restoration", () => {
       scope: "project:abc",
       status: "completed",
       sort: "alphabetical",
-      density: "comfortable",
       lastDuration: 45,
     });
     expect(loadWorkspacePreferences("user-b").scope).toBe("all");

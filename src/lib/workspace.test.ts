@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildWorkspaceIndex,
   createDefaultWorkspaceState,
-  runWithConcurrency,
   selectWorkspaceGroups,
   TASK_BATCH_SIZE,
   TASK_TITLE_MAX_LENGTH,
@@ -35,7 +34,7 @@ const tasks: Task[] = [
   },
   {
     id: "three",
-    title: "Inbox item",
+    title: "Unassigned item",
     createdAt: 10,
     isDone: false,
     focusedSeconds: 5,
@@ -54,7 +53,7 @@ const tasks: Task[] = [
 describe("workspace selectors", () => {
   it("builds maps, groups, and active counts in one index", () => {
     const index = buildWorkspaceIndex(projects, tasks);
-    expect(index.groups[0].id).toBe("inbox");
+    expect(index.groups[0].id).toBe("unassigned");
     expect(index.groupMap.get("new")?.openCount).toBe(1);
     expect(index.groupMap.get("new")?.completedCount).toBe(1);
     expect(index.groupMap.get("new")?.focusedSeconds).toBe(120);
@@ -87,7 +86,7 @@ describe("workspace selectors", () => {
     expect(group?.tasks.map((task) => task.id)).toEqual(["two", "one"]);
   });
 
-  it("keeps archived task statuses and treats deleted-project tasks as Inbox", () => {
+  it("keeps archived task statuses and leaves deleted-project tasks unassigned", () => {
     const archivedIndex = buildWorkspaceIndex(projects, tasks);
     const archivedState = {
       ...createDefaultWorkspaceState(),
@@ -103,7 +102,7 @@ describe("workspace selectors", () => {
       projects.filter((project) => project.id !== "new"),
       tasks,
     );
-    expect(afterDelete.groupMap.get("inbox")?.tasks).toHaveLength(3);
+    expect(afterDelete.groupMap.get("unassigned")?.tasks).toHaveLength(3);
   });
 
   it("handles the agreed 100-project, 1,000-task target with bounded batches", () => {
@@ -128,7 +127,7 @@ describe("workspace selectors", () => {
   });
 });
 
-describe("task validation and bounded mutations", () => {
+describe("task validation", () => {
   it("accepts 2,000-character multiline text and preserves internal whitespace", () => {
     const longTitle = `  ${"a".repeat(998)}\n🧠\n${"b".repeat(998)}  `;
     expect(longTitle.trim().length).toBe(2000);
@@ -137,24 +136,5 @@ describe("task validation and bounded mutations", () => {
       /2,000/,
     );
     expect(longTitle.trim()).toContain("\n🧠\n");
-  });
-
-  it("limits concurrent writes to five and reports partial failures", async () => {
-    let active = 0;
-    let peak = 0;
-    const result = await runWithConcurrency(
-      Array.from({ length: 20 }, (_, index) => index),
-      async (index) => {
-        active += 1;
-        peak = Math.max(peak, active);
-        await Promise.resolve();
-        active -= 1;
-        if (index === 7 || index === 13) throw new Error("failed");
-      },
-      5,
-    );
-    expect(peak).toBe(5);
-    expect(result.failed.sort((a, b) => a - b)).toEqual([7, 13]);
-    expect(result.succeeded).toHaveLength(18);
   });
 });
