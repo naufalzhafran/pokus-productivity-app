@@ -122,7 +122,7 @@ export default function App() {
     createProject,
     deleteProject,
     setProjectDone,
-    renameProject,
+    updateProject,
     isLoading: areProjectsLoading,
     loadError: projectsLoadError,
   } = useProjects();
@@ -342,7 +342,7 @@ export default function App() {
             canStartPomodoro={!currentSession}
             onCreateTask={(title, projectId) => createTask(title, projectId)}
             onCreateProject={createProject}
-            onRenameProject={renameProject}
+            onUpdateProject={updateProject}
             onDeleteProject={handleDeleteProject}
             onArchiveProject={async (projectId, archived) => {
               try {

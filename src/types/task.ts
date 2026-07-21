@@ -10,6 +10,7 @@ export interface Task {
 export interface Project {
   id: string;
   title: string;
+  description: string;
   createdAt: number;
   isDone: boolean;
 }

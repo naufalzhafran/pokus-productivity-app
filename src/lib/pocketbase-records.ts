@@ -15,6 +15,7 @@ export const COLLECTIONS = {
 
 export interface ProjectRecord extends RecordModel {
   title: string;
+  description: string;
   isDone: boolean;
   created: string;
 }
@@ -54,6 +55,7 @@ export function projectFromRecord(record: ProjectRecord): Project {
   return {
     id: record.id,
     title: record.title,
+    description: record.description || "",
     isDone: record.isDone,
     createdAt: Date.parse(record.created),
   };
@@ -89,6 +91,7 @@ export function projectToRecord(project: Project) {
     id: project.id,
     owner: getAuthenticatedUserId(),
     title: project.title,
+    description: project.description,
     isDone: project.isDone,
   };
 }

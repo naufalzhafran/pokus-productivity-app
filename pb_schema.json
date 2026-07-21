@@ -54,6 +54,18 @@
         "type": "text"
       },
       {
+        "convertURLs": false,
+        "help": "",
+        "hidden": false,
+        "id": "editor2621679773",
+        "maxSize": 100000,
+        "name": "description",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "editor"
+      },
+      {
         "help": "",
         "hidden": false,
         "id": "bool2970678695",
@@ -88,7 +100,7 @@
       "CREATE INDEX idx_projects_owner ON projects (owner)"
     ],
     "created": "2026-07-15 02:31:16.847Z",
-    "updated": "2026-07-15 02:31:16.847Z",
+    "updated": "2026-07-21 03:40:00.000Z",
     "system": false
   },
   {

@@ -101,13 +101,15 @@ export function AppShell({
         id="main-content"
         className="mx-auto min-h-[calc(100dvh-4rem)] w-full max-w-7xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 md:pb-10 md:pt-8 lg:px-8"
       >
-        <h1
-          ref={headingRef}
-          tabIndex={-1}
-          className="mb-6 font-heading text-2xl font-semibold tracking-tight outline-none md:text-3xl"
-        >
-          {pageTitle(page)}
-        </h1>
+        {page !== "tasks" ? (
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="mb-6 font-heading text-2xl font-semibold tracking-tight outline-none md:text-3xl"
+          >
+            {pageTitle(page)}
+          </h1>
+        ) : null}
         {children}
       </main>
 

@@ -1,5 +1,9 @@
 import {
+  lazy,
+  Suspense,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type FormEvent,
@@ -7,6 +11,8 @@ import {
 } from "react";
 import {
   Archive,
+  ChevronDown,
+  ChevronUp,
   Folder,
   ListTodo,
   Loader2,
@@ -52,7 +58,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -67,6 +79,7 @@ import {
   MobileProjectNavigation,
 } from "@/components/features/ProjectNavigation";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
+import { RichTextContent } from "@/components/features/RichTextContent";
 import { TaskDetail } from "@/components/features/TaskDetail";
 import { TaskEditor } from "@/components/features/TaskEditor";
 import { cn } from "@/lib/utils";
@@ -81,6 +94,12 @@ import {
 } from "@/lib/workspace";
 import type { Project, Task } from "@/types/task";
 
+const RichTextEditor = lazy(() =>
+  import("@/components/features/RichTextEditor").then((module) => ({
+    default: module.RichTextEditor,
+  })),
+);
+
 interface TaskWorkspaceProps {
   tasks: Task[];
   projects: Project[];
@@ -88,8 +107,15 @@ interface TaskWorkspaceProps {
   setViewState: Dispatch<SetStateAction<WorkspaceViewState>>;
   canStartPomodoro: boolean;
   onCreateTask: (title: string, projectId: string | null) => Promise<unknown>;
-  onCreateProject: (title: string) => Promise<Project | null>;
-  onRenameProject: (projectId: string, title: string) => Promise<unknown>;
+  onCreateProject: (
+    title: string,
+    description: string,
+  ) => Promise<Project | null>;
+  onUpdateProject: (
+    projectId: string,
+    title: string,
+    description: string,
+  ) => Promise<unknown>;
   onDeleteProject: (projectId: string) => Promise<unknown>;
   onArchiveProject: (projectId: string, archived: boolean) => Promise<unknown>;
   onStartPomodoro: (taskId: string) => void;
@@ -122,7 +148,7 @@ export function TaskWorkspace({
   canStartPomodoro,
   onCreateTask,
   onCreateProject,
-  onRenameProject,
+  onUpdateProject,
   onDeleteProject,
   onArchiveProject,
   onStartPomodoro,
@@ -130,6 +156,7 @@ export function TaskWorkspace({
   onEditTask,
   onDeleteTask,
 }: TaskWorkspaceProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const index = useMemo(
     () => buildWorkspaceIndex(projects, tasks),
     [projects, tasks],
@@ -139,12 +166,20 @@ export function TaskWorkspace({
     () => selectWorkspaceGroups(index, viewState, search),
     [index, search, viewState],
   );
-  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>(
+    {},
+  );
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(
+    new Set(),
+  );
   const [editorTask, setEditorTask] = useState<Task | "new" | null>(null);
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
-  const [projectEditor, setProjectEditor] = useState<Project | "new" | null>(null);
+  const [projectEditor, setProjectEditor] = useState<Project | "new" | null>(
+    null,
+  );
   const [projectTitle, setProjectTitle] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
   const [projectError, setProjectError] = useState<string | null>(null);
   const [projectPending, setProjectPending] = useState(false);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
@@ -155,6 +190,10 @@ export function TaskWorkspace({
     projects.find((project) => project.id === deleteProjectId) ?? null;
   const activeProjects = index.activeProjects;
 
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true });
+  }, []);
+
   const updateViewState = <K extends keyof WorkspaceViewState>(
     key: K,
     value: WorkspaceViewState[K],
@@ -163,6 +202,10 @@ export function TaskWorkspace({
   const initialProjectId = viewState.scope.startsWith("project:")
     ? viewState.scope.slice(8)
     : null;
+  const hasVisibleTasks = groups.some((group) => group.tasks.length > 0);
+  const hasSelectedProjectDescription =
+    viewState.scope.startsWith("project:") &&
+    groups.some((group) => Boolean(group.project?.description));
 
   const handleProjectSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -175,16 +218,19 @@ export function TaskWorkspace({
     setProjectError(null);
     try {
       if (projectEditor === "new") {
-        const project = await onCreateProject(title);
+        const project = await onCreateProject(title, projectDescription);
         if (project) updateViewState("scope", `project:${project.id}`);
       } else if (projectEditor) {
-        await onRenameProject(projectEditor.id, title);
+        await onUpdateProject(projectEditor.id, title, projectDescription);
       }
       setProjectEditor(null);
       setProjectTitle("");
+      setProjectDescription("");
     } catch (error) {
       setProjectError(
-        error instanceof Error ? error.message : "The project could not be saved.",
+        error instanceof Error
+          ? error.message
+          : "The project could not be saved.",
       );
     } finally {
       setProjectPending(false);
@@ -193,6 +239,35 @@ export function TaskWorkspace({
 
   return (
     <div className="grid w-full items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="flex items-center justify-between gap-3 lg:col-span-2">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="font-heading text-2xl font-semibold tracking-tight outline-none md:text-3xl"
+        >
+          Tasks
+        </h1>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setProjectTitle("");
+              setProjectDescription("");
+              setProjectError(null);
+              setProjectEditor("new");
+            }}
+          >
+            <Folder data-icon="inline-start" />
+            <span className="hidden sm:inline">New project</span>
+          </Button>
+          <Button type="button" onClick={() => setEditorTask("new")}>
+            <Plus data-icon="inline-start" />
+            New task
+          </Button>
+        </div>
+      </div>
+
       <DesktopProjectNavigation
         index={index}
         scope={viewState.scope}
@@ -211,37 +286,22 @@ export function TaskWorkspace({
                       : "All tasks"
                     : viewState.scope === "archived"
                       ? "Archived projects"
-                      : index.projectMap.get(viewState.scope.slice(8))?.title ??
-                        "Tasks"}
+                      : (index.projectMap.get(viewState.scope.slice(8))
+                          ?.title ?? "Tasks")}
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {groups.reduce((total, group) => total + group.tasks.length, 0)}{" "}
+                  {groups.reduce(
+                    (total, group) => total + group.tasks.length,
+                    0,
+                  )}{" "}
                   matching tasks
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <MobileProjectNavigation
-                  index={index}
-                  scope={viewState.scope}
-                  onScopeChange={(scope) => updateViewState("scope", scope)}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setProjectTitle("");
-                    setProjectError(null);
-                    setProjectEditor("new");
-                  }}
-                >
-                  <Folder data-icon="inline-start" />
-                  <span className="hidden sm:inline">New project</span>
-                </Button>
-                <Button type="button" onClick={() => setEditorTask("new")}>
-                  <Plus data-icon="inline-start" />
-                  New task
-                </Button>
-              </div>
+              <MobileProjectNavigation
+                index={index}
+                scope={viewState.scope}
+                onScopeChange={(scope) => updateViewState("scope", scope)}
+              />
             </div>
 
             <div className="flex flex-col gap-3">
@@ -301,7 +361,7 @@ export function TaskWorkspace({
         </Card>
 
         {groups.length === 0 ||
-        groups.every((group) => group.tasks.length === 0) ? (
+        (!hasVisibleTasks && !hasSelectedProjectDescription) ? (
           <Card>
             <CardContent>
               <Empty className="min-h-80">
@@ -327,6 +387,8 @@ export function TaskWorkspace({
               const shown = visibleCounts[group.id] ?? TASK_BATCH_SIZE;
               const visibleTasks = group.tasks.slice(0, shown);
               const GroupIcon = group.project ? Folder : ListTodo;
+              const descriptionExpanded = expandedDescriptions.has(group.id);
+              const descriptionId = `project-description-${group.id}`;
               return (
                 <Card key={group.id} size="sm">
                   <CardHeader className="items-center">
@@ -360,12 +422,15 @@ export function TaskWorkspace({
                               <DropdownMenuItem
                                 onClick={() => {
                                   setProjectTitle(group.project!.title);
+                                  setProjectDescription(
+                                    group.project!.description,
+                                  );
                                   setProjectError(null);
                                   setProjectEditor(group.project!);
                                 }}
                               >
                                 <Pencil />
-                                Rename
+                                Edit project
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() =>
@@ -397,7 +462,41 @@ export function TaskWorkspace({
                       ) : null}
                     </CardAction>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex flex-col gap-3">
+                    {group.project?.description ? (
+                      <div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          aria-expanded={descriptionExpanded}
+                          aria-controls={descriptionId}
+                          onClick={() =>
+                            setExpandedDescriptions((current) => {
+                              const next = new Set(current);
+                              if (next.has(group.id)) next.delete(group.id);
+                              else next.add(group.id);
+                              return next;
+                            })
+                          }
+                        >
+                          {descriptionExpanded ? (
+                            <ChevronUp data-icon="inline-start" />
+                          ) : (
+                            <ChevronDown data-icon="inline-start" />
+                          )}
+                          {descriptionExpanded ? "Hide" : "Show"} description
+                        </Button>
+                        {descriptionExpanded ? (
+                          <div
+                            id={descriptionId}
+                            className="mt-2 rounded-xl bg-muted/50 p-3"
+                          >
+                            <RichTextContent html={group.project.description} />
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <ul
                       className="flex flex-col gap-1"
                       aria-label={`Tasks in ${group.project?.title ?? "No project"}`}
@@ -555,31 +654,59 @@ export function TaskWorkspace({
       <ResponsiveOverlay
         open={projectEditor !== null}
         onOpenChange={(open) => !open && setProjectEditor(null)}
-        title={projectEditor === "new" ? "New project" : "Rename project"}
+        title={projectEditor === "new" ? "New project" : "Edit project"}
+        description="Name the project and add optional formatted context."
       >
-        <form onSubmit={handleProjectSubmit} className="flex flex-col gap-5">
-          <FieldGroup>
-            <Field data-invalid={Boolean(projectError)}>
-              <FieldLabel htmlFor="project-title">Project name</FieldLabel>
-              <Input
-                id="project-title"
-                value={projectTitle}
-                onChange={(event) => setProjectTitle(event.target.value)}
-                maxLength={PROJECT_TITLE_MAX_LENGTH}
-                autoFocus
-                required
-                aria-invalid={Boolean(projectError)}
-              />
-              <FieldError>{projectError}</FieldError>
-            </Field>
-          </FieldGroup>
-          <Button type="submit" disabled={!projectTitle.trim() || projectPending}>
-            {projectPending ? (
-              <Loader2 data-icon="inline-start" className="animate-spin" />
-            ) : null}
-            {projectPending ? "Saving…" : "Save project"}
-          </Button>
-        </form>
+        {projectEditor ? (
+          <form onSubmit={handleProjectSubmit} className="flex flex-col gap-5">
+            <FieldGroup>
+              <Field data-invalid={Boolean(projectError)}>
+                <FieldLabel htmlFor="project-title">Project name</FieldLabel>
+                <Input
+                  id="project-title"
+                  value={projectTitle}
+                  onChange={(event) => setProjectTitle(event.target.value)}
+                  maxLength={PROJECT_TITLE_MAX_LENGTH}
+                  autoFocus
+                  required
+                  aria-invalid={Boolean(projectError)}
+                />
+                <FieldError>{projectError}</FieldError>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="project-description">
+                  Description
+                </FieldLabel>
+                <Suspense
+                  fallback={
+                    <p className="text-sm text-muted-foreground">
+                      Loading editor…
+                    </p>
+                  }
+                >
+                  <RichTextEditor
+                    id="project-description"
+                    value={projectDescription}
+                    onChange={setProjectDescription}
+                    disabled={projectPending}
+                  />
+                </Suspense>
+                <FieldDescription>
+                  Optional. Add headings, emphasis, lists, and quotes.
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
+            <Button
+              type="submit"
+              disabled={!projectTitle.trim() || projectPending}
+            >
+              {projectPending ? (
+                <Loader2 data-icon="inline-start" className="animate-spin" />
+              ) : null}
+              {projectPending ? "Saving…" : "Save project"}
+            </Button>
+          </form>
+        ) : null}
       </ResponsiveOverlay>
 
       <AlertDialog

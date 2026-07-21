@@ -10,9 +10,27 @@ import {
 import type { Project, Task } from "@/types/task";
 
 const projects: Project[] = [
-  { id: "new", title: "New Project", createdAt: 30, isDone: false },
-  { id: "old", title: "Alpha", createdAt: 20, isDone: false },
-  { id: "archived", title: "Archive Match", createdAt: 10, isDone: true },
+  {
+    id: "new",
+    title: "New Project",
+    description: "<p>Release planning</p>",
+    createdAt: 30,
+    isDone: false,
+  },
+  {
+    id: "old",
+    title: "Alpha",
+    description: "",
+    createdAt: 20,
+    isDone: false,
+  },
+  {
+    id: "archived",
+    title: "Archive Match",
+    description: "",
+    createdAt: 10,
+    isDone: true,
+  },
 ];
 
 const tasks: Task[] = [
@@ -68,9 +86,9 @@ describe("workspace selectors", () => {
       "one",
     );
     const projectMatch = selectWorkspaceGroups(index, state, "new project");
-    expect(projectMatch.find((group) => group.id === "new")?.tasks).toHaveLength(
-      2,
-    );
+    expect(
+      projectMatch.find((group) => group.id === "new")?.tasks,
+    ).toHaveLength(2);
   });
 
   it("sorts within a group without changing group order", () => {
@@ -109,6 +127,7 @@ describe("workspace selectors", () => {
     const manyProjects = Array.from({ length: 100 }, (_, index) => ({
       id: `project-${index}`,
       title: `Project ${index}`,
+      description: "",
       createdAt: 100 - index,
       isDone: false,
     }));

@@ -45,13 +45,14 @@ export function useProjects() {
   }, [replaceProjects]);
 
   const createProject = useCallback(
-    async (title: string) => {
+    async (title: string, description: string) => {
       const normalizedTitle = title.trim();
       if (!normalizedTitle) return null;
 
       const project: Project = {
         id: createPocketBaseId(),
         title: normalizedTitle,
+        description,
         createdAt: Date.now(),
         isDone: false,
       };
@@ -59,7 +60,9 @@ export function useProjects() {
       try {
         const record = await pb
           .collection(COLLECTIONS.projects)
-          .create<ProjectRecord>(projectToRecord(project), { requestKey: null });
+          .create<ProjectRecord>(projectToRecord(project), {
+            requestKey: null,
+          });
         const savedProject = projectFromRecord(record);
         replaceProjects([savedProject, ...projectsRef.current]);
         return savedProject;
@@ -112,11 +115,7 @@ export function useProjects() {
       try {
         const record = await pb
           .collection(COLLECTIONS.projects)
-          .update<ProjectRecord>(
-            projectId,
-            { isDone },
-            { requestKey: null },
-          );
+          .update<ProjectRecord>(projectId, { isDone }, { requestKey: null });
         const savedProject = projectFromRecord(record);
         replaceProjects(
           projectsRef.current.map((project) =>
@@ -137,8 +136,8 @@ export function useProjects() {
     [replaceProjects],
   );
 
-  const renameProject = useCallback(
-    async (projectId: string, title: string) => {
+  const updateProject = useCallback(
+    async (projectId: string, title: string, description: string) => {
       const normalizedTitle = title.trim();
       if (!normalizedTitle || normalizedTitle.length > 120) {
         throw new Error("Enter a project name up to 120 characters.");
@@ -147,7 +146,7 @@ export function useProjects() {
         .collection(COLLECTIONS.projects)
         .update<ProjectRecord>(
           projectId,
-          { title: normalizedTitle },
+          { title: normalizedTitle, description },
           { requestKey: null },
         );
       const savedProject = projectFromRecord(record);
@@ -168,6 +167,6 @@ export function useProjects() {
     createProject,
     deleteProject,
     setProjectDone,
-    renameProject,
+    updateProject,
   };
 }
