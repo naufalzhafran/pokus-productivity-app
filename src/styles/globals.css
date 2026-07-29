@@ -141,6 +141,19 @@
     outline: 3px solid var(--ring) !important;
     outline-offset: 2px;
   }
+
+  @media (hover: hover) and (pointer: fine) {
+    :where(
+        a[href],
+        button:not(:disabled),
+        [role="button"]:not([aria-disabled="true"]),
+        [role="checkbox"]:not([aria-disabled="true"]),
+        [role="menuitem"]:not([aria-disabled="true"]),
+        [role="option"]:not([aria-disabled="true"])
+      ) {
+      cursor: pointer;
+    }
+  }
 }
 
 @layer utilities {
