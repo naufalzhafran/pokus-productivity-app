@@ -1065,15 +1065,17 @@ export function TaskWorkspace({
         onOpenChange={(open) => !open && setProjectEditor(null)}
         title={projectEditor === "new" ? "New project" : "Edit project"}
         description="Name the project and add optional formatted context."
+        presentation="dialog"
+        className="gap-4 p-5"
       >
         {projectEditor ? (
           <form
             onSubmit={handleProjectSubmit}
-            className="flex flex-col gap-5"
+            className="flex flex-col gap-4"
             aria-busy={projectPending}
           >
-            <FieldGroup>
-              <Field data-invalid={Boolean(projectError)}>
+            <FieldGroup className="gap-4">
+              <Field className="gap-2" data-invalid={Boolean(projectError)}>
                 <FieldLabel htmlFor="project-title">Project name</FieldLabel>
                 <Input
                   ref={projectTitleRef}
@@ -1093,7 +1095,7 @@ export function TaskWorkspace({
                   {projectError}
                 </FieldError>
               </Field>
-              <Field>
+              <Field className="gap-2">
                 <FieldLabel htmlFor="project-description">
                   Description
                 </FieldLabel>

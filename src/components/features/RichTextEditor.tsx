@@ -105,7 +105,7 @@ export function RichTextEditor({
       attributes: {
         id,
         class:
-          "rich-text-content min-h-40 max-h-[45dvh] overflow-y-auto px-3 py-3 text-sm outline-none",
+          "rich-text-content min-h-48 max-h-[45dvh] overflow-y-auto px-3 py-2.5 text-sm outline-none sm:min-h-72",
         "aria-label": "Project description",
         role: "textbox",
         "aria-multiline": "true",
@@ -285,7 +285,7 @@ export function RichTextEditor({
         ref={toolbarRef}
         role="toolbar"
         aria-label="Description formatting"
-        className="flex flex-wrap items-center gap-1 p-2"
+        className="flex flex-wrap items-center gap-1 p-1.5"
         onKeyDown={handleToolbarKeyDown}
       >
         <Toggle
