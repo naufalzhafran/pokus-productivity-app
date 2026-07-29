@@ -10,6 +10,7 @@ interface AppShellProps {
   page: AppPage;
   session: PomodoroSession | null;
   onNavigate: (page: AppPage) => void;
+  onNavigateIntent?: (page: AppPage) => void;
   children: ReactNode;
 }
 
@@ -29,6 +30,7 @@ export function AppShell({
   page,
   session,
   onNavigate,
+  onNavigateIntent,
   children,
 }: AppShellProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -58,7 +60,13 @@ export function AppShell({
       render={
         <a
           href={`#${value}`}
-          onClick={() => onNavigate(value)}
+          onClick={() => {
+            onNavigateIntent?.(value);
+            onNavigate(value);
+          }}
+          onMouseEnter={() => onNavigateIntent?.(value)}
+          onFocus={() => onNavigateIntent?.(value)}
+          onTouchStart={() => onNavigateIntent?.(value)}
         />
       }
       variant={page === value ? "secondary" : "ghost"}

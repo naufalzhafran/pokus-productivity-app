@@ -31,7 +31,11 @@ export interface WorkspaceIndex {
   groups: TaskGroup[];
   groupMap: Map<string, TaskGroup>;
   activeOpenCount: number;
+  projectSearchText: Map<string, string>;
+  taskSearchText: Map<string, string>;
 }
+
+const taskTitleCollator = new Intl.Collator(undefined, { sensitivity: "base" });
 
 export function createDefaultWorkspaceState(): WorkspaceViewState {
   return {
@@ -60,11 +64,14 @@ export function buildWorkspaceIndex(
   tasks: Task[],
 ): WorkspaceIndex {
   const projectMap = new Map<string, Project>();
+  const projectSearchText = new Map<string, string>();
+  const taskSearchText = new Map<string, string>();
   const activeProjects: Project[] = [];
   const archivedProjects: Project[] = [];
 
   for (const project of projects) {
     projectMap.set(project.id, project);
+    projectSearchText.set(project.id, project.title.toLocaleLowerCase());
     (project.isDone ? archivedProjects : activeProjects).push(project);
   }
 
@@ -91,6 +98,7 @@ export function buildWorkspaceIndex(
 
   let activeOpenCount = 0;
   for (const task of tasks) {
+    taskSearchText.set(task.id, task.title.toLocaleLowerCase());
     const project = task.projectId ? projectMap.get(task.projectId) : undefined;
     const group = project ? groupMap.get(project.id)! : unassigned;
     group.tasks.push(task);
@@ -113,14 +121,15 @@ export function buildWorkspaceIndex(
     ],
     groupMap,
     activeOpenCount,
+    projectSearchText,
+    taskSearchText,
   };
 }
 
 function sortTasks(tasks: Task[], sort: TaskSort) {
-  const collator = new Intl.Collator(undefined, { sensitivity: "base" });
   return [...tasks].sort((a, b) => {
     if (sort === "oldest") return a.createdAt - b.createdAt;
-    if (sort === "alphabetical") return collator.compare(a.title, b.title);
+    if (sort === "alphabetical") return taskTitleCollator.compare(a.title, b.title);
     if (sort === "focused") {
       return b.focusedSeconds - a.focusedSeconds || b.createdAt - a.createdAt;
     }
@@ -147,12 +156,15 @@ export function selectWorkspaceGroups(
     .map((group) => {
       const projectMatches =
         needle.length > 0 &&
-        group.project?.title.toLocaleLowerCase().includes(needle);
+        Boolean(
+          group.project &&
+            index.projectSearchText.get(group.project.id)?.includes(needle),
+        );
       const filtered = group.tasks.filter((task) => {
         if (state.status === "open" && task.isDone) return false;
         if (state.status === "completed" && !task.isDone) return false;
         if (!needle || projectMatches) return true;
-        return task.title.toLocaleLowerCase().includes(needle);
+        return index.taskSearchText.get(task.id)?.includes(needle) ?? false;
       });
       return { ...group, tasks: sortTasks(filtered, state.sort) };
     })

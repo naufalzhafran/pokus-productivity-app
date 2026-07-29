@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ComponentProps } from "react";
+import { Profiler, useState, type ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { TaskWorkspace } from "@/components/features/TaskWorkspace";
 import type { Project, Task } from "@/types/task";
@@ -40,6 +40,50 @@ function renderWorkspace(
 }
 
 describe("TaskWorkspace", () => {
+  it("does not recommit when a parent clock tick leaves its inputs unchanged", async () => {
+    const user = userEvent.setup();
+    const onRender = vi.fn();
+    const stableProps: ComponentProps<typeof TaskWorkspace> = {
+      tasks: [],
+      projects: [],
+      viewState: { scope: "all", status: "open", sort: "newest", lastDuration: 25 },
+      setViewState: vi.fn(),
+      canStartPomodoro: false,
+      onCreateTask: vi.fn(),
+      onCreateProject: vi.fn(),
+      onUpdateProject: vi.fn(),
+      onDeleteProject: vi.fn(),
+      onArchiveProject: vi.fn(),
+      onStartPomodoro: vi.fn(),
+      onStatusChange: vi.fn(),
+      onEditTask: vi.fn(),
+      onDeleteTask: vi.fn(),
+    };
+
+    function ClockHarness() {
+      const [tick, setTick] = useState(0);
+      return (
+        <>
+          <button type="button" onClick={() => setTick((value) => value + 1)}>
+            Tick {tick}
+          </button>
+          <Profiler id="workspace" onRender={onRender}>
+            <TaskWorkspace {...stableProps} />
+          </Profiler>
+        </>
+      );
+    }
+
+    render(<ClockHarness />);
+    onRender.mockClear();
+    await user.click(screen.getByRole("button", { name: "Tick 0" }));
+    expect(screen.getByRole("button", { name: "Tick 1" })).toBeInTheDocument();
+    expect(onRender).toHaveBeenCalledTimes(1);
+    const [, phase, actualDuration, baseDuration] = onRender.mock.calls[0];
+    expect(phase).toBe("update");
+    expect(actualDuration).toBeLessThan(baseDuration * 0.01);
+  });
+
   it("combines selected project details, filters, and tasks in one project card", () => {
     const project: Project = {
       id: "project-1",

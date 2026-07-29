@@ -29,7 +29,12 @@ function refreshSavedSession() {
   return authRefreshPromise;
 }
 
-export function AuthGate({ children }: { children: ReactNode }) {
+interface AuthGateProps {
+  children: ReactNode;
+  preloadAuthenticatedApp?: () => Promise<unknown>;
+}
+
+export function AuthGate({ children, preloadAuthenticatedApp }: AuthGateProps) {
   const [authRecord, setAuthRecord] = useState<RecordModel | null>(() =>
     pb.authStore.isValid ? pb.authStore.record : null,
   );
@@ -44,6 +49,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     });
 
     if (pb.authStore.isValid) {
+      void preloadAuthenticatedApp?.();
       void refreshSavedSession().finally(() => {
         if (isMounted) setIsRestoring(false);
       });
@@ -53,7 +59,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       isMounted = false;
       unsubscribe();
     };
-  }, []);
+  }, [preloadAuthenticatedApp]);
 
   useEffect(() => {
     if (isRestoring) document.title = "Restoring session | Pokus";

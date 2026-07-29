@@ -1,6 +1,9 @@
 import {
   lazy,
+  memo,
   Suspense,
+  useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -81,9 +84,7 @@ import {
   MobileProjectNavigation,
 } from "@/components/features/ProjectNavigation";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
-import { RichTextContent } from "@/components/features/RichTextContent";
 import { TaskDetail } from "@/components/features/TaskDetail";
-import { TaskEditor } from "@/components/features/TaskEditor";
 import { cn } from "@/lib/utils";
 import {
   buildWorkspaceIndex,
@@ -97,9 +98,19 @@ import {
 } from "@/lib/workspace";
 import type { Project, Task } from "@/types/task";
 
+const loadRichTextEditor = () => import("@/components/features/RichTextEditor");
 const RichTextEditor = lazy(() =>
-  import("@/components/features/RichTextEditor").then((module) => ({
+  loadRichTextEditor().then((module) => ({
     default: module.RichTextEditor,
+  })),
+);
+const loadTaskEditor = () => import("@/components/features/TaskEditor");
+const TaskEditor = lazy(() =>
+  loadTaskEditor().then((module) => ({ default: module.TaskEditor })),
+);
+const RichTextContent = lazy(() =>
+  import("@/components/features/RichTextContent").then((module) => ({
+    default: module.RichTextContent,
   })),
 );
 
@@ -235,7 +246,9 @@ function ProjectDescription({
       </Button>
       {expanded ? (
         <div id={descriptionId} className="mt-2 rounded-xl bg-muted/50 p-3">
-          <RichTextContent html={project.description} />
+          <Suspense fallback={<p className="text-sm text-muted-foreground">Loading description…</p>}>
+            <RichTextContent html={project.description} />
+          </Suspense>
         </div>
       ) : null}
     </div>
@@ -258,19 +271,19 @@ interface WorkspaceTaskCardProps {
   task: Task;
   canStartPomodoro: boolean;
   isPending: boolean;
-  detailTriggerRef: (node: HTMLButtonElement | null) => void;
-  onStatusChange: () => void;
-  onOpenDetails: () => void;
-  onFocus: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  registerDetailTrigger: (taskId: string, node: HTMLButtonElement | null) => void;
+  onStatusChange: (taskId: string, isDone: boolean) => void;
+  onOpenDetails: (taskId: string) => void;
+  onFocus: (taskId: string) => void;
+  onEdit: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
 }
 
-function WorkspaceTaskCard({
+const WorkspaceTaskCard = memo(function WorkspaceTaskCard({
   task,
   canStartPomodoro,
   isPending,
-  detailTriggerRef,
+  registerDetailTrigger,
   onStatusChange,
   onOpenDetails,
   onFocus,
@@ -288,10 +301,10 @@ function WorkspaceTaskCard({
       >
         <CardContent>
           <button
-            ref={detailTriggerRef}
+            ref={(node) => registerDetailTrigger(task.id, node)}
             type="button"
             className="block min-h-6 w-full rounded-md text-left"
-            onClick={onOpenDetails}
+            onClick={() => onOpenDetails(task.id)}
             aria-label={`Open details for ${accessibleTitle}`}
             disabled={isPending}
           >
@@ -309,7 +322,7 @@ function WorkspaceTaskCard({
           <div className="flex min-w-0 items-center gap-2">
             <Checkbox
               checked={task.isDone}
-              onCheckedChange={onStatusChange}
+              onCheckedChange={() => onStatusChange(task.id, !task.isDone)}
               aria-label={
                 task.isDone
                   ? `Reopen ${accessibleTitle}`
@@ -327,7 +340,7 @@ function WorkspaceTaskCard({
               <Button
                 type="button"
                 size="sm"
-                onClick={onFocus}
+                onClick={() => onFocus(task.id)}
                 disabled={!canStartPomodoro || isPending}
                 aria-label={`Focus on ${accessibleTitle}`}
                 aria-describedby={
@@ -354,11 +367,11 @@ function WorkspaceTaskCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={onEdit}>
+                  <DropdownMenuItem onClick={() => onEdit(task.id)}>
                     <Pencil />
                     Edit or move
                   </DropdownMenuItem>
-                  <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                  <DropdownMenuItem variant="destructive" onClick={() => onDelete(task.id)}>
                     <Trash2 />
                     Delete
                   </DropdownMenuItem>
@@ -370,7 +383,7 @@ function WorkspaceTaskCard({
       </Card>
     </li>
   );
-}
+});
 
 interface WorkspaceProjectCardProps {
   project: Project | null;
@@ -483,7 +496,7 @@ function TaskFilters({
   );
 }
 
-export function TaskWorkspace({
+function TaskWorkspaceComponent({
   tasks,
   projects,
   viewState,
@@ -507,9 +520,10 @@ export function TaskWorkspace({
     [projects, tasks],
   );
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const groups = useMemo(
-    () => selectWorkspaceGroups(index, viewState, search),
-    [index, search, viewState],
+    () => selectWorkspaceGroups(index, viewState, deferredSearch),
+    [deferredSearch, index, viewState],
   );
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>(
     {},
@@ -529,6 +543,7 @@ export function TaskWorkspace({
   const [projectPending, setProjectPending] = useState(false);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(new Set());
+  const pendingTaskIdsRef = useRef<Set<string>>(new Set());
   const [pendingProjectIds, setPendingProjectIds] = useState<Set<string>>(
     new Set(),
   );
@@ -559,11 +574,17 @@ export function TaskWorkspace({
   ) => setViewState((current) => ({ ...current, [key]: value }));
 
   const openProjectEditor = (project: Project) => {
+    void loadRichTextEditor();
     setProjectTitle(project.title);
     setProjectDescription(project.description);
     setProjectError(null);
     setProjectEditor(project);
   };
+
+  const openTaskEditor = useCallback((task: Task | "new") => {
+    void loadTaskEditor();
+    setEditorTask(task);
+  }, []);
 
   const toggleProjectDescription = (projectId: string) => {
     setExpandedDescriptions((current) => {
@@ -599,7 +620,7 @@ export function TaskWorkspace({
       );
     }, 500);
     return () => window.clearTimeout(timeout);
-  }, [matchingTaskCount, search, viewState.sort, viewState.status]);
+  }, [deferredSearch, matchingTaskCount, viewState.sort, viewState.status]);
 
   useEffect(() => {
     if (!focusAfterDelete) return;
@@ -633,14 +654,15 @@ export function TaskWorkspace({
     });
   };
 
-  const runTaskMutation = async (
+  const runTaskMutation = useCallback(async (
     taskId: string,
     action: () => Promise<unknown>,
     successMessage: string,
     failureMessage: string,
   ) => {
-    if (pendingTaskIds.has(taskId)) return;
-    updatePendingSet(setPendingTaskIds, taskId, true);
+    if (pendingTaskIdsRef.current.has(taskId)) return;
+    pendingTaskIdsRef.current = new Set(pendingTaskIdsRef.current).add(taskId);
+    setPendingTaskIds(new Set(pendingTaskIdsRef.current));
     try {
       await action();
       setWorkspaceAnnouncement(successMessage);
@@ -648,9 +670,38 @@ export function TaskWorkspace({
       setWorkspaceAnnouncement(failureMessage);
       throw error;
     } finally {
-      updatePendingSet(setPendingTaskIds, taskId, false);
+      const nextPending = new Set(pendingTaskIdsRef.current);
+      nextPending.delete(taskId);
+      pendingTaskIdsRef.current = nextPending;
+      setPendingTaskIds(nextPending);
     }
-  };
+  }, []);
+
+  const registerDetailTrigger = useCallback(
+    (taskId: string, node: HTMLButtonElement | null) => {
+      if (node) taskDetailTriggers.current.set(taskId, node);
+      else taskDetailTriggers.current.delete(taskId);
+    },
+    [],
+  );
+  const handleCardStatusChange = useCallback((taskId: string, isDone: boolean) => {
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (!task) return;
+    const title = previewTitle(task.title);
+    void runTaskMutation(
+      taskId,
+      () => onStatusChange(taskId, isDone),
+      isDone ? `${title} completed.` : `${title} reopened.`,
+      isDone ? `${title} could not be completed.` : `${title} could not be reopened.`,
+    ).catch(() => undefined);
+  }, [onStatusChange, runTaskMutation, tasks]);
+  const handleOpenDetails = useCallback((taskId: string) => setDetailTaskId(taskId), []);
+  const handleFocus = useCallback((taskId: string) => onStartPomodoro(taskId), [onStartPomodoro]);
+  const handleEdit = useCallback((taskId: string) => {
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (task) openTaskEditor(task);
+  }, [openTaskEditor, tasks]);
+  const handleDelete = useCallback((taskId: string) => setDeleteTaskId(taskId), []);
 
   const runProjectMutation = async (
     projectId: string,
@@ -735,7 +786,7 @@ export function TaskWorkspace({
             </EmptyDescription>
           </EmptyHeader>
           {selectedProject ? (
-            <Button type="button" onClick={() => setEditorTask("new")}>
+            <Button type="button" onClick={() => openTaskEditor("new")}>
               <Plus data-icon="inline-start" />
               New task
             </Button>
@@ -754,7 +805,6 @@ export function TaskWorkspace({
           aria-label={`Tasks in ${group.project?.title ?? "No project"}`}
         >
           {visibleTasks.map((task) => {
-            const accessibleTitle = previewTitle(task.title);
             const isPending = pendingTaskIds.has(task.id);
             return (
               <WorkspaceTaskCard
@@ -762,26 +812,12 @@ export function TaskWorkspace({
                 task={task}
                 canStartPomodoro={canStartPomodoro}
                 isPending={isPending}
-                detailTriggerRef={(node) => {
-                  if (node) taskDetailTriggers.current.set(task.id, node);
-                  else taskDetailTriggers.current.delete(task.id);
-                }}
-                onStatusChange={() =>
-                  void runTaskMutation(
-                    task.id,
-                    () => onStatusChange(task.id, !task.isDone),
-                    task.isDone
-                      ? `${accessibleTitle} reopened.`
-                      : `${accessibleTitle} completed.`,
-                    task.isDone
-                      ? `${accessibleTitle} could not be reopened.`
-                      : `${accessibleTitle} could not be completed.`,
-                  ).catch(() => undefined)
-                }
-                onOpenDetails={() => setDetailTaskId(task.id)}
-                onFocus={() => onStartPomodoro(task.id)}
-                onEdit={() => setEditorTask(task)}
-                onDelete={() => setDeleteTaskId(task.id)}
+                registerDetailTrigger={registerDetailTrigger}
+                onStatusChange={handleCardStatusChange}
+                onOpenDetails={handleOpenDetails}
+                onFocus={handleFocus}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
               />
             );
           })}
@@ -835,6 +871,7 @@ export function TaskWorkspace({
             type="button"
             variant="outline"
             onClick={() => {
+              void loadRichTextEditor();
               setProjectTitle("");
               setProjectDescription("");
               setProjectError(null);
@@ -844,7 +881,7 @@ export function TaskWorkspace({
             <Folder data-icon="inline-start" />
             <span className="hidden sm:inline">New project</span>
           </Button>
-          <Button type="button" onClick={() => setEditorTask("new")}>
+          <Button type="button" onClick={() => openTaskEditor("new")}>
             <Plus data-icon="inline-start" />
             New task
           </Button>
@@ -1009,7 +1046,7 @@ export function TaskWorkspace({
                     Adjust the search or filters, or create a new task.
                   </EmptyDescription>
                 </EmptyHeader>
-                <Button type="button" onClick={() => setEditorTask("new")}>
+                <Button type="button" onClick={() => openTaskEditor("new")}>
                   <Plus data-icon="inline-start" />
                   New task
                 </Button>
@@ -1091,27 +1128,29 @@ export function TaskWorkspace({
         description="Task text can include line breaks and up to 2,000 characters."
       >
         {editorTask ? (
-          <TaskEditor
-            task={editorTask === "new" ? undefined : editorTask}
-            projects={activeProjects}
-            initialProjectId={initialProjectId}
-            onCancel={() => setEditorTask(null)}
-            onSave={async (title, projectId) => {
-              if (editorTask === "new") {
-                await onCreateTask(title, projectId);
-                setWorkspaceAnnouncement("Task created.");
-              } else {
-                const taskId = editorTask.id;
-                await runTaskMutation(
-                  taskId,
-                  () => onEditTask(taskId, title, projectId),
-                  "Task saved.",
-                  "Task could not be saved.",
-                );
-              }
-              setEditorTask(null);
-            }}
-          />
+          <Suspense fallback={<p className="text-sm text-muted-foreground">Loading editor…</p>}>
+            <TaskEditor
+              task={editorTask === "new" ? undefined : editorTask}
+              projects={activeProjects}
+              initialProjectId={initialProjectId}
+              onCancel={() => setEditorTask(null)}
+              onSave={async (title, projectId) => {
+                if (editorTask === "new") {
+                  await onCreateTask(title, projectId);
+                  setWorkspaceAnnouncement("Task created.");
+                } else {
+                  const taskId = editorTask.id;
+                  await runTaskMutation(
+                    taskId,
+                    () => onEditTask(taskId, title, projectId),
+                    "Task saved.",
+                    "Task could not be saved.",
+                  );
+                }
+                setEditorTask(null);
+              }}
+            />
+          </Suspense>
         ) : null}
       </ResponsiveOverlay>
 
@@ -1133,7 +1172,7 @@ export function TaskWorkspace({
             isPending={pendingTaskIds.has(detailTask.id)}
             onEdit={() => {
               setDetailTaskId(null);
-              setEditorTask(detailTask);
+              openTaskEditor(detailTask);
             }}
             onFocus={() => onStartPomodoro(detailTask.id)}
             onDelete={() => {
@@ -1325,3 +1364,5 @@ export function TaskWorkspace({
     </div>
   );
 }
+
+export const TaskWorkspace = memo(TaskWorkspaceComponent);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { CheckCircle2, Clock3, History, LogOut } from "lucide-react";
 import { UserAvatar } from "@/components/features/UserAvatar";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
 import { pb } from "@/lib/pocketbase";
 import { getUserDisplayName } from "@/lib/user-profile";
-import type { Task } from "@/types/task";
+import type { PomodoroHistoryEntry, Task } from "@/types/task";
 
 interface ProfilePageProps {
   tasks: Task[];
@@ -51,6 +51,59 @@ function formatSessionCount(count: number) {
   return `${count} ${count === 1 ? "session" : "sessions"}`;
 }
 
+const HistoryEntryRow = memo(function HistoryEntryRow({
+  entry,
+  index,
+  taskTitle,
+  onOpenTask,
+}: {
+  entry: PomodoroHistoryEntry;
+  index: number;
+  taskTitle: string | null;
+  onOpenTask: (taskId: string | null) => void;
+}) {
+  const completedInFull = entry.focusedSeconds >= entry.durationMinutes * 60;
+  const completedDate = new Date(entry.completedAt);
+
+  return (
+    <li>
+      {index > 0 ? <Separator /> : null}
+      <div className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+        <div className="flex min-w-0 gap-3">
+          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <CheckCircle2 aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            {entry.taskId && taskTitle ? (
+              <button
+                type="button"
+                className="min-h-6 rounded-sm line-clamp-2 text-left font-medium whitespace-pre-wrap break-words hover:underline"
+                onClick={() => onOpenTask(entry.taskId)}
+                aria-label={`Open task details for ${taskTitle}`}
+              >
+                {taskTitle}
+              </button>
+            ) : (
+              <p className="font-medium">Open focus session</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              <time dateTime={completedDate.toISOString()}>
+                {dateFormatter.format(completedDate)}
+              </time>
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className="font-medium">{formatFocusedTime(entry.focusedSeconds)}</span>
+          <Badge variant={completedInFull ? "secondary" : "outline"}>
+            {completedInFull ? "Complete" : "Saved early"}
+          </Badge>
+        </div>
+      </div>
+    </li>
+  );
+});
+
 export function ProfilePage({
   tasks,
   openTaskId,
@@ -61,17 +114,24 @@ export function ProfilePage({
   const [visibleCount, setVisibleCount] = useState(25);
   const [historyAnnouncement, setHistoryAnnouncement] = useState("");
 
+  const totalFocusedSeconds = useMemo(
+    () => history.reduce((total, entry) => total + entry.focusedSeconds, 0),
+    [history],
+  );
+  const completedTasks = useMemo(
+    () => tasks.filter((task) => task.isDone).length,
+    [tasks],
+  );
+  const taskTitles = useMemo(
+    () => new Map(tasks.map((task) => [task.id, task.title])),
+    [tasks],
+  );
+  const openTask = tasks.find((task) => task.id === openTaskId) ?? null;
+
   if (!record) return null;
 
   const displayName = getUserDisplayName(record);
   const email = typeof record.email === "string" ? record.email : "";
-  const totalFocusedSeconds = history.reduce(
-    (total, entry) => total + entry.focusedSeconds,
-    0,
-  );
-  const completedTasks = tasks.filter((task) => task.isDone).length;
-  const taskTitles = new Map(tasks.map((task) => [task.id, task.title]));
-  const openTask = tasks.find((task) => task.id === openTaskId) ?? null;
 
   return (
     <div className="screen-panel grid w-full max-w-5xl gap-5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -172,54 +232,15 @@ export function ProfilePage({
               {historyAnnouncement}
             </p>
             <ol className="flex flex-col">
-              {history.slice(0, visibleCount).map((entry, index) => {
-                const completedInFull =
-                  entry.focusedSeconds >= entry.durationMinutes * 60;
-                const completedDate = new Date(entry.completedAt);
-                const taskTitle = entry.taskId
-                  ? taskTitles.get(entry.taskId)
-                  : null;
-
-                return (
-                  <li key={entry.id}>
-                    {index > 0 ? <Separator /> : null}
-                    <div className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
-                      <div className="flex min-w-0 gap-3">
-                        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                          <CheckCircle2 aria-hidden="true" />
-                        </div>
-                        <div className="min-w-0">
-                          {entry.taskId && taskTitle ? (
-                            <button
-                              type="button"
-                              className="min-h-6 rounded-sm line-clamp-2 text-left font-medium whitespace-pre-wrap break-words hover:underline"
-                              onClick={() => onOpenTask(entry.taskId)}
-                              aria-label={`Open task details for ${taskTitle}`}
-                            >
-                              {taskTitle}
-                            </button>
-                          ) : (
-                            <p className="font-medium">Open focus session</p>
-                          )}
-                          <p className="text-xs text-muted-foreground">
-                            <time dateTime={completedDate.toISOString()}>
-                              {dateFormatter.format(completedDate)}
-                            </time>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1.5">
-                        <span className="font-medium">
-                          {formatFocusedTime(entry.focusedSeconds)}
-                        </span>
-                        <Badge variant={completedInFull ? "secondary" : "outline"}>
-                          {completedInFull ? "Complete" : "Saved early"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+              {history.slice(0, visibleCount).map((entry, index) => (
+                <HistoryEntryRow
+                  key={entry.id}
+                  entry={entry}
+                  index={index}
+                  taskTitle={entry.taskId ? (taskTitles.get(entry.taskId) ?? null) : null}
+                  onOpenTask={onOpenTask}
+                />
+              ))}
               {visibleCount < history.length ? (
                 <li className="pt-4">
                   <Button

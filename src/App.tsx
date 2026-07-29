@@ -3,29 +3,23 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useMemo,
   useState,
-  type CSSProperties,
 } from "react";
-import { ListTodo, Minus, Plus, TimerReset } from "lucide-react";
+import { TimerReset } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, type AppPage } from "@/components/features/AppShell";
-import { CircularDurationInput } from "@/components/features/CircularDurationInput";
-import { SessionTask } from "@/components/features/SessionTask";
 import { TaskWorkspace } from "@/components/features/TaskWorkspace";
-import { Timer, type TimerStopOptions } from "@/components/features/timer";
-import { TimerCompletion } from "@/components/features/TimerCompletion";
+import type { TimerStopOptions } from "@/components/features/timer";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
-  CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePomodoroSession } from "@/hooks/usePomodoroSession";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
@@ -39,42 +33,21 @@ import {
 } from "@/lib/selection-storage";
 import type { PomodoroSession } from "@/types/task";
 
+const loadProfilePage = () => import("@/components/features/ProfilePage");
 const ProfilePage = lazy(() =>
-  import("@/components/features/ProfilePage").then((module) => ({
+  loadProfilePage().then((module) => ({
     default: module.ProfilePage,
   })),
 );
-const PRESETS = [15, 25, 45, 60];
+const loadTimerPage = () => import("@/components/features/TimerPage");
+const TimerPage = lazy(() =>
+  loadTimerPage().then((module) => ({ default: module.TimerPage })),
+);
 
 function getPageFromHash(): AppPage {
   if (window.location.hash === "#timer") return "timer";
   if (window.location.hash === "#profile") return "profile";
   return "tasks";
-}
-
-function formatDuration(minutes: number) {
-  return `${minutes.toString().padStart(2, "0")}:00`;
-}
-
-function summarizeTitle(title: string) {
-  const oneLine = title.replace(/\s+/g, " ").trim();
-  return oneLine.length > 80 ? `${oneLine.slice(0, 77)}…` : oneLine;
-}
-
-function ClockDigits({ value }: { value: string }) {
-  return (
-    <div className="clock-digits flex justify-center" aria-label={value}>
-      {value.split("").map((character, index) => (
-        <span
-          key={`${index}-${character}`}
-          className={character === ":" ? "duration-separator" : "duration-digit"}
-          aria-hidden="true"
-        >
-          {character}
-        </span>
-      ))}
-    </div>
-  );
 }
 
 function WorkspaceSkeleton() {
@@ -132,10 +105,18 @@ export default function App() {
     loadError: projectsLoadError,
   } = useProjects();
 
+  const taskMap = useMemo(
+    () => new Map(tasks.map((task) => [task.id, task])),
+    [tasks],
+  );
+  const selectedTaskCandidate = selectedTaskId
+    ? taskMap.get(selectedTaskId)
+    : undefined;
   const selectedTask =
-    tasks.find((task) => task.id === selectedTaskId && !task.isDone) ?? null;
-  const sessionTask =
-    tasks.find((task) => task.id === session?.taskId) ?? null;
+    selectedTaskCandidate && !selectedTaskCandidate.isDone
+      ? selectedTaskCandidate
+      : null;
+  const sessionTask = session?.taskId ? (taskMap.get(session.taskId) ?? null) : null;
   const currentSession =
     session && (!session.taskId || sessionTask) ? session : null;
 
@@ -196,13 +177,13 @@ export default function App() {
     }
   }, [currentSession?.mode, page]);
 
-  const setDuration = (duration: number) =>
+  const setDuration = useCallback((duration: number) =>
     setViewState((current) => ({
       ...current,
       lastDuration: Math.max(1, Math.min(60, duration)),
-    }));
+    })), [setViewState]);
 
-  const startTimer = () => {
+  const startTimer = useCallback(() => {
     const duration = viewState.lastDuration;
     setSession({
       id: createPocketBaseId(),
@@ -215,22 +196,22 @@ export default function App() {
     });
     setAppFeedback({ kind: "status", message: "Pomodoro started." });
     navigate("timer");
-  };
+  }, [navigate, selectedTask?.id, setSession, viewState.lastDuration]);
 
-  const setUpTimerForTask = (taskId: string) => {
+  const setUpTimerForTask = useCallback((taskId: string) => {
     if (currentSession) {
       const message = "Finish the current session before starting another.";
       toast.error(message);
       setAppFeedback({ kind: "alert", message });
       return;
     }
-    const task = tasks.find((candidate) => candidate.id === taskId);
+    const task = taskMap.get(taskId);
     if (!task || task.isDone) return;
     setSelectedTaskId(taskId);
     navigate("timer");
-  };
+  }, [currentSession, navigate, taskMap]);
 
-  const toggleTimer = () => {
+  const toggleTimer = useCallback(() => {
     if (!currentSession || currentSession.mode !== "running") return;
     setSession({
       ...currentSession,
@@ -242,9 +223,9 @@ export default function App() {
       kind: "status",
       message: currentSession.isActive ? "Pomodoro paused." : "Pomodoro resumed.",
     });
-  };
+  }, [currentSession, remainingSeconds, setSession]);
 
-  const stopTimer = ({ saveElapsedTime, elapsedSeconds }: TimerStopOptions) => {
+  const stopTimer = useCallback(({ saveElapsedTime, elapsedSeconds }: TimerStopOptions) => {
     if (!currentSession) return;
     if (saveElapsedTime && currentSession.taskId) {
       void recordFocusTime(currentSession.taskId, elapsedSeconds).catch(() => {
@@ -272,9 +253,9 @@ export default function App() {
       setSession(null);
       setAppFeedback({ kind: "status", message: "Pomodoro stopped." });
     }
-  };
+  }, [currentSession, recordFocusTime, setSession]);
 
-  const handleDeleteProject = async (projectId: string) => {
+  const handleDeleteProject = useCallback(async (projectId: string) => {
     try {
       await deleteProject(projectId);
       reconcileDeletedProject(projectId);
@@ -294,9 +275,9 @@ export default function App() {
       });
       throw error;
     }
-  };
+  }, [deleteProject, reconcileDeletedProject, setViewState, viewState.scope]);
 
-  const handleStatusChange = async (taskId: string, isDone: boolean) => {
+  const handleStatusChange = useCallback(async (taskId: string, isDone: boolean) => {
     try {
       await setTaskDone(taskId, isDone);
       if (isDone && selectedTaskId === taskId) setSelectedTaskId(null);
@@ -315,9 +296,9 @@ export default function App() {
       setAppFeedback({ kind: "alert", message });
       throw error;
     }
-  };
+  }, [selectedTaskId, session, setSession, setTaskDone]);
 
-  const handleDeleteTask = async (taskId: string) => {
+  const handleDeleteTask = useCallback(async (taskId: string) => {
     try {
       await deleteTask(taskId);
       if (selectedTaskId === taskId) setSelectedTaskId(null);
@@ -334,7 +315,47 @@ export default function App() {
       });
       throw error;
     }
-  };
+  }, [deleteTask, selectedTaskId, session, setSession]);
+
+  const handleArchiveProject = useCallback(async (projectId: string, archived: boolean) => {
+    try {
+      await setProjectDone(projectId, archived);
+      const message = archived ? "Project archived." : "Project restored.";
+      toast.success(message);
+      setAppFeedback({ kind: "status", message });
+    } catch (error) {
+      toast.error("The project could not be updated.");
+      setAppFeedback({ kind: "alert", message: "The project could not be updated." });
+      throw error;
+    }
+  }, [setProjectDone]);
+
+  const handleNavigationIntent = useCallback((nextPage: AppPage) => {
+    if (nextPage === "timer") void loadTimerPage();
+    if (nextPage === "profile") void loadProfilePage();
+  }, []);
+
+  const handleNavigate = useCallback((nextPage: AppPage) => {
+    if (nextPage === "timer" && !currentSession) setSelectedTaskId(null);
+    navigate(nextPage);
+  }, [currentSession, navigate]);
+
+  const handleTimerTaskDone = useCallback(async () => {
+    if (!sessionTask) return;
+    await handleStatusChange(sessionTask.id, true);
+    setSession(null);
+    navigate("tasks");
+  }, [handleStatusChange, navigate, sessionTask, setSession]);
+
+  const handleFocusAgain = useCallback(() => {
+    setSession(null);
+    setSelectedTaskId(sessionTask?.id ?? null);
+  }, [sessionTask?.id, setSession]);
+
+  const handleViewTasks = useCallback(() => {
+    setSession(null);
+    navigate("tasks");
+  }, [navigate, setSession]);
 
   if (areTasksLoading || areProjectsLoading || isSessionLoading) {
     return <WorkspaceSkeleton />;
@@ -347,10 +368,8 @@ export default function App() {
     <AppShell
       page={page}
       session={currentSession}
-      onNavigate={(nextPage) => {
-        if (nextPage === "timer" && !currentSession) setSelectedTaskId(null);
-        navigate(nextPage);
-      }}
+      onNavigate={handleNavigate}
+      onNavigateIntent={handleNavigationIntent}
     >
       {appFeedback ? (
         <p
@@ -405,27 +424,11 @@ export default function App() {
             viewState={viewState}
             setViewState={setViewState}
             canStartPomodoro={!currentSession}
-            onCreateTask={(title, projectId) => createTask(title, projectId)}
+            onCreateTask={createTask}
             onCreateProject={createProject}
             onUpdateProject={updateProject}
             onDeleteProject={handleDeleteProject}
-            onArchiveProject={async (projectId, archived) => {
-              try {
-                await setProjectDone(projectId, archived);
-                const message = archived
-                  ? "Project archived."
-                  : "Project restored.";
-                toast.success(message);
-                setAppFeedback({ kind: "status", message });
-              } catch (error) {
-                toast.error("The project could not be updated.");
-                setAppFeedback({
-                  kind: "alert",
-                  message: "The project could not be updated.",
-                });
-                throw error;
-              }
-            }}
+            onArchiveProject={handleArchiveProject}
             onStartPomodoro={setUpTimerForTask}
             onStatusChange={handleStatusChange}
             onEditTask={editTask}
@@ -440,152 +443,24 @@ export default function App() {
             onOpenTask={setProfileTaskId}
           />
         </Suspense>
-      ) : currentSession?.mode === "running" ? (
-        <div className="screen-panel mx-auto w-full max-w-3xl text-center">
-          <div className="mb-5">
-            <p className="text-sm uppercase text-muted-foreground">
-              Focus session · {currentSession.durationMinutes} minutes
-            </p>
-            {sessionTask ? (
-              <div className="mt-3">
-                <SessionTask title={sessionTask.title} />
-              </div>
-            ) : (
-              <h2 className="mt-3 text-xl font-semibold">Open focus session</h2>
-            )}
-          </div>
-          <Timer
-            durationMinutes={currentSession.durationMinutes}
+      ) : (
+        <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
+          <TimerPage
+            session={currentSession}
+            sessionTask={sessionTask}
+            selectedTask={selectedTask}
+            duration={viewState.lastDuration}
             remainingSeconds={remainingSeconds}
-            isActive={currentSession.isActive}
-            sessionTitle={
-              (sessionTask ? summarizeTitle(sessionTask.title) : null) ??
-              `${currentSession.durationMinutes}-minute Pomodoro`
-            }
-            taskTitle={sessionTask?.title}
+            onDurationChange={setDuration}
+            onStart={startTimer}
             onToggle={toggleTimer}
             onStop={stopTimer}
+            onChooseTask={() => navigate("tasks")}
+            onMarkTaskDone={handleTimerTaskDone}
+            onFocusAgain={handleFocusAgain}
+            onViewTasks={handleViewTasks}
           />
-        </div>
-      ) : (
-        <div className="grid w-full items-center gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="screen-panel flex justify-center">
-            <div
-              className="timer-shell setup-dial relative flex aspect-square w-[min(88vw,58dvh,560px)] justify-center"
-              style={{ viewTransitionName: "focus-timer-container" } as CSSProperties}
-            >
-              <CircularDurationInput
-                value={viewState.lastDuration}
-                onChange={setDuration}
-                min={1}
-                max={60}
-                size={560}
-                strokeWidth={12}
-                className="size-full"
-                ariaLabel="Pomodoro duration in minutes"
-                ariaValueText={`${viewState.lastDuration} ${viewState.lastDuration === 1 ? "minute" : "minutes"}`}
-              >
-                <ClockDigits value={formatDuration(viewState.lastDuration)} />
-              </CircularDurationInput>
-            </div>
-          </div>
-
-          <div className="screen-panel mx-auto flex w-full max-w-sm flex-col gap-4 lg:mx-0">
-            {currentSession?.mode === "complete" ? (
-              <TimerCompletion
-                durationMinutes={currentSession.durationMinutes}
-                taskTitle={sessionTask?.title}
-                onMarkTaskDone={
-                  sessionTask
-                    ? async () => {
-                        await handleStatusChange(sessionTask.id, true);
-                        setSession(null);
-                        navigate("tasks");
-                      }
-                    : undefined
-                }
-                onFocusAgain={() => {
-                  setSession(null);
-                  setSelectedTaskId(sessionTask?.id ?? null);
-                }}
-                onViewTasks={() => {
-                  setSession(null);
-                  navigate("tasks");
-                }}
-              />
-            ) : (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Set up your session</CardTitle>
-                    <CardDescription>
-                      Choose a duration, then start deliberately when ready.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {selectedTask ? (
-                      <SessionTask title={selectedTask.title} />
-                    ) : (
-                      <p className="text-sm font-medium">Open focus session</p>
-                    )}
-                  </CardContent>
-                  <CardFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => navigate("tasks")}
-                    >
-                      <ListTodo data-icon="inline-start" />
-                      {selectedTask ? "Change task" : "Choose a task"}
-                    </Button>
-                  </CardFooter>
-                </Card>
-                <div className="flex items-center justify-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label="Decrease duration"
-                    onClick={() => setDuration(viewState.lastDuration - 1)}
-                  >
-                    <Minus />
-                  </Button>
-                  <span className="min-w-20 text-center text-sm font-medium">
-                    {viewState.lastDuration} minutes
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    aria-label="Increase duration"
-                    onClick={() => setDuration(viewState.lastDuration + 1)}
-                  >
-                    <Plus />
-                  </Button>
-                </div>
-                <ToggleGroup
-                  variant="outline"
-                  value={[viewState.lastDuration.toString()]}
-                  onValueChange={(values) => {
-                    if (values[0]) setDuration(Number(values[0]));
-                  }}
-                  aria-label="Pomodoro duration presets"
-                  className="grid grid-cols-4"
-                >
-                  {PRESETS.map((preset) => (
-                    <ToggleGroupItem key={preset} value={preset.toString()}>
-                      {preset}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-                <Button type="button" size="lg" onClick={startTimer}>
-                  <TimerReset data-icon="inline-start" />
-                  Start Pomodoro
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+        </Suspense>
       )}
     </AppShell>
   );

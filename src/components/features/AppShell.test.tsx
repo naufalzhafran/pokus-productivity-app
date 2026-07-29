@@ -7,8 +7,14 @@ describe("AppShell", () => {
   it("uses links for primary navigation and focuses the page heading", async () => {
     const user = userEvent.setup();
     const onNavigate = vi.fn();
+    const onNavigateIntent = vi.fn();
     render(
-      <AppShell page="profile" session={null} onNavigate={onNavigate}>
+      <AppShell
+        page="profile"
+        session={null}
+        onNavigate={onNavigate}
+        onNavigateIntent={onNavigateIntent}
+      >
         <p>Profile content</p>
       </AppShell>,
     );
@@ -21,6 +27,10 @@ describe("AppShell", () => {
     );
 
     await user.click(screen.getAllByRole("link", { name: "Tasks" })[0]);
+    expect(onNavigateIntent).toHaveBeenCalledWith("tasks");
     expect(onNavigate).toHaveBeenCalledWith("tasks");
+
+    await user.hover(screen.getAllByRole("link", { name: "Timer" })[0]);
+    expect(onNavigateIntent).toHaveBeenCalledWith("timer");
   });
 });

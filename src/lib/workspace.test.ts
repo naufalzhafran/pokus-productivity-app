@@ -153,6 +153,33 @@ describe("workspace selectors", () => {
     expect(index.groups).toHaveLength(101);
     expect(index.activeOpenCount).toBe(1000);
     expect(Math.min(TASK_BATCH_SIZE, index.groups[1].tasks.length)).toBe(10);
+
+    const state = {
+      ...createDefaultWorkspaceState(),
+      status: "all" as const,
+      sort: "focused" as const,
+    };
+    expect(
+      selectWorkspaceGroups(index, state, "TASK 999")
+        .flatMap((group) => group.tasks)
+        .map((task) => task.id),
+    ).toEqual(["task-999"]);
+    expect(
+      selectWorkspaceGroups(index, state, "")
+        .find((group) => group.id === "project-0")
+        ?.tasks.map((task) => task.id),
+    ).toEqual([
+      "task-900",
+      "task-800",
+      "task-700",
+      "task-600",
+      "task-500",
+      "task-400",
+      "task-300",
+      "task-200",
+      "task-100",
+      "task-0",
+    ]);
   });
 });
 
