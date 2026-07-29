@@ -156,5 +156,5 @@ export function selectWorkspaceGroups(
       });
       return { ...group, tasks: sortTasks(filtered, state.sort) };
     })
-    .filter((group) => group.tasks.length > 0 || !needle);
+    .filter((group) => group.project || group.tasks.length > 0);
 }

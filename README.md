@@ -16,7 +16,7 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 - Select tasks for bounded-concurrency bulk move, complete, or reopen actions
 - Multiline task text up to 2,000 characters with full-text task details
 - Derive each project's focused time from its child tasks
-- Create and edit tasks through responsive side sheets and mobile drawers
+- Create and edit tasks through accessible modals
 - Persistent task creation, selection, completion, and reopening
 - Set up a Pomodoro from a task and choose its duration before starting
 - Run a Pomodoro without attaching a task

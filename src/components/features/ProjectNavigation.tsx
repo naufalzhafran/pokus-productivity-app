@@ -8,7 +8,13 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { WorkspaceIndex, WorkspaceScope } from "@/lib/workspace";
@@ -57,15 +63,20 @@ function NavigationItems({
     icon: React.ReactNode,
   ) => (
     <Button
+      key={value}
       type="button"
       variant={scope === value ? "secondary" : "ghost"}
-      className="min-h-11 w-full justify-start"
+      className="h-auto min-h-11 w-full items-start justify-start py-2"
       onClick={() => choose(value)}
       aria-current={scope === value ? "page" : undefined}
     >
       {icon}
-      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-      <Badge variant="outline">{count}</Badge>
+      <span className="min-w-0 flex-1 whitespace-pre-wrap text-left [overflow-wrap:anywhere]">
+        {label}
+      </span>
+      <Badge variant="outline" className="shrink-0">
+        {count}
+      </Badge>
     </Button>
   );
 
@@ -161,23 +172,23 @@ export function DesktopProjectNavigation(props: ProjectNavigationProps) {
 export function MobileProjectNavigation(props: ProjectNavigationProps) {
   const [open, setOpen] = useState(false);
   return (
-    <Drawer open={open} onOpenChange={setOpen} swipeDirection="right">
-      <DrawerTrigger
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
         render={
           <Button type="button" variant="outline" className="lg:hidden" />
         }
       >
         <Menu data-icon="inline-start" />
         Projects
-      </DrawerTrigger>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Projects</DrawerTitle>
-        </DrawerHeader>
-        <div className="flex min-h-0 flex-1 flex-col p-4 pt-0">
+      </DialogTrigger>
+      <DialogContent className="grid max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-lg">
+        <DialogHeader className="pr-10">
+          <DialogTitle>Projects</DialogTitle>
+        </DialogHeader>
+        <div className="flex min-h-0 flex-col">
           <NavigationItems {...props} onChosen={() => setOpen(false)} />
         </div>
-      </DrawerContent>
-    </Drawer>
+      </DialogContent>
+    </Dialog>
   );
 }

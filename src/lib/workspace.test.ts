@@ -89,6 +89,16 @@ describe("workspace selectors", () => {
     expect(
       projectMatch.find((group) => group.id === "new")?.tasks,
     ).toHaveLength(2);
+    expect(
+      selectWorkspaceGroups(index, state, "missing").filter(
+        (group) => group.project,
+      ),
+    ).toHaveLength(2);
+    expect(
+      selectWorkspaceGroups(index, state, "missing").find(
+        (group) => group.id === "unassigned",
+      ),
+    ).toBeUndefined();
   });
 
   it("sorts within a group without changing group order", () => {

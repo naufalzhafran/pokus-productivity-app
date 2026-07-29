@@ -280,7 +280,7 @@ export function RichTextEditor({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-background focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
+    <div className="overflow-hidden rounded-2xl border bg-background focus-within:border-ring focus-within:ring-0">
       <div
         ref={toolbarRef}
         role="toolbar"

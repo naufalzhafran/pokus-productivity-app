@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { TaskWorkspace } from "@/components/features/TaskWorkspace";
 import type { Project, Task } from "@/types/task";
@@ -9,8 +10,37 @@ vi.mock("@/components/features/ProjectNavigation", () => ({
   MobileProjectNavigation: () => null,
 }));
 
+function renderWorkspace(
+  overrides: Partial<ComponentProps<typeof TaskWorkspace>> = {},
+) {
+  return render(
+    <TaskWorkspace
+      tasks={[]}
+      projects={[]}
+      viewState={{
+        scope: "all",
+        status: "open",
+        sort: "newest",
+        lastDuration: 25,
+      }}
+      setViewState={vi.fn()}
+      canStartPomodoro
+      onCreateTask={vi.fn()}
+      onCreateProject={vi.fn()}
+      onUpdateProject={vi.fn()}
+      onDeleteProject={vi.fn()}
+      onArchiveProject={vi.fn()}
+      onStartPomodoro={vi.fn()}
+      onStatusChange={vi.fn()}
+      onEditTask={vi.fn()}
+      onDeleteTask={vi.fn()}
+      {...overrides}
+    />,
+  );
+}
+
 describe("TaskWorkspace", () => {
-  it("separates selected project details from its task workspace", () => {
+  it("combines selected project details, filters, and tasks in one project card", () => {
     const project: Project = {
       id: "project-1",
       title: "Empty project",
@@ -53,16 +83,10 @@ describe("TaskWorkspace", () => {
       within(projectCard).getByRole("button", { name: "Show description" }),
     ).toBeInTheDocument();
     expect(
-      within(projectCard).queryByPlaceholderText("Search tasks"),
-    ).not.toBeInTheDocument();
-
-    const taskSearch = screen.getByPlaceholderText("Search tasks");
-    const taskCard = taskSearch.closest('[data-slot="card"]');
-    if (!(taskCard instanceof HTMLElement)) {
-      throw new Error("Expected the task search inside the task card.");
-    }
-    expect(within(taskCard).getByText("Tasks")).toBeInTheDocument();
-    expect(within(taskCard).queryByText(project.title)).not.toBeInTheDocument();
+      within(projectCard).getByPlaceholderText("Search tasks"),
+    ).toBeInTheDocument();
+    expect(within(projectCard).getByText("Tasks")).toBeInTheDocument();
+    expect(projectCard).toHaveAttribute("data-project-id", project.id);
   });
 
   it("names repeated task controls and blocks duplicate async operations", async () => {
@@ -120,11 +144,10 @@ describe("TaskWorkspace", () => {
         name: "Focus on Review keyboard navigation",
       }),
     ).toHaveAccessibleDescription(/another focus session/i);
-    expect(
-      screen.getByRole("button", {
-        name: "Actions for Review keyboard navigation",
-      }),
-    ).toBeInTheDocument();
+    const actionsButton = screen.getByRole("button", {
+      name: "Actions for Review keyboard navigation",
+    });
+    expect(actionsButton).toBeInTheDocument();
 
     await user.click(checkbox);
     expect(onStatusChange).toHaveBeenCalledTimes(1);
@@ -135,6 +158,178 @@ describe("TaskWorkspace", () => {
 
     await act(async () => resolveStatus?.());
     expect(checkbox).not.toHaveAttribute("aria-disabled", "true");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Actions for Review keyboard navigation",
+      }),
+    );
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu).getByRole("menuitem", { name: "Edit or move" }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu).getByRole("menuitem", { name: "Delete" }),
+    ).toBeInTheDocument();
+    expect(menu).not.toHaveTextContent(task.title);
+  });
+
+  it("renders every project and task as a card with complete wrapping titles", () => {
+    const longProjectTitle = `Roadmap\n${"project".repeat(30)}`;
+    const longTaskTitle = `First line\n${"unbroken".repeat(80)}`;
+    const projects: Project[] = [
+      {
+        id: "project-long",
+        title: longProjectTitle,
+        description: "",
+        createdAt: 2,
+        isDone: false,
+      },
+      {
+        id: "project-empty",
+        title: "Empty project",
+        description: "",
+        createdAt: 1,
+        isDone: false,
+      },
+    ];
+    const tasks: Task[] = [
+      {
+        id: "task-long",
+        title: longTaskTitle,
+        isDone: false,
+        createdAt: 2,
+        focusedSeconds: 0,
+        projectId: "project-long",
+      },
+      {
+        id: "task-unassigned",
+        title: "Loose task",
+        isDone: false,
+        createdAt: 1,
+        focusedSeconds: 0,
+        projectId: null,
+      },
+    ];
+
+    const { container } = renderWorkspace({ projects, tasks });
+
+    expect(container.querySelectorAll("[data-project-id]")).toHaveLength(3);
+    expect(container.querySelectorAll("[data-task-id]")).toHaveLength(2);
+    expect(
+      container.querySelector('[data-project-id="project-empty"]'),
+    ).toHaveTextContent("No matching tasks");
+    expect(
+      container.querySelector('[data-project-id="unassigned"]'),
+    ).toHaveTextContent("No project");
+
+    const projectTitle = container.querySelector(
+      '[data-project-id="project-long"] [data-slot="card-title"]',
+    );
+    const taskTitle = container.querySelector(
+      '[data-task-id="task-long"] .task-preview',
+    );
+    if (!(projectTitle instanceof HTMLElement) || !(taskTitle instanceof HTMLElement)) {
+      throw new Error("Expected wrapping project and task title elements.");
+    }
+    expect(projectTitle.textContent).toBe(longProjectTitle);
+    expect(taskTitle.textContent).toBe(longTaskTitle);
+    expect(projectTitle).toHaveClass("whitespace-pre-wrap");
+    expect(projectTitle).toHaveClass("[overflow-wrap:anywhere]");
+    expect(taskTitle).toHaveClass("whitespace-pre-wrap");
+    expect(taskTitle).toHaveClass("[overflow-wrap:anywhere]");
+    expect(projectTitle.className).not.toMatch(/truncate|line-clamp/);
+    expect(taskTitle.className).not.toMatch(/truncate|line-clamp/);
+  });
+
+  it("keeps selected project tasks inside one card and uses a responsive task grid", () => {
+    const project: Project = {
+      id: "selected",
+      title: "Selected project",
+      description: "",
+      createdAt: 1,
+      isDone: false,
+    };
+    const task: Task = {
+      id: "selected-task",
+      title: "Nested card task",
+      isDone: false,
+      createdAt: 1,
+      focusedSeconds: 60,
+      projectId: project.id,
+    };
+
+    const { container } = renderWorkspace({
+      projects: [project],
+      tasks: [task],
+      viewState: {
+        scope: `project:${project.id}`,
+        status: "open",
+        sort: "newest",
+        lastDuration: 25,
+      },
+    });
+
+    const projectCard = container.querySelector(
+      '[data-project-id="selected"]',
+    );
+    const taskCard = container.querySelector('[data-task-id="selected-task"]');
+    if (!(projectCard instanceof HTMLElement) || !(taskCard instanceof HTMLElement)) {
+      throw new Error("Expected selected project and task cards.");
+    }
+    expect(projectCard).toContainElement(taskCard);
+    expect(taskCard.closest("ul")).toHaveClass("md:grid-cols-2");
+  });
+
+  it("shows empty archived project cards and omits an empty No project card", () => {
+    const archived: Project = {
+      id: "archived-empty",
+      title: "Archived empty",
+      description: "",
+      createdAt: 1,
+      isDone: true,
+    };
+
+    const { container } = renderWorkspace({
+      projects: [archived],
+      viewState: {
+        scope: "archived",
+        status: "open",
+        sort: "newest",
+        lastDuration: 25,
+      },
+    });
+
+    expect(
+      container.querySelector('[data-project-id="archived-empty"]'),
+    ).toHaveTextContent("No matching tasks");
+    expect(
+      container.querySelector('[data-project-id="unassigned"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("progressively reveals task cards in batches", async () => {
+    const user = userEvent.setup();
+    const project: Project = {
+      id: "many",
+      title: "Many tasks",
+      description: "",
+      createdAt: 1,
+      isDone: false,
+    };
+    const tasks: Task[] = Array.from({ length: 26 }, (_, index) => ({
+      id: `task-${index}`,
+      title: `Task ${index}`,
+      isDone: false,
+      createdAt: index,
+      focusedSeconds: 0,
+      projectId: project.id,
+    }));
+
+    const { container } = renderWorkspace({ projects: [project], tasks });
+    expect(container.querySelectorAll("[data-task-id]")).toHaveLength(25);
+    await user.click(screen.getByRole("button", { name: "Show 25 more" }));
+    expect(container.querySelectorAll("[data-task-id]")).toHaveLength(26);
   });
 
   it("politely announces filtered result counts and clears changed filters", async () => {

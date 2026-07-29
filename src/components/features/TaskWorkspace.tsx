@@ -7,6 +7,7 @@ import {
   useState,
   type Dispatch,
   type FormEvent,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import {
@@ -39,8 +40,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -89,6 +90,7 @@ import {
   PROJECT_TITLE_MAX_LENGTH,
   selectWorkspaceGroups,
   TASK_BATCH_SIZE,
+  type TaskGroup,
   type TaskSort,
   type TaskStatusFilter,
   type WorkspaceViewState,
@@ -250,6 +252,146 @@ interface TaskFiltersProps {
   onSortChange: (value: TaskSort) => void;
   onClear: () => void;
   hasActiveFilters: boolean;
+}
+
+interface WorkspaceTaskCardProps {
+  task: Task;
+  canStartPomodoro: boolean;
+  isPending: boolean;
+  detailTriggerRef: (node: HTMLButtonElement | null) => void;
+  onStatusChange: () => void;
+  onOpenDetails: () => void;
+  onFocus: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function WorkspaceTaskCard({
+  task,
+  canStartPomodoro,
+  isPending,
+  detailTriggerRef,
+  onStatusChange,
+  onOpenDetails,
+  onFocus,
+  onEdit,
+  onDelete,
+}: WorkspaceTaskCardProps) {
+  const accessibleTitle = previewTitle(task.title);
+
+  return (
+    <li className="min-w-0" aria-busy={isPending}>
+      <Card
+        size="sm"
+        data-task-id={task.id}
+        className="h-full gap-3 transition-colors hover:bg-muted/20"
+      >
+        <CardContent>
+          <button
+            ref={detailTriggerRef}
+            type="button"
+            className="block min-h-6 w-full rounded-md text-left"
+            onClick={onOpenDetails}
+            aria-label={`Open details for ${accessibleTitle}`}
+            disabled={isPending}
+          >
+            <span
+              className={cn(
+                "task-preview block whitespace-pre-wrap text-sm font-medium [overflow-wrap:anywhere]",
+                task.isDone && "text-muted-foreground line-through",
+              )}
+            >
+              {task.title}
+            </span>
+          </button>
+        </CardContent>
+        <CardFooter className="mt-auto flex-wrap justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Checkbox
+              checked={task.isDone}
+              onCheckedChange={onStatusChange}
+              aria-label={
+                task.isDone
+                  ? `Reopen ${accessibleTitle}`
+                  : `Mark ${accessibleTitle} complete`
+              }
+              disabled={isPending}
+            />
+            <span className="text-xs text-muted-foreground">
+              {task.isDone ? "Completed" : "Open"} ·{" "}
+              {formatFocusedTime(task.focusedSeconds)}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {!task.isDone ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={onFocus}
+                disabled={!canStartPomodoro || isPending}
+                aria-label={`Focus on ${accessibleTitle}`}
+                aria-describedby={
+                  !canStartPomodoro ? "active-session-explanation" : undefined
+                }
+              >
+                <TimerReset data-icon="inline-start" />
+                Focus
+              </Button>
+            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Actions for ${accessibleTitle}`}
+                    disabled={isPending}
+                  />
+                }
+              >
+                <MoreHorizontal />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={onEdit}>
+                    <Pencil />
+                    Edit or move
+                  </DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                    <Trash2 />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardFooter>
+      </Card>
+    </li>
+  );
+}
+
+interface WorkspaceProjectCardProps {
+  project: Project | null;
+  children: ReactNode;
+  className?: string;
+}
+
+function WorkspaceProjectCard({
+  project,
+  children,
+  className,
+}: WorkspaceProjectCardProps) {
+  return (
+    <Card
+      size="sm"
+      data-project-id={project?.id ?? "unassigned"}
+      className={className}
+    >
+      {children}
+    </Card>
+  );
 }
 
 function TaskFilters({
@@ -574,6 +716,102 @@ export function TaskWorkspace({
     }
   };
 
+  const renderTasks = (group: TaskGroup, useGrid: boolean) => {
+    const shown = visibleCounts[group.id] ?? TASK_BATCH_SIZE;
+    const visibleTasks = group.tasks.slice(0, shown);
+
+    if (visibleTasks.length === 0) {
+      return (
+        <Empty className="min-h-48 rounded-xl border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ListTodo />
+            </EmptyMedia>
+            <EmptyTitle>No matching tasks</EmptyTitle>
+            <EmptyDescription>
+              {group.project
+                ? "This project has no tasks matching the current filters."
+                : "No unassigned tasks match the current filters."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {selectedProject ? (
+            <Button type="button" onClick={() => setEditorTask("new")}>
+              <Plus data-icon="inline-start" />
+              New task
+            </Button>
+          ) : null}
+        </Empty>
+      );
+    }
+
+    return (
+      <>
+        <ul
+          className={cn(
+            "grid min-w-0 grid-cols-1 gap-3",
+            useGrid && "md:grid-cols-2",
+          )}
+          aria-label={`Tasks in ${group.project?.title ?? "No project"}`}
+        >
+          {visibleTasks.map((task) => {
+            const accessibleTitle = previewTitle(task.title);
+            const isPending = pendingTaskIds.has(task.id);
+            return (
+              <WorkspaceTaskCard
+                key={task.id}
+                task={task}
+                canStartPomodoro={canStartPomodoro}
+                isPending={isPending}
+                detailTriggerRef={(node) => {
+                  if (node) taskDetailTriggers.current.set(task.id, node);
+                  else taskDetailTriggers.current.delete(task.id);
+                }}
+                onStatusChange={() =>
+                  void runTaskMutation(
+                    task.id,
+                    () => onStatusChange(task.id, !task.isDone),
+                    task.isDone
+                      ? `${accessibleTitle} reopened.`
+                      : `${accessibleTitle} completed.`,
+                    task.isDone
+                      ? `${accessibleTitle} could not be reopened.`
+                      : `${accessibleTitle} could not be completed.`,
+                  ).catch(() => undefined)
+                }
+                onOpenDetails={() => setDetailTaskId(task.id)}
+                onFocus={() => onStartPomodoro(task.id)}
+                onEdit={() => setEditorTask(task)}
+                onDelete={() => setDeleteTaskId(task.id)}
+              />
+            );
+          })}
+        </ul>
+        {shown < group.tasks.length ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2 w-full"
+            onClick={() => {
+              const nextShown = Math.min(
+                shown + TASK_BATCH_SIZE,
+                group.tasks.length,
+              );
+              setVisibleCounts((current) => ({
+                ...current,
+                [group.id]: nextShown,
+              }));
+              setWorkspaceAnnouncement(
+                `${nextShown - shown} more tasks shown. ${nextShown} of ${group.tasks.length} tasks visible.`,
+              );
+            }}
+          >
+            Show 25 more
+          </Button>
+        ) : null}
+      </>
+    );
+  };
+
   return (
     <div className="grid w-full items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
       <p
@@ -620,71 +858,7 @@ export function TaskWorkspace({
       />
 
       <div className="min-w-0">
-        {selectedProject ? (
-          <Card className="mb-4">
-            <CardHeader className="items-center">
-              <div className="flex min-w-0 items-center gap-2">
-                <Folder aria-hidden="true" />
-                <CardTitle className="truncate">
-                  {selectedProject.title}
-                </CardTitle>
-                {selectedProject.isDone ? (
-                  <Badge variant="outline">Archived</Badge>
-                ) : null}
-              </div>
-              <CardAction className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openProjectEditor(selectedProject)}
-                  aria-label="Edit project"
-                  disabled={pendingProjectIds.has(selectedProject.id)}
-                >
-                  <Pencil data-icon="inline-start" />
-                  <span className="hidden sm:inline">Edit project</span>
-                </Button>
-                <ProjectActionsMenu
-                  project={selectedProject}
-                  includeEdit={false}
-                  onEdit={() => openProjectEditor(selectedProject)}
-                  onArchive={() =>
-                    void runProjectMutation(
-                      selectedProject.id,
-                      () =>
-                        onArchiveProject(
-                          selectedProject.id,
-                          !selectedProject.isDone,
-                        ),
-                      selectedProject.isDone
-                        ? "Project restored."
-                        : "Project archived.",
-                      "Project could not be updated.",
-                    ).catch(() => undefined)
-                  }
-                  onDelete={() => setDeleteProjectId(selectedProject.id)}
-                  disabled={pendingProjectIds.has(selectedProject.id)}
-                />
-                <MobileProjectNavigation
-                  index={index}
-                  scope={viewState.scope}
-                  onScopeChange={(scope) => updateViewState("scope", scope)}
-                />
-              </CardAction>
-            </CardHeader>
-            {selectedProject.description ? (
-              <CardContent>
-                <ProjectDescription
-                  project={selectedProject}
-                  expanded={expandedDescriptions.has(selectedProject.id)}
-                  onToggle={() =>
-                    toggleProjectDescription(selectedProject.id)
-                  }
-                />
-              </CardContent>
-            ) : null}
-          </Card>
-        ) : (
+        {!selectedProject ? (
           <Card className="mb-4">
             <CardHeader className="gap-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -719,7 +893,7 @@ export function TaskWorkspace({
               />
             </CardHeader>
           </Card>
-        )}
+        ) : null}
 
         {!canStartPomodoro && hasVisibleTasks ? (
           <p
@@ -732,7 +906,97 @@ export function TaskWorkspace({
           </p>
         ) : null}
 
-        {!selectedProject && (groups.length === 0 || !hasVisibleTasks) ? (
+        {selectedProject && selectedGroup ? (
+          <WorkspaceProjectCard project={selectedProject} className="w-full">
+            <CardHeader className="gap-3">
+              <div className="flex min-w-0 items-start gap-2">
+                <Folder className="mt-0.5 shrink-0" aria-hidden="true" />
+                <CardTitle className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]">
+                  {selectedProject.title}
+                </CardTitle>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedProject.isDone ? (
+                    <Badge variant="outline">Archived</Badge>
+                  ) : null}
+                  <span className="text-xs text-muted-foreground">
+                    {formatFocusedTime(selectedGroup.focusedSeconds)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openProjectEditor(selectedProject)}
+                    aria-label="Edit project"
+                    disabled={pendingProjectIds.has(selectedProject.id)}
+                  >
+                    <Pencil data-icon="inline-start" />
+                    <span className="hidden sm:inline">Edit project</span>
+                  </Button>
+                  <ProjectActionsMenu
+                    project={selectedProject}
+                    includeEdit={false}
+                    onEdit={() => openProjectEditor(selectedProject)}
+                    onArchive={() =>
+                      void runProjectMutation(
+                        selectedProject.id,
+                        () =>
+                          onArchiveProject(
+                            selectedProject.id,
+                            !selectedProject.isDone,
+                          ),
+                        selectedProject.isDone
+                          ? "Project restored."
+                          : "Project archived.",
+                        "Project could not be updated.",
+                      ).catch(() => undefined)
+                    }
+                    onDelete={() => setDeleteProjectId(selectedProject.id)}
+                    disabled={pendingProjectIds.has(selectedProject.id)}
+                  />
+                  <MobileProjectNavigation
+                    index={index}
+                    scope={viewState.scope}
+                    onScopeChange={(scope) => updateViewState("scope", scope)}
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <ProjectDescription
+                project={selectedProject}
+                expanded={expandedDescriptions.has(selectedProject.id)}
+                onToggle={() => toggleProjectDescription(selectedProject.id)}
+              />
+              <TaskFilters
+                search={search}
+                status={viewState.status}
+                sort={viewState.sort}
+                includeProjects={false}
+                onSearchChange={setSearch}
+                onStatusChange={(status) => updateViewState("status", status)}
+                onSortChange={(sort) => updateViewState("sort", sort)}
+                onClear={clearFilters}
+                hasActiveFilters={hasActiveFilters}
+              />
+              <div className="flex items-center gap-2">
+                <ListTodo aria-hidden="true" />
+                <h2
+                  id={`task-list-heading-${selectedGroup.id}`}
+                  tabIndex={-1}
+                  className="rounded-sm font-heading font-medium outline-none"
+                >
+                  Tasks
+                </h2>
+                <Badge variant="outline">{selectedGroup.tasks.length}</Badge>
+              </div>
+              {renderTasks(selectedGroup, true)}
+            </CardContent>
+          </WorkspaceProjectCard>
+        ) : groups.length === 0 ? (
           <Card>
             <CardContent>
               <Empty className="min-h-80">
@@ -753,249 +1017,69 @@ export function TaskWorkspace({
             </CardContent>
           </Card>
         ) : (
-          <div className="flex flex-col gap-3">
-            {visibleGroups.map((group) => {
-              const shown = visibleCounts[group.id] ?? TASK_BATCH_SIZE;
-              const visibleTasks = group.tasks.slice(0, shown);
-              const GroupIcon = selectedProject
-                ? ListTodo
-                : group.project
-                  ? Folder
-                  : ListTodo;
-              return (
-                <Card key={group.id} size="sm">
-                  <CardHeader className="items-center">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <GroupIcon aria-hidden="true" />
-                      <CardTitle className="truncate">
-                        <span
-                          id={`task-list-heading-${group.id}`}
-                          tabIndex={-1}
-                          className="rounded-sm outline-none"
-                        >
-                          {selectedProject
-                            ? "Tasks"
-                            : (group.project?.title ?? "No project")}
-                        </span>
-                      </CardTitle>
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+            {groups.map((group) => (
+              <WorkspaceProjectCard key={group.id} project={group.project}>
+                <CardHeader className="gap-3">
+                  <div className="flex min-w-0 items-start gap-2">
+                    {group.project ? (
+                      <Folder className="mt-0.5 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <ListTodo className="mt-0.5 shrink-0" aria-hidden="true" />
+                    )}
+                    <CardTitle className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]">
+                      <span
+                        id={`task-list-heading-${group.id}`}
+                        tabIndex={-1}
+                        className="rounded-sm outline-none"
+                      >
+                        {group.project?.title ?? "No project"}
+                      </span>
+                    </CardTitle>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline">{group.tasks.length}</Badge>
-                    </div>
-                    <CardAction className="flex items-center gap-2">
-                      <span className="hidden text-xs text-muted-foreground sm:inline">
+                      <span className="text-xs text-muted-foreground">
                         {formatFocusedTime(group.focusedSeconds)}
                       </span>
-                      {!selectedProject && group.project ? (
-                        <ProjectActionsMenu
-                          project={group.project}
-                          onEdit={() => openProjectEditor(group.project!)}
-                          onArchive={() =>
-                            void runProjectMutation(
-                              group.project!.id,
-                              () =>
-                                onArchiveProject(
-                                  group.project!.id,
-                                  !group.project!.isDone,
-                                ),
-                              group.project!.isDone
-                                ? "Project restored."
-                                : "Project archived.",
-                              "Project could not be updated.",
-                            ).catch(() => undefined)
-                          }
-                          onDelete={() =>
-                            setDeleteProjectId(group.project!.id)
-                          }
-                          disabled={pendingProjectIds.has(group.project.id)}
-                        />
-                      ) : null}
-                    </CardAction>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-3">
-                    {selectedProject ? (
-                      <TaskFilters
-                        search={search}
-                        status={viewState.status}
-                        sort={viewState.sort}
-                        includeProjects={false}
-                        onSearchChange={setSearch}
-                        onStatusChange={(status) =>
-                          updateViewState("status", status)
-                        }
-                        onSortChange={(sort) =>
-                          updateViewState("sort", sort)
-                        }
-                        onClear={clearFilters}
-                        hasActiveFilters={hasActiveFilters}
-                      />
-                    ) : null}
-                    {!selectedProject && group.project ? (
-                      <ProjectDescription
+                    </div>
+                    {group.project ? (
+                      <ProjectActionsMenu
                         project={group.project}
-                        expanded={expandedDescriptions.has(group.id)}
-                        onToggle={() => toggleProjectDescription(group.id)}
+                        onEdit={() => openProjectEditor(group.project!)}
+                        onArchive={() =>
+                          void runProjectMutation(
+                            group.project!.id,
+                            () =>
+                              onArchiveProject(
+                                group.project!.id,
+                                !group.project!.isDone,
+                              ),
+                            group.project!.isDone
+                              ? "Project restored."
+                              : "Project archived.",
+                            "Project could not be updated.",
+                          ).catch(() => undefined)
+                        }
+                        onDelete={() => setDeleteProjectId(group.project!.id)}
+                        disabled={pendingProjectIds.has(group.project.id)}
                       />
                     ) : null}
-                    {selectedProject && visibleTasks.length === 0 ? (
-                      <Empty className="min-h-64">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon">
-                            <ListTodo />
-                          </EmptyMedia>
-                          <EmptyTitle>No matching tasks</EmptyTitle>
-                          <EmptyDescription>
-                            Adjust the task filters or create a new task in this
-                            project.
-                          </EmptyDescription>
-                        </EmptyHeader>
-                        <Button
-                          type="button"
-                          onClick={() => setEditorTask("new")}
-                        >
-                          <Plus data-icon="inline-start" />
-                          New task
-                        </Button>
-                      </Empty>
-                    ) : (
-                      <ul
-                        className="flex flex-col gap-1"
-                        aria-label={`Tasks in ${group.project?.title ?? "No project"}`}
-                      >
-                        {visibleTasks.map((task) => {
-                          const accessibleTitle = previewTitle(task.title);
-                          const isPending = pendingTaskIds.has(task.id);
-                          return (
-                            <li
-                              key={task.id}
-                              className="group flex items-start gap-2 rounded-xl border border-transparent p-3 hover:bg-muted/50"
-                              aria-busy={isPending}
-                            >
-                              <Checkbox
-                                checked={task.isDone}
-                                onCheckedChange={() =>
-                                  void runTaskMutation(
-                                    task.id,
-                                    () =>
-                                      onStatusChange(task.id, !task.isDone),
-                                    task.isDone
-                                      ? `${accessibleTitle} reopened.`
-                                      : `${accessibleTitle} completed.`,
-                                    task.isDone
-                                      ? `${accessibleTitle} could not be reopened.`
-                                      : `${accessibleTitle} could not be completed.`,
-                                  ).catch(() => undefined)
-                                }
-                                aria-label={
-                                  task.isDone
-                                    ? `Reopen ${accessibleTitle}`
-                                    : `Mark ${accessibleTitle} complete`
-                                }
-                                className="mt-0.5"
-                                disabled={isPending}
-                              />
-                              <button
-                                ref={(node) => {
-                                  if (node) taskDetailTriggers.current.set(task.id, node);
-                                  else taskDetailTriggers.current.delete(task.id);
-                                }}
-                                type="button"
-                                className="min-h-6 min-w-0 flex-1 rounded-md text-left"
-                                onClick={() => setDetailTaskId(task.id)}
-                                aria-label={`Open details for ${accessibleTitle}`}
-                                disabled={isPending}
-                              >
-                                <span
-                                  className={cn(
-                                    "task-preview line-clamp-3 whitespace-pre-wrap break-words text-sm font-medium",
-                                    task.isDone &&
-                                      "text-muted-foreground line-through",
-                                  )}
-                                >
-                                  {task.title}
-                                </span>
-                                <span className="mt-1 block text-xs text-muted-foreground">
-                                  {formatFocusedTime(task.focusedSeconds)}
-                                </span>
-                              </button>
-                              {!task.isDone ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={() => onStartPomodoro(task.id)}
-                                  disabled={!canStartPomodoro || isPending}
-                                  aria-label={`Focus on ${accessibleTitle}`}
-                                  aria-describedby={
-                                    !canStartPomodoro
-                                      ? "active-session-explanation"
-                                      : undefined
-                                  }
-                                >
-                                  <TimerReset data-icon="inline-start" />
-                                  <span className="hidden sm:inline">Focus</span>
-                                </Button>
-                              ) : null}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger
-                                  render={
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon-sm"
-                                      aria-label={`Actions for ${accessibleTitle}`}
-                                      disabled={isPending}
-                                    />
-                                  }
-                                >
-                                  <MoreHorizontal />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuGroup>
-                                    <DropdownMenuItem
-                                      onClick={() => setEditorTask(task)}
-                                    >
-                                      <Pencil />
-                                      Edit or move {accessibleTitle}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      variant="destructive"
-                                      onClick={() => setDeleteTaskId(task.id)}
-                                    >
-                                      <Trash2 />
-                                      Delete {accessibleTitle}
-                                    </DropdownMenuItem>
-                                  </DropdownMenuGroup>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                    {shown < group.tasks.length ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="mt-2 w-full"
-                        onClick={() => {
-                          const nextShown = Math.min(
-                            shown + TASK_BATCH_SIZE,
-                            group.tasks.length,
-                          );
-                          setVisibleCounts((current) => ({
-                            ...current,
-                            [group.id]: nextShown,
-                          }));
-                          setWorkspaceAnnouncement(
-                            `${nextShown - shown} more tasks shown. ${nextShown} of ${group.tasks.length} tasks visible.`,
-                          );
-                        }}
-                      >
-                        Show 25 more
-                      </Button>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  </div>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3">
+                  {group.project ? (
+                    <ProjectDescription
+                      project={group.project}
+                      expanded={expandedDescriptions.has(group.id)}
+                      onToggle={() => toggleProjectDescription(group.id)}
+                    />
+                  ) : null}
+                  {renderTasks(group, false)}
+                </CardContent>
+              </WorkspaceProjectCard>
+            ))}
           </div>
         )}
       </div>
@@ -1065,7 +1149,6 @@ export function TaskWorkspace({
         onOpenChange={(open) => !open && setProjectEditor(null)}
         title={projectEditor === "new" ? "New project" : "Edit project"}
         description="Name the project and add optional formatted context."
-        presentation="dialog"
         className="gap-4 p-5"
       >
         {projectEditor ? (
