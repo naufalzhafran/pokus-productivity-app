@@ -22,6 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePomodoroSession } from "@/hooks/usePomodoroSession";
 import { useProjects } from "@/hooks/useProjects";
+import { useCategories } from "@/hooks/useCategories";
 import { useTasks } from "@/hooks/useTasks";
 import { useTimerClock } from "@/hooks/useTimerClock";
 import { useWorkspacePreferences } from "@/hooks/useWorkspacePreferences";
@@ -31,6 +32,7 @@ import {
   loadSelectedTaskId,
   saveSelectedTaskId,
 } from "@/lib/selection-storage";
+import { isProjectArchived } from "@/lib/workspace";
 import type { PomodoroSession } from "@/types/task";
 
 const loadProfilePage = () => import("@/components/features/ProfilePage");
@@ -92,6 +94,7 @@ export default function App() {
     recordFocusTime,
     editTask,
     reconcileDeletedProject,
+    reconcileDeletedCategory,
     isLoading: areTasksLoading,
     loadError: tasksLoadError,
   } = useTasks();
@@ -99,15 +102,27 @@ export default function App() {
     projects,
     createProject,
     deleteProject,
-    setProjectDone,
+    setProjectArchived,
     updateProject,
     isLoading: areProjectsLoading,
     loadError: projectsLoadError,
   } = useProjects();
+  const {
+    categories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+    isLoading: areCategoriesLoading,
+    loadError: categoriesLoadError,
+  } = useCategories();
 
   const taskMap = useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
     [tasks],
+  );
+  const projectMap = useMemo(
+    () => new Map(projects.map((project) => [project.id, project])),
+    [projects],
   );
   const selectedTaskCandidate = selectedTaskId
     ? taskMap.get(selectedTaskId)
@@ -206,10 +221,11 @@ export default function App() {
       return;
     }
     const task = taskMap.get(taskId);
-    if (!task || task.isDone) return;
+    const taskProject = task?.projectId ? projectMap.get(task.projectId) : undefined;
+    if (!task || task.isDone || isProjectArchived(taskProject)) return;
     setSelectedTaskId(taskId);
     navigate("timer");
-  }, [currentSession, navigate, taskMap]);
+  }, [currentSession, navigate, projectMap, taskMap]);
 
   const toggleTimer = useCallback(() => {
     if (!currentSession || currentSession.mode !== "running") return;
@@ -319,7 +335,7 @@ export default function App() {
 
   const handleArchiveProject = useCallback(async (projectId: string, archived: boolean) => {
     try {
-      await setProjectDone(projectId, archived);
+      await setProjectArchived(projectId, archived);
       const message = archived ? "Project archived." : "Project restored.";
       toast.success(message);
       setAppFeedback({ kind: "status", message });
@@ -328,7 +344,14 @@ export default function App() {
       setAppFeedback({ kind: "alert", message: "The project could not be updated." });
       throw error;
     }
-  }, [setProjectDone]);
+  }, [setProjectArchived]);
+
+  const handleDeleteCategory = useCallback(async (categoryId: string) => {
+    await deleteCategory(categoryId);
+    reconcileDeletedCategory(categoryId);
+    if (viewState.categoryId === categoryId) setViewState((current) => ({ ...current, categoryId: null }));
+    toast.success("Category deleted. Affected tasks are now uncategorized.");
+  }, [deleteCategory, reconcileDeletedCategory, setViewState, viewState.categoryId]);
 
   const handleNavigationIntent = useCallback((nextPage: AppPage) => {
     if (nextPage === "timer") void loadTimerPage();
@@ -357,11 +380,11 @@ export default function App() {
     navigate("tasks");
   }, [navigate, setSession]);
 
-  if (areTasksLoading || areProjectsLoading || isSessionLoading) {
+  if (areTasksLoading || areProjectsLoading || areCategoriesLoading || isSessionLoading) {
     return <WorkspaceSkeleton />;
   }
 
-  const loadError = tasksLoadError ?? projectsLoadError ?? sessionLoadError;
+  const loadError = tasksLoadError ?? projectsLoadError ?? categoriesLoadError ?? sessionLoadError;
   const timerMode = currentSession?.mode;
 
   return (
@@ -421,6 +444,7 @@ export default function App() {
           <TaskWorkspace
             tasks={tasks}
             projects={projects}
+            categories={categories}
             viewState={viewState}
             setViewState={setViewState}
             canStartPomodoro={!currentSession}
@@ -433,6 +457,9 @@ export default function App() {
             onStatusChange={handleStatusChange}
             onEditTask={editTask}
             onDeleteTask={handleDeleteTask}
+            onCreateCategory={createCategory}
+            onUpdateCategory={updateCategory}
+            onDeleteCategory={handleDeleteCategory}
           />
         </div>
       ) : page === "profile" ? (

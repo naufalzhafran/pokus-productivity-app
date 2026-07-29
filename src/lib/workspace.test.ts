@@ -1,196 +1,59 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildWorkspaceIndex,
-  createDefaultWorkspaceState,
-  selectWorkspaceGroups,
-  TASK_BATCH_SIZE,
-  TASK_TITLE_MAX_LENGTH,
-  validateTaskTitle,
-} from "@/lib/workspace";
-import type { Project, Task } from "@/types/task";
+import { addLocalDays, buildFlatWorkspaceIndex, createDefaultWorkspaceState, selectWorkspaceTasks, TASK_BATCH_SIZE, validateTaskTitle } from "@/lib/workspace";
+import type { Category, Project, Task } from "@/types/task";
 
+const today = "2026-07-29";
+const categories: Category[] = [{ id: "work", name: "Work", color: "blue", createdAt: 1, updatedAt: 1 }];
 const projects: Project[] = [
-  {
-    id: "new",
-    title: "New Project",
-    description: "<p>Release planning</p>",
-    createdAt: 30,
-    isDone: false,
-  },
-  {
-    id: "old",
-    title: "Alpha",
-    description: "",
-    createdAt: 20,
-    isDone: false,
-  },
-  {
-    id: "archived",
-    title: "Archive Match",
-    description: "",
-    createdAt: 10,
-    isDone: true,
-  },
+  { id: "active", title: "Launch", description: "", createdAt: 4, status: "active", isArchived: false, dueDate: "2026-07-28" },
+  { id: "today-project", title: "Today", description: "", createdAt: 3, status: "active", isArchived: false, dueDate: today },
+  { id: "upcoming-project", title: "Upcoming", description: "", createdAt: 2, status: "planned", isArchived: false, dueDate: addLocalDays(today, 7) },
+  { id: "archived", title: "Old", description: "", createdAt: 1, status: "completed", isArchived: true, dueDate: today },
+];
+const task = (values: Partial<Task> & Pick<Task, "id" | "title">): Task => ({ isDone: false, createdAt: 1, focusedSeconds: 0, projectId: null, description: "", priority: "none", categoryId: null, ...values });
+const tasks = [
+  task({ id: "overdue", title: "Ship notes", description: "<p>Release context</p>", projectId: "active", categoryId: "work", priority: "urgent", createdAt: 4 }),
+  task({ id: "today", title: "Review", projectId: "today-project", priority: "low", createdAt: 3 }),
+  task({ id: "upcoming", title: "Plan", projectId: "upcoming-project", createdAt: 2 }),
+  task({ id: "archived-task", title: "Hidden", projectId: "archived" }),
+  task({ id: "completed", title: "Done", projectId: "today-project", isDone: true }),
 ];
 
-const tasks: Task[] = [
-  {
-    id: "one",
-    title: "Write release notes",
-    createdAt: 30,
-    isDone: false,
-    focusedSeconds: 20,
-    projectId: "new",
-  },
-  {
-    id: "two",
-    title: "A multiline\nUnicode 🧠 task",
-    createdAt: 20,
-    isDone: true,
-    focusedSeconds: 100,
-    projectId: "new",
-  },
-  {
-    id: "three",
-    title: "Unassigned item",
-    createdAt: 10,
-    isDone: false,
-    focusedSeconds: 5,
-    projectId: null,
-  },
-  {
-    id: "four",
-    title: "Preserved child status",
-    createdAt: 5,
-    isDone: false,
-    focusedSeconds: 0,
-    projectId: "archived",
-  },
-];
-
-describe("workspace selectors", () => {
-  it("builds maps, groups, and active counts in one index", () => {
-    const index = buildWorkspaceIndex(projects, tasks);
-    expect(index.groups[0].id).toBe("unassigned");
-    expect(index.groupMap.get("new")?.openCount).toBe(1);
-    expect(index.groupMap.get("new")?.completedCount).toBe(1);
-    expect(index.groupMap.get("new")?.focusedSeconds).toBe(120);
-    expect(index.activeOpenCount).toBe(2);
-    expect(index.archivedProjects).toHaveLength(1);
+describe("workspace smart selectors", () => {
+  it("counts and selects local-calendar smart views while excluding archived and completed tasks", () => {
+    const index = buildFlatWorkspaceIndex(projects, tasks, categories, today);
+    expect([index.overdueCount, index.todayCount, index.upcomingCount]).toEqual([1, 1, 1]);
+    for (const [scope, expected] of [["overdue", "overdue"], ["today", "today"], ["upcoming", "upcoming"]] as const) {
+      expect(selectWorkspaceTasks(index, tasks, { ...createDefaultWorkspaceState(), scope }, "", today).map((item) => item.id)).toEqual([expected]);
+    }
   });
 
-  it("searches task and project text case-insensitively and filters status", () => {
-    const index = buildWorkspaceIndex(projects, tasks);
+  it("searches description, project, and category metadata and applies filters", () => {
+    const index = buildFlatWorkspaceIndex(projects, tasks, categories, today);
     const state = { ...createDefaultWorkspaceState(), status: "all" as const };
-    expect(selectWorkspaceGroups(index, state, "RELEASE")[0].tasks[0].id).toBe(
-      "one",
-    );
-    const projectMatch = selectWorkspaceGroups(index, state, "new project");
-    expect(
-      projectMatch.find((group) => group.id === "new")?.tasks,
-    ).toHaveLength(2);
-    expect(
-      selectWorkspaceGroups(index, state, "missing").filter(
-        (group) => group.project,
-      ),
-    ).toHaveLength(2);
-    expect(
-      selectWorkspaceGroups(index, state, "missing").find(
-        (group) => group.id === "unassigned",
-      ),
-    ).toBeUndefined();
+    expect(selectWorkspaceTasks(index, tasks, state, "release context", today)[0].id).toBe("overdue");
+    expect(selectWorkspaceTasks(index, tasks, state, "launch", today).map((item) => item.id)).toContain("overdue");
+    expect(selectWorkspaceTasks(index, tasks, { ...state, categoryId: "work", priority: "urgent" }, "", today).map((item) => item.id)).toEqual(["overdue"]);
   });
 
-  it("sorts within a group without changing group order", () => {
-    const index = buildWorkspaceIndex(projects, tasks);
-    const state = {
-      ...createDefaultWorkspaceState(),
-      status: "all" as const,
-      sort: "focused" as const,
-    };
-    const group = selectWorkspaceGroups(index, state, "").find(
-      (candidate) => candidate.id === "new",
-    );
-    expect(group?.tasks.map((task) => task.id)).toEqual(["two", "one"]);
+  it("smart sorts dated tasks first, then priority and newest", () => {
+    const index = buildFlatWorkspaceIndex(projects, tasks, categories, today);
+    expect(selectWorkspaceTasks(index, tasks, { ...createDefaultWorkspaceState(), status: "all" }, "", today).slice(0, 3).map((item) => item.id)).toEqual(["overdue", "today", "completed"]);
   });
 
-  it("keeps archived task statuses and leaves deleted-project tasks unassigned", () => {
-    const archivedIndex = buildWorkspaceIndex(projects, tasks);
-    const archivedState = {
-      ...createDefaultWorkspaceState(),
-      scope: "archived" as const,
-      status: "all" as const,
-    };
-    expect(
-      selectWorkspaceGroups(archivedIndex, archivedState, "")[0].tasks[0]
-        .isDone,
-    ).toBe(false);
-
-    const afterDelete = buildWorkspaceIndex(
-      projects.filter((project) => project.id !== "new"),
-      tasks,
-    );
-    expect(afterDelete.groupMap.get("unassigned")?.tasks).toHaveLength(3);
-  });
-
-  it("handles the agreed 100-project, 1,000-task target with bounded batches", () => {
-    const manyProjects = Array.from({ length: 100 }, (_, index) => ({
-      id: `project-${index}`,
-      title: `Project ${index}`,
-      description: "",
-      createdAt: 100 - index,
-      isDone: false,
-    }));
-    const manyTasks = Array.from({ length: 1000 }, (_, index) => ({
-      id: `task-${index}`,
-      title: `Task ${index}`,
-      createdAt: index,
-      isDone: false,
-      focusedSeconds: index,
-      projectId: `project-${index % 100}`,
-    }));
-    const index = buildWorkspaceIndex(manyProjects, manyTasks);
-    expect(index.groups).toHaveLength(101);
-    expect(index.activeOpenCount).toBe(1000);
-    expect(Math.min(TASK_BATCH_SIZE, index.groups[1].tasks.length)).toBe(10);
-
-    const state = {
-      ...createDefaultWorkspaceState(),
-      status: "all" as const,
-      sort: "focused" as const,
-    };
-    expect(
-      selectWorkspaceGroups(index, state, "TASK 999")
-        .flatMap((group) => group.tasks)
-        .map((task) => task.id),
-    ).toEqual(["task-999"]);
-    expect(
-      selectWorkspaceGroups(index, state, "")
-        .find((group) => group.id === "project-0")
-        ?.tasks.map((task) => task.id),
-    ).toEqual([
-      "task-900",
-      "task-800",
-      "task-700",
-      "task-600",
-      "task-500",
-      "task-400",
-      "task-300",
-      "task-200",
-      "task-100",
-      "task-0",
-    ]);
+  it("handles the 1,000-task target with bounded progressive batches", () => {
+    const many = Array.from({ length: 1000 }, (_, index) => task({ id: `t${index}`, title: `Task ${index}`, createdAt: index }));
+    const workspace = buildFlatWorkspaceIndex([], many, [], today);
+    expect(selectWorkspaceTasks(workspace, many, createDefaultWorkspaceState(), "", today)).toHaveLength(1000);
+    expect(TASK_BATCH_SIZE).toBe(25);
   });
 });
 
 describe("task validation", () => {
-  it("accepts 2,000-character multiline text and preserves internal whitespace", () => {
-    const longTitle = `  ${"a".repeat(998)}\n🧠\n${"b".repeat(998)}  `;
-    expect(longTitle.trim().length).toBe(2000);
-    expect(validateTaskTitle(longTitle)).toBeNull();
-    expect(validateTaskTitle(`${"x".repeat(TASK_TITLE_MAX_LENGTH)}x`)).toMatch(
-      /2,000/,
-    );
-    expect(longTitle.trim()).toContain("\n🧠\n");
+  it("normalizes new titles to one line and preserves unchanged legacy titles", () => {
+    expect(validateTaskTitle("A\nnew task")).toBeNull();
+    const legacy = "x".repeat(500);
+    expect(validateTaskTitle(legacy, legacy)).toBeNull();
+    expect(validateTaskTitle(`${legacy} changed`, legacy)).toMatch(/160/);
   });
 });

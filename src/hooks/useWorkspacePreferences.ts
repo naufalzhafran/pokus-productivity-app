@@ -19,6 +19,7 @@ export function loadWorkspacePreferences(userId: string): WorkspaceViewState {
     return {
       scope:
         saved.scope === "all" ||
+        saved.scope === "today" || saved.scope === "upcoming" || saved.scope === "overdue" ||
         saved.scope === "archived" ||
         saved.scope?.startsWith("project:")
           ? saved.scope
@@ -26,11 +27,13 @@ export function loadWorkspacePreferences(userId: string): WorkspaceViewState {
       status: ["open", "completed", "all"].includes(saved.status ?? "")
         ? saved.status!
         : defaults.status,
-      sort: ["newest", "oldest", "alphabetical", "focused"].includes(
+      sort: ["smart", "due", "priority", "newest", "oldest", "alphabetical", "focused"].includes(
         saved.sort ?? "",
       )
         ? saved.sort!
         : defaults.sort,
+      priority: ["all", "none", "low", "medium", "high", "urgent"].includes(saved.priority ?? "") ? saved.priority! : defaults.priority,
+      categoryId: typeof saved.categoryId === "string" ? saved.categoryId : null,
       lastDuration:
         Number.isFinite(saved.lastDuration) &&
         saved.lastDuration! >= 1 &&

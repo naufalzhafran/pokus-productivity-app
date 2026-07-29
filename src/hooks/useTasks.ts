@@ -12,7 +12,7 @@ import {
   TASK_TITLE_MAX_LENGTH,
   validateTaskTitle,
 } from "@/lib/workspace";
-import type { Task } from "@/types/task";
+import type { Task, TaskInput } from "@/types/task";
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -49,9 +49,9 @@ export function useTasks() {
   }, [replaceTasks]);
 
   const createTask = useCallback(
-    async (title: string, projectId: string | null) => {
-      const normalizedTitle = title.trim();
-      const validationError = validateTaskTitle(title);
+    async (input: TaskInput) => {
+      const normalizedTitle = input.title.replace(/\s+/g, " ").trim();
+      const validationError = validateTaskTitle(input.title);
       if (validationError) throw new Error(validationError);
 
       const task: Task = {
@@ -60,7 +60,10 @@ export function useTasks() {
         isDone: false,
         createdAt: Date.now(),
         focusedSeconds: 0,
-        projectId,
+        projectId: input.projectId,
+        description: input.description,
+        priority: input.priority,
+        categoryId: input.categoryId,
       };
 
       try {
@@ -178,17 +181,19 @@ export function useTasks() {
   );
 
   const editTask = useCallback(
-    async (taskId: string, title: string, projectId: string | null) => {
-      const normalizedTitle = title.trim();
-      const validationError = validateTaskTitle(title);
-      if (validationError) throw new Error(validationError);
+    async (taskId: string, input: TaskInput) => {
       const previousTask = tasksRef.current.find((task) => task.id === taskId);
       if (!previousTask) return false;
+      const validationError = validateTaskTitle(input.title, previousTask.title);
+      if (validationError) throw new Error(validationError);
+      const titleChanged = input.title !== previousTask.title;
+      const normalizedTitle = titleChanged ? input.title.replace(/\s+/g, " ").trim() : previousTask.title;
+      const nextTask = { ...previousTask, ...input, title: normalizedTitle };
 
       replaceTasks(
         tasksRef.current.map((task) =>
           task.id === taskId
-            ? { ...task, title: normalizedTitle, projectId }
+            ? nextTask
             : task,
         ),
       );
@@ -199,7 +204,10 @@ export function useTasks() {
             taskId,
             {
               title: normalizedTitle,
-              project: projectId ?? "",
+              project: input.projectId ?? "",
+              description: input.description,
+              priority: input.priority,
+              category: input.categoryId ?? "",
             },
             { requestKey: null },
           );
@@ -234,6 +242,10 @@ export function useTasks() {
     [replaceTasks],
   );
 
+  const reconcileDeletedCategory = useCallback((categoryId: string) => {
+    replaceTasks(tasksRef.current.map((task) => task.categoryId === categoryId ? { ...task, categoryId: null } : task));
+  }, [replaceTasks]);
+
   return {
     tasks,
     isLoading,
@@ -244,6 +256,7 @@ export function useTasks() {
     recordFocusTime,
     editTask,
     reconcileDeletedProject,
+    reconcileDeletedCategory,
     taskTitleMaxLength: TASK_TITLE_MAX_LENGTH,
   };
 }

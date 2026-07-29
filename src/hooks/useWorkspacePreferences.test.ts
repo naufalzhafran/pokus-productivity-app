@@ -20,6 +20,8 @@ describe("workspace preference restoration", () => {
       scope: "project:abc",
       status: "completed",
       sort: "alphabetical",
+      priority: "all",
+      categoryId: null,
       lastDuration: 45,
     });
     expect(loadWorkspacePreferences("user-b").scope).toBe("all");

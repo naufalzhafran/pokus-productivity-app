@@ -5,18 +5,22 @@ import type {
   PomodoroSession,
   Project,
   Task,
+  Category,
 } from "@/types/task";
 
 export const COLLECTIONS = {
   projects: "projects",
   tasks: "tasks",
   sessions: "pomodoro_sessions",
+  categories: "categories",
 } as const;
 
 export interface ProjectRecord extends RecordModel {
   title: string;
   description: string;
   isDone: boolean;
+  status?: Project["status"];
+  dueDate?: string;
   created: string;
 }
 
@@ -26,6 +30,16 @@ export interface TaskRecord extends RecordModel {
   focusedSeconds: number;
   project: string;
   created: string;
+  description?: string;
+  priority?: Task["priority"];
+  category?: string;
+}
+
+export interface CategoryRecord extends RecordModel {
+  name: string;
+  color: Category["color"];
+  created: string;
+  updated: string;
 }
 
 interface PomodoroSessionRecord extends RecordModel {
@@ -56,8 +70,10 @@ export function projectFromRecord(record: ProjectRecord): Project {
     id: record.id,
     title: record.title,
     description: record.description || "",
-    isDone: record.isDone,
+    isArchived: record.isDone,
+    status: record.status || "active",
     createdAt: Date.parse(record.created),
+    dueDate: record.dueDate || null,
   };
 }
 
@@ -69,6 +85,9 @@ export function taskFromRecord(record: TaskRecord): Task {
     focusedSeconds: Math.max(0, Math.floor(record.focusedSeconds || 0)),
     projectId: record.project || null,
     createdAt: Date.parse(record.created),
+    description: record.description || "",
+    priority: record.priority || "none",
+    categoryId: record.category || null,
   };
 }
 
@@ -92,7 +111,9 @@ export function projectToRecord(project: Project) {
     owner: getAuthenticatedUserId(),
     title: project.title,
     description: project.description,
-    isDone: project.isDone,
+    isDone: project.isArchived ?? project.isDone ?? false,
+    status: project.status ?? "active",
+    dueDate: project.dueDate ?? "",
   };
 }
 
@@ -104,6 +125,9 @@ export function taskToRecord(task: Task) {
     isDone: task.isDone,
     focusedSeconds: task.focusedSeconds,
     project: task.projectId ?? "",
+    description: task.description ?? "",
+    priority: task.priority ?? "none",
+    category: task.categoryId ?? "",
   };
 }
 
@@ -132,6 +156,25 @@ export async function listTasks() {
     .collection(COLLECTIONS.tasks)
     .getFullList<TaskRecord>({ sort: "-created", requestKey: null });
   return records.map(taskFromRecord);
+}
+
+export function categoryFromRecord(record: CategoryRecord): Category {
+  return {
+    id: record.id,
+    name: record.name,
+    color: record.color || "blue",
+    createdAt: Date.parse(record.created),
+    updatedAt: Date.parse(record.updated),
+  };
+}
+
+export function categoryToRecord(category: Category) {
+  return { id: category.id, owner: getAuthenticatedUserId(), name: category.name, color: category.color };
+}
+
+export async function listCategories() {
+  const records = await pb.collection(COLLECTIONS.categories).getFullList<CategoryRecord>({ sort: "name", requestKey: null });
+  return records.map(categoryFromRecord);
 }
 
 export async function loadCurrentSession() {

@@ -40,6 +40,8 @@ interface RichTextEditorProps {
   disabled?: boolean;
   ariaDescribedBy?: string;
   ariaInvalid?: boolean;
+  label?: string;
+  placeholder?: string;
 }
 
 function normalizeWebUrl(value: string) {
@@ -74,6 +76,8 @@ export function RichTextEditor({
   disabled = false,
   ariaDescribedBy,
   ariaInvalid = false,
+  label = "Project description",
+  placeholder = "Add project context, goals, notes, or links…",
 }: RichTextEditorProps) {
   const [linkEditorOpen, setLinkEditorOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
@@ -96,7 +100,7 @@ export function RichTextEditor({
         },
       }),
       Placeholder.configure({
-        placeholder: "Add project context, goals, notes, or links…",
+        placeholder,
       }),
     ],
     content: value,
@@ -106,7 +110,7 @@ export function RichTextEditor({
         id,
         class:
           "rich-text-content min-h-48 max-h-[45dvh] overflow-y-auto px-3 py-2.5 text-sm outline-none sm:min-h-72",
-        "aria-label": "Project description",
+        "aria-label": label,
         role: "textbox",
         "aria-multiline": "true",
         "aria-describedby": ariaDescribedBy ?? "",

@@ -8,7 +8,7 @@ import {
   projectToRecord,
   type ProjectRecord,
 } from "@/lib/pocketbase-records";
-import type { Project } from "@/types/task";
+import type { Project, ProjectInput, ProjectStatus } from "@/types/task";
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -45,16 +45,18 @@ export function useProjects() {
   }, [replaceProjects]);
 
   const createProject = useCallback(
-    async (title: string, description: string) => {
-      const normalizedTitle = title.trim();
+    async (input: ProjectInput) => {
+      const normalizedTitle = input.title.trim();
       if (!normalizedTitle) return null;
 
       const project: Project = {
         id: createPocketBaseId(),
         title: normalizedTitle,
-        description,
+        description: input.description,
         createdAt: Date.now(),
-        isDone: false,
+        status: input.status,
+        dueDate: input.dueDate,
+        isArchived: false,
       };
 
       try {
@@ -100,8 +102,8 @@ export function useProjects() {
     [replaceProjects],
   );
 
-  const setProjectDone = useCallback(
-    async (projectId: string, isDone: boolean) => {
+  const setProjectArchived = useCallback(
+    async (projectId: string, isArchived: boolean) => {
       const previousProject = projectsRef.current.find(
         (project) => project.id === projectId,
       );
@@ -109,13 +111,13 @@ export function useProjects() {
 
       replaceProjects(
         projectsRef.current.map((project) =>
-          project.id === projectId ? { ...project, isDone } : project,
+          project.id === projectId ? { ...project, isArchived } : project,
         ),
       );
       try {
         const record = await pb
           .collection(COLLECTIONS.projects)
-          .update<ProjectRecord>(projectId, { isDone }, { requestKey: null });
+          .update<ProjectRecord>(projectId, { isDone: isArchived }, { requestKey: null });
         const savedProject = projectFromRecord(record);
         replaceProjects(
           projectsRef.current.map((project) =>
@@ -137,25 +139,28 @@ export function useProjects() {
   );
 
   const updateProject = useCallback(
-    async (projectId: string, title: string, description: string) => {
-      const normalizedTitle = title.trim();
+    async (projectId: string, input: ProjectInput) => {
+      const normalizedTitle = input.title.trim();
       if (!normalizedTitle || normalizedTitle.length > 120) {
         throw new Error("Enter a project name up to 120 characters.");
       }
-      const record = await pb
-        .collection(COLLECTIONS.projects)
-        .update<ProjectRecord>(
-          projectId,
-          { title: normalizedTitle, description },
-          { requestKey: null },
-        );
-      const savedProject = projectFromRecord(record);
+      const previousProject = projectsRef.current.find((project) => project.id === projectId);
+      if (!previousProject) return false;
       replaceProjects(
         projectsRef.current.map((project) =>
-          project.id === projectId ? savedProject : project,
+          project.id === projectId ? { ...project, ...input, title: normalizedTitle } : project,
         ),
       );
-      return savedProject;
+      try {
+        const record = await pb.collection(COLLECTIONS.projects).update<ProjectRecord>(projectId, { title: normalizedTitle, description: input.description, status: input.status, dueDate: input.dueDate ?? "" }, { requestKey: null });
+        const savedProject = projectFromRecord(record);
+        replaceProjects(projectsRef.current.map((project) => project.id === projectId ? savedProject : project));
+        return savedProject;
+      } catch (error) {
+        replaceProjects(projectsRef.current.map((project) => project.id === projectId ? previousProject : project));
+        console.error("Failed to update project in PocketBase:", error);
+        throw error;
+      }
     },
     [replaceProjects],
   );
@@ -166,7 +171,13 @@ export function useProjects() {
     loadError,
     createProject,
     deleteProject,
-    setProjectDone,
+    setProjectArchived,
     updateProject,
+    setProjectStatus: useCallback(async (projectId: string, status: ProjectStatus) => updateProject(projectId, {
+      title: projectsRef.current.find((project) => project.id === projectId)?.title ?? "",
+      description: projectsRef.current.find((project) => project.id === projectId)?.description ?? "",
+      status,
+      dueDate: projectsRef.current.find((project) => project.id === projectId)?.dueDate ?? null,
+    }), [updateProject]),
   };
 }
