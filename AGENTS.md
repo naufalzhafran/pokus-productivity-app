@@ -23,7 +23,8 @@ Pokus is a single-page Pomodoro timer built with React 19, TypeScript, Vite, and
 ## PocketBase Schema
 
 - Whenever the PocketBase schema changes—including collections, fields, relations, API rules, or indexes—update `pb_schema.json` in the same change.
-- Keep `pb_migrations` aligned with `pb_schema.json` when the schema change requires a deployable migration.
+- This project manages PocketBase changes through `pb_schema.json` only.
+- Do not create or update `pb_migrations` files.
 
 ## Before Finishing
 

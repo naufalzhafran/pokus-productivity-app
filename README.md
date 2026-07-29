@@ -73,11 +73,10 @@ Re-import the schema with **Delete missing collections** disabled after pulling
 schema updates. PocketBase will update the existing collections without deleting
 their records or changing the Google OAuth configuration.
 
-For an existing PocketBase deployment, copy `pb_migrations` into the PocketBase
-instance and run the server so it applies migrations. Deploy the backend migration
-before the matching frontend. Project due dates are stored as `YYYY-MM-DD` text so
-calendar days do not drift across time zones. Tasks inherit their project's date in
-Today, Upcoming, Overdue, and due-date sorting; unassigned tasks remain undated.
+Import the updated `pb_schema.json` before deploying the matching frontend.
+Project due dates are stored as `YYYY-MM-DD` text so calendar days do not drift
+across time zones. Tasks inherit their project's date in Today, Upcoming, Overdue,
+and due-date sorting; unassigned tasks remain undated.
 
 ## Available Scripts
 
