@@ -9,9 +9,16 @@ export type AppPage = "tasks" | "timer" | "profile";
 interface AppShellProps {
   page: AppPage;
   session: PomodoroSession | null;
+  remainingSeconds?: number;
   onNavigate: (page: AppPage) => void;
   onNavigateIntent?: (page: AppPage) => void;
   children: ReactNode;
+}
+
+function formatTimer(remainingSeconds: number) {
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function pageTitle(page: AppPage) {
@@ -29,12 +36,15 @@ function getTimerStatus(session: PomodoroSession | null) {
 export function AppShell({
   page,
   session,
+  remainingSeconds = session?.remainingSeconds ?? 0,
   onNavigate,
   onNavigateIntent,
   children,
 }: AppShellProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const timerStatus = getTimerStatus(session);
+  const runningTimer = session?.mode === "running" && session.isActive;
+  const timerDisplay = runningTimer ? formatTimer(remainingSeconds) : null;
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
@@ -101,6 +111,7 @@ export function AppShell({
           <div className="flex items-center gap-3">
             <Badge>Pokus</Badge>
             <span className="text-sm text-muted-foreground">Focus workspace</span>
+            {timerDisplay ? <Badge variant="secondary" aria-label={`Pomodoro running, ${timerDisplay} remaining`}>{timerDisplay}</Badge> : null}
           </div>
           <nav aria-label="Primary navigation" className="flex w-[28rem] gap-1">
             {navItem("tasks", "Tasks", <ListTodo data-icon="inline-start" />)}
@@ -116,7 +127,7 @@ export function AppShell({
             <Badge>Pokus</Badge>
             <p className="mt-1 text-sm font-medium">{pageTitle(page)}</p>
           </div>
-          {timerStatus ? <Badge variant="secondary">{timerStatus}</Badge> : null}
+          {timerDisplay ? <Badge variant="secondary" aria-label={`Pomodoro running, ${timerDisplay} remaining`}>{timerDisplay}</Badge> : timerStatus ? <Badge variant="secondary">{timerStatus}</Badge> : null}
         </div>
       </div>
 

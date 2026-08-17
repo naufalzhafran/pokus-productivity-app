@@ -391,6 +391,7 @@ export default function App() {
     <AppShell
       page={page}
       session={currentSession}
+      remainingSeconds={remainingSeconds}
       onNavigate={handleNavigate}
       onNavigateIntent={handleNavigationIntent}
     >

@@ -33,4 +33,19 @@ describe("AppShell", () => {
     await user.hover(screen.getAllByRole("link", { name: "Timer" })[0]);
     expect(onNavigateIntent).toHaveBeenCalledWith("timer");
   });
+
+  it("shows the active timer countdown in the header", () => {
+    render(
+      <AppShell
+        page="tasks"
+        session={{ id: "session", taskId: null, durationMinutes: 25, mode: "running", remainingSeconds: 1505, isActive: true, lastTick: Date.now() }}
+        remainingSeconds={1505}
+        onNavigate={vi.fn()}
+      >
+        <p>Task content</p>
+      </AppShell>,
+    );
+
+    expect(screen.getAllByLabelText("Pomodoro running, 25:05 remaining")).toHaveLength(2);
+  });
 });

@@ -50,6 +50,14 @@ describe("TaskWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "Clear" })); expect(search).toHaveValue("");
   });
 
+  it("can collapse the desktop workspace pane", async () => {
+    const user = userEvent.setup(); render(<Workspace />);
+    const toggle = screen.getByRole("button", { name: "Hide workspace" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.click(toggle);
+    expect(screen.getByRole("button", { name: "Show workspace" })).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("shows project lifecycle progress independently from archive state", () => {
     render(<Workspace viewState={{ ...createDefaultWorkspaceState(), scope: `project:${project.id}` }} setViewState={vi.fn()} />);
     expect(screen.getByText("Active")).toBeInTheDocument(); expect(screen.getByText(/0\/1 completed/)).toBeInTheDocument(); expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
