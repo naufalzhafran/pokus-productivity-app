@@ -141,7 +141,7 @@ export function TimerPage({
               <CardHeader>
                 <CardTitle>Set up your session</CardTitle>
                 <CardDescription>
-                  Choose a duration, then start deliberately when ready.
+                  Choose a task and duration, or start an open focus session.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -159,11 +159,11 @@ export function TimerPage({
               </CardFooter>
             </Card>
             <div className="flex items-center justify-center gap-3">
-              <Button type="button" variant="outline" size="icon" aria-label="Decrease duration" onClick={() => onDurationChange(duration - 1)}>
+              <Button type="button" variant="outline" size="icon" aria-label="Decrease duration" disabled={duration <= 1} onClick={() => onDurationChange(duration - 1)}>
                 <Minus />
               </Button>
-              <span className="min-w-20 text-center text-sm font-medium">{duration} minutes</span>
-              <Button type="button" variant="outline" size="icon" aria-label="Increase duration" onClick={() => onDurationChange(duration + 1)}>
+              <span className="min-w-20 text-center text-sm font-medium">{duration} {duration === 1 ? "minute" : "minutes"}</span>
+              <Button type="button" variant="outline" size="icon" aria-label="Increase duration" disabled={duration >= 60} onClick={() => onDurationChange(duration + 1)}>
                 <Plus />
               </Button>
             </div>
@@ -175,7 +175,7 @@ export function TimerPage({
               className="grid grid-cols-4"
             >
               {PRESETS.map((preset) => (
-                <ToggleGroupItem key={preset} value={preset.toString()}>{preset}</ToggleGroupItem>
+                <ToggleGroupItem aria-label={`${preset} minutes`} key={preset} value={preset.toString()}>{preset}</ToggleGroupItem>
               ))}
             </ToggleGroup>
             <Button type="button" size="lg" onClick={onStart}>

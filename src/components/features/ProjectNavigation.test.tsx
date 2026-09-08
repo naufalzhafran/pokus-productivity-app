@@ -19,6 +19,28 @@ const project: Project = {
 const index = buildWorkspaceIndex([project], []);
 
 describe("ProjectNavigation", () => {
+  it("hides empty lifecycle groups and lets users recover from an empty search", async () => {
+    const user = userEvent.setup();
+    render(<DesktopProjectNavigation index={index} scope="all" onScopeChange={vi.fn()} />);
+    expect(screen.queryByText("Planned")).not.toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox", { name: "Search projects" }), "missing");
+    expect(screen.getByText("No matching projects")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(screen.getByRole("button", { name: /Planning/ })).toBeInTheDocument();
+  });
+
+  it("shows only the archived project count and opens the archive scope", async () => {
+    const user = userEvent.setup();
+    const onScopeChange = vi.fn();
+    const archived = { ...project, id: "archived", title: "Old launch", isArchived: true };
+    render(<DesktopProjectNavigation index={buildWorkspaceIndex([project, archived], [])} scope="all" onScopeChange={onScopeChange} />);
+    expect(screen.queryByRole("button", { name: /Old launch/ })).not.toBeInTheDocument();
+    const archiveButton = screen.getByRole("button", { name: /Archived projects/ });
+    expect(within(archiveButton).getByText("1")).toBeInTheDocument();
+    await user.click(archiveButton);
+    expect(onScopeChange).toHaveBeenCalledWith("archived");
+  });
+
   it("wraps complete desktop project labels", () => {
     render(
       <DesktopProjectNavigation

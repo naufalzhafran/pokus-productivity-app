@@ -28,11 +28,6 @@ vi.mock("@/hooks/usePomodoroHistory", () => ({
   }),
 }));
 
-vi.mock("@/components/features/ProjectNavigation", () => ({
-  DesktopProjectNavigation: () => null,
-  MobileProjectNavigation: () => null,
-}));
-
 const task: Task = {
   id: "task-1",
   title: "Review the accessibility checklist",

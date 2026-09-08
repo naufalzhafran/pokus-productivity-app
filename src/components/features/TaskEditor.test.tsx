@@ -5,6 +5,14 @@ import { TaskEditor } from "@/components/features/TaskEditor";
 import type { Project } from "@/types/task";
 
 describe("TaskEditor", () => {
+  it("keeps an unassigned task unassigned when edited from a project context", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<TaskEditor task={{ id: "task", title: "Review notes", projectId: null, isDone: false, createdAt: 1, focusedSeconds: 0 }} projects={[{ id: "project", title: "Launch", description: "", createdAt: 1 }]} initialProjectId="project" onCancel={vi.fn()} onSave={onSave} />);
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ projectId: null }));
+  });
+
   it("focuses and describes the first invalid field", () => {
     render(
       <TaskEditor

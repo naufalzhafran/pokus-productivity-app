@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { ListTodo, Timer, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { PomodoroSession } from "@/types/task";
 
 export type AppPage = "tasks" | "timer" | "profile";
@@ -66,21 +67,13 @@ export function AppShell({
     label: string,
     icon: React.ReactNode,
   ) => (
-    <Button
-      render={
-        <a
-          href={`#${value}`}
-          onClick={() => {
-            onNavigateIntent?.(value);
-            onNavigate(value);
-          }}
-          onMouseEnter={() => onNavigateIntent?.(value)}
-          onFocus={() => onNavigateIntent?.(value)}
-          onTouchStart={() => onNavigateIntent?.(value)}
-        />
-      }
-      variant={page === value ? "secondary" : "ghost"}
-      className="min-h-11 flex-1 flex-col gap-0.5 px-2 text-xs sm:flex-row sm:text-sm"
+    <a
+      href={`#${value}`}
+      onClick={() => { onNavigateIntent?.(value); onNavigate(value); }}
+      onMouseEnter={() => onNavigateIntent?.(value)}
+      onFocus={() => onNavigateIntent?.(value)}
+      onTouchStart={() => onNavigateIntent?.(value)}
+      className={cn(buttonVariants({ variant: page === value ? "secondary" : "ghost" }), "min-h-11 flex-1 flex-col gap-0.5 px-2 text-xs sm:flex-row sm:text-sm")}
       aria-current={page === value ? "page" : undefined}
       aria-label={
         value === "timer" && timerStatus
@@ -95,7 +88,7 @@ export function AppShell({
           {timerStatus}
         </Badge>
       ) : null}
-    </Button>
+    </a>
   );
 
   return (
