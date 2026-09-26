@@ -56,6 +56,7 @@ export function ArchivedProjects({
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
+              enterKeyHint="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search archived projects"

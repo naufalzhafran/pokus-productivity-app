@@ -422,6 +422,10 @@ export function RichTextEditor({
                       id={`${id}-link-url`}
                       type="text"
                       inputMode="url"
+                      enterKeyHint="done"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       value={linkUrl}
                       onChange={(event) => {
                         setLinkUrl(event.target.value);

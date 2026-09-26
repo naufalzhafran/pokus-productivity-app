@@ -63,6 +63,18 @@ throwaway local server only. Remove its data directory after testing.
 
 ## Physical iPhone release checklist — not yet verified
 
+The mobile-native follow-up gates hover by fine-pointer/hover capability, replaces
+browser tap flashes with active feedback, prevents control-label callouts while
+keeping content selectable, contains app overscroll, adds keyboard hints, and
+matches theme-color to system or explicit appearance. `touch-action: manipulation`
+on controls keeps pinch zoom available ([MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/touch-action)).
+The viewport requests keyboard resizing where supported; iOS sheets retain their
+existing visual-viewport handling. Lint, build and 51 unit tests passed after this
+follow-up. Chromium/WebKit computed-style checks confirmed touch behavior settings,
+selectable body text, root overscroll, dark theme metadata and 16px editable text.
+These checks do not verify physical tap latency, long press, rubber-banding,
+software keyboards, or status bars.
+
 Use the deployed HTTPS site on an iPhone 17 Pro:
 
 - Sign in through Google OAuth in Safari and from the installed app.
@@ -70,6 +82,10 @@ Use the deployed HTTPS site on an iPhone 17 Pro:
   launch, Timer start page, and hidden installation prompts.
 - Check Dynamic Island/home-indicator padding, landscape, increased text size,
   pinch zoom, VoiceOver, and keyboard-open task/project/link editors.
+- Check immediate press feedback, no sticky hover or native tap flash, no
+  long-press selection of tab/button labels, and copyable descriptions/errors.
+- Check page overscroll and nested sheets/menus, input focus without zoom, URL
+  keyboard autocorrection, and status-bar color in System/Light/Dark appearance.
 - Start a timer, lock the phone past its deadline, unlock, and confirm the actual
   deadline and exactly one focus credit after reconnecting.
 - Pause, close/relaunch offline, reconnect, and verify pending work clears.

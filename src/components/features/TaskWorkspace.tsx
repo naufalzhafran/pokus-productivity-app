@@ -897,6 +897,7 @@ function TaskWorkspaceComponent(props: Props) {
                   <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="search"
+                    enterKeyHint="search"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Search tasks, projects, and categories"

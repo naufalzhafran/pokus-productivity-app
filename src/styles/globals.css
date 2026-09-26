@@ -2,6 +2,12 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @custom-variant dark (&:is(.dark *));
+/* Only precise, hover-capable pointers get hover feedback; touch uses :active. */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover { @slot; }
+  }
+}
 
 @theme inline {
   --font-sans: 'Inter Variable', sans-serif;
@@ -77,17 +83,29 @@
 }
 @layer base {
   * { @apply border-border outline-ring/50; }
-  html { @apply font-sans; scroll-padding-bottom: 7rem; }
+  html {
+    @apply font-sans;
+    scroll-padding-bottom: 7rem;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* Pokus owns app scrolling: prevent refresh gestures and scroll chaining. */
+  html, body { overscroll-behavior: none; }
   body { @apply m-0 min-h-dvh bg-background text-foreground antialiased selection:bg-primary/20; }
   input, button { font: inherit; }
+  :where(button, a[href], [role="button"], [role="menuitem"], [role="option"], [role="checkbox"], [role="combobox"]) { touch-action: manipulation; }
+  /* Labels are controls; descriptions, links in content, and errors stay copyable. */
+  :where(button, [role="button"], [role="menuitem"], [role="option"], [role="checkbox"], nav[aria-label="Primary navigation"] a) {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  :where(button, a[href], [role="button"], [role="menuitem"], [role="option"], [role="checkbox"]):not(:disabled):not([aria-disabled="true"]):active { opacity: 0.72; }
+  :where([data-slot="scroll-area-viewport"], [data-slot="select-content"], [data-slot="dropdown-menu-content"], .rich-text-content, [role="toolbar"]) { overscroll-behavior: contain; }
   :where(a, button, [role="button"], [role="menuitem"]):focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
   @media (hover: hover) and (pointer: fine) {
     :where(a[href], button:not(:disabled), [role="button"], [role="checkbox"], [role="menuitem"], [role="option"]) { cursor: pointer; }
-  }
-  @media (pointer: coarse) {
-    button, [role="button"], [role="menuitem"], [role="combobox"], input:not([type="checkbox"]), select { min-height: 44px; }
-    button, [role="button"], [role="menuitem"] { min-width: 44px; }
-    input, textarea, [contenteditable="true"] { font-size: 16px; }
   }
 }
 @layer components {
@@ -129,12 +147,13 @@
     [aria-current="page"], [aria-pressed="true"], [data-checked] { outline: 2px solid CanvasText; outline-offset: -2px; }
   }
 }
-/* Override the centered desktop dialog utilities for the visible phone viewport. */
+/* Keep touch targets and editable text above utility sizes to avoid iOS input zoom. */
 @media (pointer: coarse) {
   button, [role="button"], [role="menuitem"], [role="combobox"], input:not([type="checkbox"]), select { min-height: 44px; }
   button, [role="button"], [role="menuitem"] { min-width: 44px; }
-  input, textarea, [contenteditable="true"] { font-size: 16px; }
+  input, textarea, select, [contenteditable="true"] { font-size: 16px; }
 }
+/* Override the centered desktop dialog utilities for the visible phone viewport. */
 @media (max-width: 639px) {
   .mobile-sheet[data-slot="dialog-content"] {
     --tw-translate-x: 0;

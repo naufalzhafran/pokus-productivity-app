@@ -27,7 +27,10 @@ export function applyAppearance() {
   const dark = preferences.theme === "dark" || (preferences.theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", dark);
   document.documentElement.style.colorScheme = dark ? "dark" : "light";
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#191d1b" : "#f6f5f0");
+  // Either OS media query may match when the user explicitly overrides appearance.
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+    meta.setAttribute("content", dark ? "#191d1b" : "#f6f5f0");
+  });
 }
 export function watchAppearance() {
   applyAppearance();
