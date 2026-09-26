@@ -5,6 +5,9 @@ import "@fontsource-variable/inter";
 import { AuthGate } from "@/components/features/AuthGate";
 import { Skeleton } from "@/components/ui/skeleton";
 import "./styles/globals.css";
+import { watchAppearance } from "@/hooks/useAppPreferences";
+
+watchAppearance();
 
 const loadAuthenticatedApp = () => import("./AuthenticatedApp");
 const AuthenticatedApp = lazy(loadAuthenticatedApp);

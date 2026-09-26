@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
+import { useCachedResource } from "@/hooks/useCachedResource";
+import { requireConnection } from "@/hooks/useConnectivity";
 import { pb } from "@/lib/pocketbase";
 import { COLLECTIONS, categoryFromRecord, categoryToRecord, createPocketBaseId, listCategories, type CategoryRecord } from "@/lib/pocketbase-records";
 import { CATEGORY_NAME_MAX_LENGTH } from "@/lib/workspace";
@@ -12,18 +14,15 @@ function validate(input: CategoryInput, categories: Category[], exceptId?: strin
 }
 
 export function useCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const ref = useRef<Category[]>([]);
-  const replace = useCallback((value: Category[]) => { ref.current = value; setCategories(value); }, []);
-  useEffect(() => { let mounted = true; void listCategories().then((value) => { if (mounted) { replace(value); setLoadError(null); } }).catch(() => { if (mounted) setLoadError("Your categories could not be loaded."); }).finally(() => { if (mounted) setIsLoading(false); }); return () => { mounted = false; }; }, [replace]);
+  const { items: categories, itemsRef: ref, replace, isLoading, loadError } = useCachedResource<Category>("categories", listCategories);
   const createCategory = useCallback(async (input: CategoryInput) => {
+    requireConnection();
     const category: Category = { id: createPocketBaseId(), name: validate(input, ref.current), color: input.color, createdAt: Date.now(), updatedAt: Date.now() };
     const record = await pb.collection(COLLECTIONS.categories).create<CategoryRecord>(categoryToRecord(category), { requestKey: null });
     const saved = categoryFromRecord(record); replace([...ref.current, saved].sort((a, b) => a.name.localeCompare(b.name))); return saved;
-  }, [replace]);
+  }, [replace, ref]);
   const updateCategory = useCallback(async (id: string, input: CategoryInput) => {
+    requireConnection();
     const previous = ref.current.find((item) => item.id === id);
     if (!previous) return false;
     const name = validate(input, ref.current, id);
@@ -37,13 +36,14 @@ export function useCategories() {
       replace(ref.current.map((item) => item.id === id ? previous : item).sort((a, b) => a.name.localeCompare(b.name)));
       throw error;
     }
-  }, [replace]);
+  }, [replace, ref]);
   const deleteCategory = useCallback(async (id: string) => {
+    requireConnection();
     const previous = ref.current.find((item) => item.id === id);
     if (!previous) return false;
     replace(ref.current.filter((item) => item.id !== id));
     try { await pb.collection(COLLECTIONS.categories).delete(id); return true; }
     catch (error) { replace([...ref.current, previous].sort((a, b) => a.name.localeCompare(b.name))); throw error; }
-  }, [replace]);
+  }, [replace, ref]);
   return { categories, isLoading, loadError, createCategory, updateCategory, deleteCategory };
 }

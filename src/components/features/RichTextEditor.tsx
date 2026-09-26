@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type FormEvent,
   type KeyboardEvent,
 } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
@@ -109,7 +108,7 @@ export function RichTextEditor({
       attributes: {
         id,
         class:
-          "rich-text-content min-h-48 max-h-[45dvh] overflow-y-auto px-3 py-2.5 text-sm outline-none sm:min-h-72",
+          "rich-text-content min-h-36 max-h-[40dvh] overflow-y-auto px-3 py-2.5 text-base outline-none sm:min-h-72 sm:text-sm",
         "aria-label": label,
         role: "textbox",
         "aria-multiline": "true",
@@ -193,8 +192,7 @@ export function RichTextEditor({
     setLinkEditorOpen(true);
   };
 
-  const handleLinkSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  const handleLinkSubmit = () => {
     const href = normalizeWebUrl(linkUrl);
     if (!href) {
       setLinkError("Enter a valid http or https URL.");
@@ -284,12 +282,12 @@ export function RichTextEditor({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-background focus-within:border-ring focus-within:ring-0">
+    <div className="min-w-0 overflow-hidden rounded-2xl border bg-background focus-within:border-ring focus-within:ring-0">
       <div
         ref={toolbarRef}
         role="toolbar"
         aria-label="Description formatting"
-        className="flex flex-wrap items-center gap-1 p-1.5"
+        className="flex flex-nowrap items-center gap-1 overflow-x-auto p-1.5 [&>button]:shrink-0"
         onKeyDown={handleToolbarKeyDown}
       >
         <Toggle
@@ -401,13 +399,16 @@ export function RichTextEditor({
         {linkEditorOpen ? (
           <>
             <Separator className="my-1 w-full" />
-            <form
+            <div
+              role="group"
+              aria-label="Link settings"
               id={`${id}-link-controls`}
               className="w-full"
-              onSubmit={handleLinkSubmit}
               onKeyDown={(event) => {
+                if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); handleLinkSubmit(); return; }
                 if (event.key !== "Escape") return;
                 event.preventDefault();
+                event.stopPropagation();
                 closeLinkEditor(false);
               }}
             >
@@ -435,7 +436,7 @@ export function RichTextEditor({
                         linkError ? `${id}-link-error` : undefined
                       }
                     />
-                    <Button type="submit" size="sm" disabled={disabled}>
+                    <Button type="button" onClick={handleLinkSubmit} size="sm" disabled={disabled}>
                       <Link2 data-icon="inline-start" />
                       Apply
                     </Button>
@@ -468,7 +469,7 @@ export function RichTextEditor({
                   </FieldError>
                 </Field>
               </FieldGroup>
-            </form>
+            </div>
           </>
         ) : null}
       <Separator />

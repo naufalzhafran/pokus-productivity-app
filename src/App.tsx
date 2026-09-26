@@ -9,7 +9,10 @@ import {
 import { TimerReset } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, type AppPage } from "@/components/features/AppShell";
-import { TaskWorkspace } from "@/components/features/TaskWorkspace";
+import { PwaUpdate } from "@/components/features/PwaUpdate";
+import { useConnectivity } from "@/hooks/useConnectivity";
+import { useAppPreferences } from "@/hooks/useAppPreferences";
+import { playCompletionSound, unlockCompletionSound, useFocusDevice } from "@/hooks/useFocusDevice";
 import type { TimerStopOptions } from "@/components/features/timer";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +39,8 @@ import { isProjectArchived } from "@/lib/workspace";
 import type { PomodoroSession } from "@/types/task";
 
 const loadProfilePage = () => import("@/components/features/ProfilePage");
+const loadTaskWorkspace = () => import("@/components/features/TaskWorkspace");
+const TaskWorkspace = lazy(() => loadTaskWorkspace().then((module) => ({ default: module.TaskWorkspace })));
 const ProfilePage = lazy(() =>
   loadProfilePage().then((module) => ({
     default: module.ProfilePage,
@@ -49,7 +54,7 @@ const TimerPage = lazy(() =>
 function getPageFromHash(): AppPage {
   if (window.location.hash === "#timer") return "timer";
   if (window.location.hash === "#profile") return "profile";
-  return "tasks";
+  return window.location.hash === "#tasks" ? "tasks" : "timer";
 }
 
 function WorkspaceSkeleton() {
@@ -69,6 +74,8 @@ function WorkspaceSkeleton() {
 }
 
 export default function App() {
+  const { online, canEdit } = useConnectivity();
+  const preferences = useAppPreferences();
   const userId = pb.authStore.record?.id ?? "anonymous";
   const [viewState, setViewState] = useWorkspacePreferences(userId);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
@@ -85,13 +92,16 @@ export default function App() {
     setSession,
     isLoading: isSessionLoading,
     loadError: sessionLoadError,
+    isSaving,
+    pending,
+    syncState,
+    retrySync,
   } = usePomodoroSession();
   const {
     tasks,
     createTask,
     setTaskDone,
     deleteTask,
-    recordFocusTime,
     editTask,
     reconcileDeletedProject,
     reconcileDeletedCategory,
@@ -132,35 +142,26 @@ export default function App() {
       ? selectedTaskCandidate
       : null;
   const sessionTask = session?.taskId ? (taskMap.get(session.taskId) ?? null) : null;
-  const currentSession =
-    session && (!session.taskId || sessionTask) ? session : null;
+  const currentSession = session;
+  const wakeError = useFocusDevice(session?.mode === "running" && session.isActive);
 
   const completeSession = useCallback(
-    (completed: PomodoroSession) => {
-      if (completed.mode !== "running") return;
-      if (completed.taskId) {
-        void recordFocusTime(
-          completed.taskId,
-          completed.durationMinutes * 60,
-        ).catch(() => {
-          toast.error("Focused time could not be saved.");
-          setAppFeedback({
-            kind: "alert",
-            message: "Focused time could not be saved.",
-          });
-        });
-      }
-      setSession({
+    async (completed: PomodoroSession) => {
+      if (completed.mode !== "running") return true;
+      const saved = await setSession({
         ...completed,
         mode: "complete",
         remainingSeconds: 0,
         isActive: false,
-        lastTick: Date.now(),
+        lastTick: completed.lastTick + completed.remainingSeconds * 1000,
       });
+      if (!saved) return false;
+      if (preferences.sound) playCompletionSound();
       toast.success("Pomodoro complete.");
       setAppFeedback({ kind: "status", message: "Pomodoro complete." });
+      return true;
     },
-    [recordFocusTime, setSession],
+    [preferences.sound, setSession],
   );
   const remainingSeconds = useTimerClock(currentSession, completeSession);
 
@@ -174,23 +175,16 @@ export default function App() {
     saveSelectedTaskId(selectedTaskId);
   }, [selectedTaskId]);
 
-  useEffect(() => {
-    if (areTasksLoading || !session?.taskId) return;
-    if (!tasks.some((task) => task.id === session.taskId)) {
-      setSession((current) => (current ? { ...current, taskId: null } : null));
-    }
-  }, [areTasksLoading, session?.taskId, setSession, tasks]);
-
   const navigate = useCallback((nextPage: AppPage) => {
     window.location.hash = nextPage;
     setPage(nextPage);
   }, []);
 
   useEffect(() => {
-    if (currentSession?.mode === "complete" && page !== "timer") {
+    if (currentSession?.mode === "complete") {
       window.location.hash = "timer";
     }
-  }, [currentSession?.mode, page]);
+  }, [currentSession?.mode]);
 
   const setDuration = useCallback((duration: number) =>
     setViewState((current) => ({
@@ -198,9 +192,10 @@ export default function App() {
       lastDuration: Math.max(1, Math.min(60, duration)),
     })), [setViewState]);
 
-  const startTimer = useCallback(() => {
+  const startTimer = useCallback(async () => {
+    if (preferences.sound) unlockCompletionSound();
     const duration = viewState.lastDuration;
-    setSession({
+    const saved = await setSession({
       id: createPocketBaseId(),
       taskId: selectedTask?.id ?? null,
       durationMinutes: duration,
@@ -209,9 +204,11 @@ export default function App() {
       isActive: true,
       lastTick: Date.now(),
     });
+    if (!saved) return;
+    void navigator.storage?.persist?.().catch(() => undefined);
     setAppFeedback({ kind: "status", message: "Pomodoro started." });
     navigate("timer");
-  }, [navigate, selectedTask?.id, setSession, viewState.lastDuration]);
+  }, [navigate, preferences.sound, selectedTask?.id, setSession, viewState.lastDuration]);
 
   const setUpTimerForTask = useCallback((taskId: string) => {
     if (currentSession) {
@@ -227,31 +224,26 @@ export default function App() {
     navigate("timer");
   }, [currentSession, navigate, projectMap, taskMap]);
 
-  const toggleTimer = useCallback(() => {
+  const toggleTimer = useCallback(async () => {
     if (!currentSession || currentSession.mode !== "running") return;
-    setSession({
+    if (preferences.sound) unlockCompletionSound();
+    const saved = await setSession({
       ...currentSession,
       remainingSeconds,
       isActive: !currentSession.isActive,
       lastTick: Date.now(),
     });
+    if (!saved) return;
     setAppFeedback({
       kind: "status",
       message: currentSession.isActive ? "Pomodoro paused." : "Pomodoro resumed.",
     });
-  }, [currentSession, remainingSeconds, setSession]);
+  }, [currentSession, preferences.sound, remainingSeconds, setSession]);
 
-  const stopTimer = useCallback(({ saveElapsedTime, elapsedSeconds }: TimerStopOptions) => {
+  const stopTimer = useCallback(async ({ saveElapsedTime, elapsedSeconds }: TimerStopOptions) => {
     if (!currentSession) return;
     if (saveElapsedTime && currentSession.taskId) {
-      void recordFocusTime(currentSession.taskId, elapsedSeconds).catch(() => {
-          toast.error("Focused time could not be saved.");
-          setAppFeedback({
-            kind: "alert",
-            message: "Focused time could not be saved.",
-          });
-        });
-      setSession({
+      const saved = await setSession({
         ...currentSession,
         mode: "complete",
         remainingSeconds: Math.max(
@@ -261,15 +253,16 @@ export default function App() {
         isActive: false,
         lastTick: Date.now(),
       });
+      if (!saved) return;
       setAppFeedback({
         kind: "status",
-        message: "Focused time saved. Session complete.",
+        message: "Focused time saved on this device. Session complete.",
       });
     } else {
-      setSession(null);
+      if (!(await setSession(null))) return;
       setAppFeedback({ kind: "status", message: "Pomodoro stopped." });
     }
-  }, [currentSession, recordFocusTime, setSession]);
+  }, [currentSession, setSession]);
 
   const handleDeleteProject = useCallback(async (projectId: string) => {
     try {
@@ -356,6 +349,7 @@ export default function App() {
   const handleNavigationIntent = useCallback((nextPage: AppPage) => {
     if (nextPage === "timer") void loadTimerPage();
     if (nextPage === "profile") void loadProfilePage();
+    if (nextPage === "tasks") void loadTaskWorkspace();
   }, []);
 
   const handleNavigate = useCallback((nextPage: AppPage) => {
@@ -366,21 +360,21 @@ export default function App() {
   const handleTimerTaskDone = useCallback(async () => {
     if (!sessionTask) return;
     await handleStatusChange(sessionTask.id, true);
-    setSession(null);
+    if (!(await setSession(null))) return;
     navigate("tasks");
   }, [handleStatusChange, navigate, sessionTask, setSession]);
 
-  const handleFocusAgain = useCallback(() => {
-    setSession(null);
+  const handleFocusAgain = useCallback(async () => {
+    if (!(await setSession(null))) return;
     setSelectedTaskId(sessionTask?.id ?? null);
   }, [sessionTask?.id, setSession]);
 
-  const handleViewTasks = useCallback(() => {
-    setSession(null);
+  const handleViewTasks = useCallback(async () => {
+    if (!(await setSession(null))) return;
     navigate("tasks");
   }, [navigate, setSession]);
 
-  if (areTasksLoading || areProjectsLoading || areCategoriesLoading || isSessionLoading) {
+  if (isSessionLoading) {
     return <WorkspaceSkeleton />;
   }
 
@@ -395,6 +389,12 @@ export default function App() {
       onNavigate={handleNavigate}
       onNavigateIntent={handleNavigationIntent}
     >
+      <PwaUpdate hasSession={currentSession?.mode === "running"} saving={isSaving} />
+      {!online || !canEdit || pending.length > 0 || syncState.error || sessionLoadError ? <div className="app-notice" role="status">
+        <p>{sessionLoadError ?? syncState.error ?? (!online ? "Offline. Timers work; your saved workspace is read-only." : !canEdit ? "Sign in again from Profile to sync and edit. Your timer still works." : syncState.syncing ? "Syncing your focus sessions…" : "Focus sessions saved on this device, waiting to sync.")}</p>
+        {online && pending.length > 0 ? <Button variant="ghost" size="sm" disabled={syncState.syncing} onClick={retrySync}>Retry sync</Button> : null}
+      </div> : null}
+      {wakeError ? <p className="mb-3 text-sm text-muted-foreground" role="status">{wakeError}</p> : null}
       {appFeedback ? (
         <p
           className="sr-only"
@@ -442,7 +442,9 @@ export default function App() {
               </CardHeader>
             </Card>
           ) : null}
-          <TaskWorkspace
+          <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+          {areTasksLoading || areProjectsLoading || areCategoriesLoading ? <Skeleton className="h-96 w-full" /> : <TaskWorkspace
+            readOnly={!canEdit}
             tasks={tasks}
             projects={projects}
             categories={categories}
@@ -461,11 +463,15 @@ export default function App() {
             onCreateCategory={createCategory}
             onUpdateCategory={updateCategory}
             onDeleteCategory={handleDeleteCategory}
-          />
+          />}
+          </Suspense>
         </div>
       ) : page === "profile" ? (
         <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
           <ProfilePage
+            pendingSessions={pending}
+            syncState={syncState}
+            onRetrySync={retrySync}
             tasks={tasks}
             openTaskId={profileTaskId}
             onOpenTask={setProfileTaskId}
@@ -474,6 +480,9 @@ export default function App() {
       ) : (
         <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
           <TimerPage
+            isSaving={isSaving}
+            canEdit={canEdit}
+            syncPending={pending.some((operation) => operation.session.id === currentSession?.id)}
             session={currentSession}
             sessionTask={sessionTask}
             selectedTask={selectedTask}

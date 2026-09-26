@@ -46,6 +46,6 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    expect(screen.getAllByLabelText("Pomodoro running, 25:05 remaining")).toHaveLength(2);
+    expect(screen.getByLabelText("Pomodoro running, 25:05 remaining")).toBeInTheDocument();
   });
 });

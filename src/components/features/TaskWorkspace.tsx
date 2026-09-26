@@ -1,110 +1,1221 @@
-import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
-import { Archive, CalendarDays, Folder, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RotateCcw, Search, Settings2, Tag, TimerReset, Trash2, X } from "lucide-react";
+import {
+  lazy,
+  memo,
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+} from "react";
+import {
+  Archive,
+  CalendarDays,
+  Folder,
+  MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Settings2,
+  Tag,
+  TimerReset,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DesktopProjectNavigation, MobileProjectNavigation } from "@/components/features/ProjectNavigation";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DesktopProjectNavigation,
+  MobileProjectNavigation,
+} from "@/components/features/ProjectNavigation";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { ArchivedProjects } from "@/components/features/ArchivedProjects";
 import { CategoryManager } from "@/components/features/CategoryManager";
-import { TaskDetail } from "@/components/features/TaskDetail";
-import { buildFlatWorkspaceIndex, getProjectStatus, isProjectArchived, localDateKey, plainTextFromHtml, PROJECT_TITLE_MAX_LENGTH, selectWorkspaceTasks, TASK_BATCH_SIZE, taskPriority, type PriorityFilter, type TaskSort, type TaskStatusFilter, type WorkspaceViewState } from "@/lib/workspace";
-import type { Category, CategoryColor, CategoryInput, Project, ProjectInput, ProjectStatus, Task, TaskInput } from "@/types/task";
+import {
+  buildFlatWorkspaceIndex,
+  getProjectStatus,
+  isProjectArchived,
+  localDateKey,
+  plainTextFromHtml,
+  PROJECT_TITLE_MAX_LENGTH,
+  selectWorkspaceTasks,
+  TASK_BATCH_SIZE,
+  taskPriority,
+  type PriorityFilter,
+  type TaskSort,
+  type TaskStatusFilter,
+  type WorkspaceViewState,
+} from "@/lib/workspace";
+import type {
+  Category,
+  CategoryColor,
+  CategoryInput,
+  Project,
+  ProjectInput,
+  ProjectStatus,
+  Task,
+  TaskInput,
+} from "@/types/task";
 
-const TaskEditor = lazy(() => import("@/components/features/TaskEditor").then((module) => ({ default: module.TaskEditor })));
-const RichTextEditor = lazy(() => import("@/components/features/RichTextEditor").then((module) => ({ default: module.RichTextEditor })));
+const TaskEditor = lazy(() =>
+  import("@/components/features/TaskEditor").then((module) => ({
+    default: module.TaskEditor,
+  })),
+);
+const TaskDetail = lazy(() => import("@/components/features/TaskDetail").then((module) => ({ default: module.TaskDetail })));
+const RichTextEditor = lazy(() =>
+  import("@/components/features/RichTextEditor").then((module) => ({
+    default: module.RichTextEditor,
+  })),
+);
 
 interface Props {
-  tasks: Task[]; projects: Project[]; categories?: Category[]; viewState: WorkspaceViewState; setViewState: Dispatch<SetStateAction<WorkspaceViewState>>; canStartPomodoro: boolean;
-  onCreateTask: (input: TaskInput) => Promise<unknown>; onCreateProject: (input: ProjectInput) => Promise<Project | null>; onUpdateProject: (id: string, input: ProjectInput) => Promise<unknown>; onDeleteProject: (id: string) => Promise<unknown>; onArchiveProject: (id: string, archived: boolean) => Promise<unknown>;
-  onStartPomodoro: (id: string) => void; onStatusChange: (id: string, done: boolean) => Promise<unknown>; onEditTask: (id: string, input: TaskInput) => Promise<unknown>; onDeleteTask: (id: string) => Promise<unknown>;
-  onCreateCategory?: (input: CategoryInput) => Promise<Category>; onUpdateCategory?: (id: string, input: CategoryInput) => Promise<unknown>; onDeleteCategory?: (id: string) => Promise<unknown>;
+  readOnly?: boolean;
+  tasks: Task[];
+  projects: Project[];
+  categories?: Category[];
+  viewState: WorkspaceViewState;
+  setViewState: Dispatch<SetStateAction<WorkspaceViewState>>;
+  canStartPomodoro: boolean;
+  onCreateTask: (input: TaskInput) => Promise<unknown>;
+  onCreateProject: (input: ProjectInput) => Promise<Project | null>;
+  onUpdateProject: (id: string, input: ProjectInput) => Promise<unknown>;
+  onDeleteProject: (id: string) => Promise<unknown>;
+  onArchiveProject: (id: string, archived: boolean) => Promise<unknown>;
+  onStartPomodoro: (id: string) => void;
+  onStatusChange: (id: string, done: boolean) => Promise<unknown>;
+  onEditTask: (id: string, input: TaskInput) => Promise<unknown>;
+  onDeleteTask: (id: string) => Promise<unknown>;
+  onCreateCategory?: (input: CategoryInput) => Promise<Category>;
+  onUpdateCategory?: (id: string, input: CategoryInput) => Promise<unknown>;
+  onDeleteCategory?: (id: string) => Promise<unknown>;
 }
 
 const categoryPillStyles: Record<CategoryColor, string> = {
   slate: "bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-200",
   red: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-  orange: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
+  orange:
+    "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
   amber: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
   green: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200",
   teal: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200",
   blue: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200",
-  violet: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
+  violet:
+    "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
   pink: "bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200",
 };
 
-const priorityLabels = { none: "No priority", low: "Low", medium: "Medium", high: "High", urgent: "Urgent" } as const;
-const statusLabels: Record<ProjectStatus, string> = { planned: "Planned", active: "Active", on_hold: "On hold", completed: "Completed" };
-const taskStatusLabels = { open: "Open", completed: "Completed", all: "All statuses" };
+const priorityLabels = {
+  none: "No priority",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  urgent: "Urgent",
+} as const;
+const statusLabels: Record<ProjectStatus, string> = {
+  planned: "Planned",
+  active: "Active",
+  on_hold: "On hold",
+  completed: "Completed",
+};
+const taskStatusLabels = {
+  open: "Open",
+  completed: "Completed",
+  all: "All statuses",
+};
 const priorityFilterLabels = { all: "All priorities", ...priorityLabels };
-const sortLabels = { smart: "Smart", due: "Project due date", priority: "Priority", newest: "Newest", oldest: "Oldest", alphabetical: "A–Z", focused: "Most focused" };
-function titlePreview(title: string) { const value = title.replace(/\s+/g, " ").trim(); return value.length > 160 ? `${value.slice(0, 157)}…` : value; }
-function focused(seconds: number) { const minutes = Math.floor(seconds / 60); return minutes < 60 ? `${minutes}m focused` : `${Math.floor(minutes / 60)}h ${minutes % 60}m focused`; }
-function dueLabel(dueDate: string | null | undefined, today: string) { if (!dueDate) return null; if (dueDate < today) return `Overdue · ${dueDate}`; if (dueDate === today) return "Today"; return dueDate; }
+const sortLabels = {
+  smart: "Smart",
+  due: "Project due date",
+  priority: "Priority",
+  newest: "Newest",
+  oldest: "Oldest",
+  alphabetical: "A–Z",
+  focused: "Most focused",
+};
+function titlePreview(title: string) {
+  const value = title.replace(/\s+/g, " ").trim();
+  return value.length > 160 ? `${value.slice(0, 157)}…` : value;
+}
+function focused(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  return minutes < 60
+    ? `${minutes}m focused`
+    : `${Math.floor(minutes / 60)}h ${minutes % 60}m focused`;
+}
+function dueLabel(dueDate: string | null | undefined, today: string) {
+  if (!dueDate) return null;
+  if (dueDate < today) return `Overdue · ${dueDate}`;
+  if (dueDate === today) return "Today";
+  return dueDate;
+}
 
-interface RowProps { showProjectMetadata: boolean; task: Task; project?: Project; category?: Category; today: string; pending: boolean; canFocus: boolean; onToggle: () => void; onOpen: () => void; onEdit: () => void; onDelete: () => void; onFocus: () => void }
-const TaskRow = memo(function TaskRow({ showProjectMetadata, task, project, category, today, pending, canFocus, onToggle, onOpen, onEdit, onDelete, onFocus }: RowProps) {
-  const title = titlePreview(task.title); const priority = taskPriority(task); const due = dueLabel(project?.dueDate, today); const excerpt = plainTextFromHtml(task.description ?? "").slice(0, 140);
-  return <li className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 border-b px-4 py-3.5 last:border-b-0 sm:px-5 [content-visibility:auto]" aria-busy={pending} data-task-id={task.id}><Checkbox className="mt-0.5" checked={task.isDone} onCheckedChange={onToggle} disabled={pending} aria-label={task.isDone ? `Reopen ${title}` : `Mark ${title} complete`} /><div className="min-w-0"><button type="button" className="w-full rounded text-left leading-5" onClick={onOpen} disabled={pending} aria-label={`Open details for ${title}`}><span className={task.isDone ? "font-medium text-muted-foreground line-through" : "font-medium"}>{title}</span>{excerpt ? <span className="mt-0.5 block truncate text-sm text-muted-foreground">{excerpt}</span> : null}</button><div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground"><span aria-label={`Priority: ${priorityLabels[priority]}`} className="rounded-full bg-muted px-2 py-0.5 capitalize">{priority === "none" ? "No priority" : `${priority} priority`}</span>{category ? <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${categoryPillStyles[category.color]}`}><Tag className="size-3" aria-hidden="true" />{category.name}</span> : null}{showProjectMetadata ? <span className="flex max-w-full min-w-0 items-center gap-1 sm:max-w-[24rem]"><Folder className="size-3 shrink-0" /><span className="truncate">{project?.title ?? "No project"}</span></span> : null}{showProjectMetadata && due ? <time dateTime={project?.dueDate ?? undefined} className={project?.dueDate && project.dueDate <= today ? "font-medium text-destructive" : undefined}><CalendarDays className="mr-1 inline size-3" />Project due {due}</time> : null}<span className="whitespace-nowrap">{focused(task.focusedSeconds)}</span></div></div><div className="flex shrink-0 items-center gap-1 self-center">{!task.isDone ? <Button type="button" size="sm" onClick={onFocus} disabled={!canFocus || pending} aria-label={`Focus on ${title}`}><TimerReset /><span className="hidden sm:inline">Focus</span></Button> : null}<DropdownMenu><DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${title}`} disabled={pending} />}><MoreHorizontal /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onClick={onEdit}><Pencil />Edit</DropdownMenuItem><DropdownMenuItem variant="destructive" onClick={onDelete}><Trash2 />Delete</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div></li>;
+interface RowProps {
+  readOnly: boolean;
+  showProjectMetadata: boolean;
+  task: Task;
+  project?: Project;
+  category?: Category;
+  today: string;
+  pending: boolean;
+  canFocus: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onFocus: () => void;
+}
+const TaskRow = memo(function TaskRow({
+  readOnly,
+  showProjectMetadata,
+  task,
+  project,
+  category,
+  today,
+  pending,
+  canFocus,
+  onToggle,
+  onOpen,
+  onEdit,
+  onDelete,
+  onFocus,
+}: RowProps) {
+  const title = titlePreview(task.title);
+  const priority = taskPriority(task);
+  const due = dueLabel(project?.dueDate, today);
+  const excerpt = plainTextFromHtml(task.description ?? "").slice(0, 140);
+  return (
+    <li
+      className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 border-b px-4 py-3.5 last:border-b-0 sm:px-5 [content-visibility:auto]"
+      aria-busy={pending}
+      data-task-id={task.id}
+    >
+      <Checkbox
+        className="mt-0.5"
+        checked={task.isDone}
+        onCheckedChange={onToggle}
+        disabled={pending || readOnly}
+        aria-label={task.isDone ? `Reopen ${title}` : `Mark ${title} complete`}
+      />
+      <div className="min-w-0">
+        <button
+          type="button"
+          className="w-full rounded text-left leading-5"
+          onClick={onOpen}
+          disabled={pending}
+          aria-label={`Open details for ${title}`}
+        >
+          <span
+            className={
+              task.isDone
+                ? "font-medium text-muted-foreground line-through"
+                : "font-medium"
+            }
+          >
+            {title}
+          </span>
+          {excerpt ? (
+            <span className="mt-0.5 block truncate text-sm text-muted-foreground">
+              {excerpt}
+            </span>
+          ) : null}
+        </button>
+        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+          <span
+            aria-label={`Priority: ${priorityLabels[priority]}`}
+            className="rounded-full bg-muted px-2 py-0.5 capitalize"
+          >
+            {priority === "none" ? "No priority" : `${priority} priority`}
+          </span>
+          {category ? (
+            <span
+              className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${categoryPillStyles[category.color]}`}
+            >
+              <Tag className="size-3" aria-hidden="true" />
+              {category.name}
+            </span>
+          ) : null}
+          {showProjectMetadata ? (
+            <span className="flex max-w-full min-w-0 items-center gap-1 sm:max-w-[24rem]">
+              <Folder className="size-3 shrink-0" />
+              <span className="truncate">{project?.title ?? "No project"}</span>
+            </span>
+          ) : null}
+          {showProjectMetadata && due ? (
+            <time
+              dateTime={project?.dueDate ?? undefined}
+              className={
+                project?.dueDate && project.dueDate <= today
+                  ? "font-medium text-destructive"
+                  : undefined
+              }
+            >
+              <CalendarDays className="mr-1 inline size-3" />
+              Project due {due}
+            </time>
+          ) : null}
+          <span className="whitespace-nowrap">
+            {focused(task.focusedSeconds)}
+          </span>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-1 self-center">
+        {!task.isDone ? (
+          <Button
+            type="button"
+            size="sm"
+            className="hidden sm:inline-flex"
+            onClick={onFocus}
+            disabled={!canFocus || pending}
+            aria-label={`Focus on ${title}`}
+          >
+            <TimerReset />
+            <span className="hidden sm:inline">Focus</span>
+          </Button>
+        ) : null}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Actions for ${title}`}
+                disabled={pending}
+              />
+            }
+          >
+            <MoreHorizontal />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuGroup>
+              {!task.isDone ? <DropdownMenuItem onClick={onFocus} disabled={!canFocus || pending}><TimerReset />Focus</DropdownMenuItem> : null}
+              <DropdownMenuItem onClick={onEdit} disabled={readOnly}>
+                <Pencil />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onClick={onDelete} disabled={readOnly}>
+                <Trash2 />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </li>
+  );
 });
 
-function ProjectEditor({ project, tasks, onCancel, onSave }: { project?: Project; tasks: Task[]; onCancel: () => void; onSave: (input: ProjectInput) => Promise<unknown> }) {
-  const [input, setInput] = useState<ProjectInput>({ title: project?.title ?? "", description: project?.description ?? "", status: project ? getProjectStatus(project) : "planned", dueDate: project?.dueDate ?? null }); const [error, setError] = useState<string | null>(null); const [saving, setSaving] = useState(false);
-  const openTasks = project ? tasks.filter((task) => task.projectId === project.id && !task.isDone).length : 0;
-  const submit = async (event: FormEvent) => { event.preventDefault(); const title = input.title.trim(); if (!title || title.length > PROJECT_TITLE_MAX_LENGTH) { setError("Enter a project name up to 120 characters."); return; } if (input.status === "completed" && getProjectStatus(project ?? { id: "", title: "", description: "", createdAt: 0 }) !== "completed" && openTasks && !window.confirm(`Mark this project Completed with ${openTasks} open ${openTasks === 1 ? "task" : "tasks"}?`)) return; setSaving(true); setError(null); try { await onSave({ ...input, title }); } catch (caught) { setError(caught instanceof Error ? caught.message : "Project could not be saved."); } finally { setSaving(false); } };
-  return <form onSubmit={submit} className="flex flex-col gap-5"><Field><FieldLabel htmlFor="project-title">Project name</FieldLabel><Input id="project-title" value={input.title} onChange={(event) => setInput((value) => ({ ...value, title: event.target.value }))} autoFocus /><FieldError>{error}</FieldError></Field><div className="grid gap-4 sm:grid-cols-2"><Field><FieldLabel>Lifecycle status</FieldLabel><Select items={statusLabels} value={input.status} onValueChange={(value) => setInput((current) => ({ ...current, status: value as ProjectStatus }))}><SelectTrigger aria-label="Project lifecycle status" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(statusLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></Field><Field><FieldLabel htmlFor="project-due-date">Due date</FieldLabel><Input id="project-due-date" type="date" value={input.dueDate ?? ""} onChange={(event) => setInput((current) => ({ ...current, dueDate: event.target.value || null }))} /></Field></div><Field><FieldLabel>Description</FieldLabel><Suspense fallback={<div className="h-48 animate-pulse rounded-2xl bg-muted" />}><RichTextEditor id="project-description" value={input.description} onChange={(description) => setInput((value) => ({ ...value, description }))} disabled={saving} /></Suspense></Field><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={onCancel}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? "Saving…" : project ? "Save changes" : "Create project"}</Button></div></form>;
+function ProjectEditor({
+  project,
+  tasks,
+  onCancel,
+  onSave,
+}: {
+  project?: Project;
+  tasks: Task[];
+  onCancel: () => void;
+  onSave: (input: ProjectInput) => Promise<unknown>;
+}) {
+  const [input, setInput] = useState<ProjectInput>({
+    title: project?.title ?? "",
+    description: project?.description ?? "",
+    status: project ? getProjectStatus(project) : "planned",
+    dueDate: project?.dueDate ?? null,
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const openTasks = project
+    ? tasks.filter((task) => task.projectId === project.id && !task.isDone)
+        .length
+    : 0;
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const title = input.title.trim();
+    if (!title || title.length > PROJECT_TITLE_MAX_LENGTH) {
+      setError("Enter a project name up to 120 characters.");
+      return;
+    }
+    if (
+      input.status === "completed" &&
+      getProjectStatus(
+        project ?? { id: "", title: "", description: "", createdAt: 0 },
+      ) !== "completed" &&
+      openTasks &&
+      !window.confirm(
+        `Mark this project Completed with ${openTasks} open ${openTasks === 1 ? "task" : "tasks"}?`,
+      )
+    )
+      return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ ...input, title });
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Project could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-5">
+      <Field>
+        <FieldLabel htmlFor="project-title">Project name</FieldLabel>
+        <Input
+          id="project-title"
+          value={input.title}
+          onChange={(event) =>
+            setInput((value) => ({ ...value, title: event.target.value }))
+          }
+          autoFocus
+        />
+        <FieldError>{error}</FieldError>
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel>Lifecycle status</FieldLabel>
+          <Select
+            items={statusLabels}
+            value={input.status}
+            onValueChange={(value) =>
+              setInput((current) => ({
+                ...current,
+                status: value as ProjectStatus,
+              }))
+            }
+          >
+            <SelectTrigger
+              aria-label="Project lifecycle status"
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(statusLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="project-due-date">Due date</FieldLabel>
+          <Input
+            id="project-due-date"
+            type="date"
+            value={input.dueDate ?? ""}
+            onChange={(event) =>
+              setInput((current) => ({
+                ...current,
+                dueDate: event.target.value || null,
+              }))
+            }
+          />
+        </Field>
+      </div>
+      <Field>
+        <FieldLabel>Description</FieldLabel>
+        <Suspense
+          fallback={<div className="h-48 animate-pulse rounded-2xl bg-muted" />}
+        >
+          <RichTextEditor
+            id="project-description"
+            value={input.description}
+            onChange={(description) =>
+              setInput((value) => ({ ...value, description }))
+            }
+            disabled={saving}
+          />
+        </Suspense>
+      </Field>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? "Saving…" : project ? "Save changes" : "Create project"}
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 function TaskWorkspaceComponent(props: Props) {
-  const { tasks, projects, categories = [], viewState, setViewState, canStartPomodoro: canStartPomodoroProp } = props;
-  const headingRef = useRef<HTMLHeadingElement>(null); const pendingRef = useRef(new Set<string>());
-  const [today, setToday] = useState(localDateKey); const [search, setSearch] = useState(""); const deferredSearch = useDeferredValue(search); const [visible, setVisible] = useState(TASK_BATCH_SIZE); const [pending, setPending] = useState(new Set<string>()); const [announcement, setAnnouncement] = useState("");
-  const [editorTask, setEditorTask] = useState<Task | "new" | null>(null); const [detailId, setDetailId] = useState<string | null>(null); const [projectEditor, setProjectEditor] = useState<Project | "new" | null>(null); const [manageCategories, setManageCategories] = useState(false); const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
-  const index = useMemo(() => buildFlatWorkspaceIndex(projects, tasks, categories, today), [categories, projects, tasks, today]);
-  const selected = useMemo(() => selectWorkspaceTasks(index, tasks, viewState, deferredSearch, today), [deferredSearch, index, tasks, today, viewState]);
-  const project = viewState.scope.startsWith("project:") ? index.projectMap.get(viewState.scope.slice(8)) : undefined; const group = project ? index.groupMap.get(project.id) : undefined;
-  const canStartPomodoro = canStartPomodoroProp && viewState.scope !== "archived" && !isProjectArchived(project);
-  const detailTask = tasks.find((task) => task.id === detailId); const categoryMap = index.categoryMap;
-  const categoryFilterLabels = useMemo(() => Object.fromEntries([["all", "All categories"], ...categories.map((category) => [category.id, category.name])]), [categories]);
-  const update = <K extends keyof WorkspaceViewState>(key: K, value: WorkspaceViewState[K]) => { setVisible(TASK_BATCH_SIZE); setViewState((current) => ({ ...current, [key]: value })); };
-  useEffect(() => { headingRef.current?.focus({ preventScroll: true }); }, []);
-  useEffect(() => { const refresh = () => setToday(localDateKey()); const onVisible = () => { if (document.visibilityState === "visible") refresh(); }; const now = new Date(); const timeout = window.setTimeout(refresh, new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime() + 50); document.addEventListener("visibilitychange", onVisible); return () => { window.clearTimeout(timeout); document.removeEventListener("visibilitychange", onVisible); }; }, [today]);
-  useEffect(() => { if (!viewState.categoryId || categoryMap.has(viewState.categoryId)) return; const id = window.setTimeout(() => setViewState((current) => ({ ...current, categoryId: null })), 0); return () => window.clearTimeout(id); }, [categoryMap, setViewState, viewState.categoryId]);
-  useEffect(() => { const id = window.setTimeout(() => setAnnouncement(viewState.scope === "archived" ? `${index.archivedProjects.length} archived projects.` : `${selected.length} matching ${selected.length === 1 ? "task" : "tasks"}.`), 400); return () => window.clearTimeout(id); }, [selected.length, viewState.scope, index.archivedProjects.length]);
-  const mutate = useCallback(async (id: string, action: () => Promise<unknown>, message: string) => { if (pendingRef.current.has(id)) return; pendingRef.current = new Set(pendingRef.current).add(id); setPending(new Set(pendingRef.current)); try { await action(); setAnnouncement(message); } finally { const next = new Set(pendingRef.current); next.delete(id); pendingRef.current = next; setPending(next); } }, []);
-  const openEdit = useCallback((task: Task) => { void import("@/components/features/TaskEditor"); setEditorTask(task); }, []);
-  const heading = project?.title ?? ({ all: "All tasks", today: "Today", upcoming: "Upcoming 7 days", overdue: "Overdue", archived: "Archived" } as Record<string, string>)[viewState.scope] ?? "Tasks";
-  const hasFilters = Boolean(search || viewState.status !== "open" || viewState.sort !== "smart" || (viewState.priority ?? "all") !== "all" || viewState.categoryId);
-  const hasSearchFilters = Boolean(search.trim() || (viewState.priority ?? "all") !== "all" || viewState.categoryId);
+  const readOnly = props.readOnly ?? false;
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const {
+    tasks,
+    projects,
+    categories = [],
+    viewState,
+    setViewState,
+    canStartPomodoro: canStartPomodoroProp,
+  } = props;
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const pendingRef = useRef(new Set<string>());
+  const [today, setToday] = useState(localDateKey);
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const [visible, setVisible] = useState(TASK_BATCH_SIZE);
+  const [pending, setPending] = useState(new Set<string>());
+  const [announcement, setAnnouncement] = useState("");
+  const [editorTask, setEditorTask] = useState<Task | "new" | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [projectEditor, setProjectEditor] = useState<Project | "new" | null>(
+    null,
+  );
+  const [manageCategories, setManageCategories] = useState(false);
+  const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
+  const index = useMemo(
+    () => buildFlatWorkspaceIndex(projects, tasks, categories, today),
+    [categories, projects, tasks, today],
+  );
+  const selected = useMemo(
+    () => selectWorkspaceTasks(index, tasks, viewState, deferredSearch, today),
+    [deferredSearch, index, tasks, today, viewState],
+  );
+  const project = viewState.scope.startsWith("project:")
+    ? index.projectMap.get(viewState.scope.slice(8))
+    : undefined;
+  const group = project ? index.groupMap.get(project.id) : undefined;
+  const canStartPomodoro =
+    canStartPomodoroProp &&
+    viewState.scope !== "archived" &&
+    !isProjectArchived(project);
+  const detailTask = tasks.find((task) => task.id === detailId);
+  const categoryMap = index.categoryMap;
+  const categoryFilterLabels = useMemo(
+    () =>
+      Object.fromEntries([
+        ["all", "All categories"],
+        ...categories.map((category) => [category.id, category.name]),
+      ]),
+    [categories],
+  );
+  const update = <K extends keyof WorkspaceViewState>(
+    key: K,
+    value: WorkspaceViewState[K],
+  ) => {
+    setVisible(TASK_BATCH_SIZE);
+    setViewState((current) => ({ ...current, [key]: value }));
+  };
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => {
+    const refresh = () => setToday(localDateKey());
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const now = new Date();
+    const timeout = window.setTimeout(
+      refresh,
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() -
+        now.getTime() +
+        50,
+    );
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [today]);
+  useEffect(() => {
+    if (!viewState.categoryId || categoryMap.has(viewState.categoryId)) return;
+    const id = window.setTimeout(
+      () => setViewState((current) => ({ ...current, categoryId: null })),
+      0,
+    );
+    return () => window.clearTimeout(id);
+  }, [categoryMap, setViewState, viewState.categoryId]);
+  useEffect(() => {
+    const id = window.setTimeout(
+      () =>
+        setAnnouncement(
+          viewState.scope === "archived"
+            ? `${index.archivedProjects.length} archived projects.`
+            : `${selected.length} matching ${selected.length === 1 ? "task" : "tasks"}.`,
+        ),
+      400,
+    );
+    return () => window.clearTimeout(id);
+  }, [selected.length, viewState.scope, index.archivedProjects.length]);
+  const mutate = useCallback(
+    async (id: string, action: () => Promise<unknown>, message: string) => {
+      if (pendingRef.current.has(id)) return;
+      pendingRef.current = new Set(pendingRef.current).add(id);
+      setPending(new Set(pendingRef.current));
+      try {
+        await action();
+        setAnnouncement(message);
+      } catch (error) {
+        setAnnouncement(error instanceof Error ? error.message : "The change could not be saved. Try again.");
+      } finally {
+        const next = new Set(pendingRef.current);
+        next.delete(id);
+        pendingRef.current = next;
+        setPending(next);
+      }
+    },
+    [],
+  );
+  const openEdit = useCallback((task: Task) => {
+    void import("@/components/features/TaskEditor");
+    setEditorTask(task);
+  }, []);
+  const heading =
+    project?.title ??
+    (
+      {
+        all: "All tasks",
+        today: "Today",
+        upcoming: "Upcoming 7 days",
+        overdue: "Overdue",
+        archived: "Archived",
+      } as Record<string, string>
+    )[viewState.scope] ??
+    "Tasks";
+  const hasFilters = Boolean(
+    search ||
+    viewState.status !== "open" ||
+    viewState.sort !== "smart" ||
+    (viewState.priority ?? "all") !== "all" ||
+    viewState.categoryId,
+  );
+  const hasSearchFilters = Boolean(
+    search.trim() ||
+    (viewState.priority ?? "all") !== "all" ||
+    viewState.categoryId,
+  );
   const dateEmptyStates: Record<string, [string, string]> = {
-    today: ["Nothing due today", "Tasks in projects due today will appear here."],
-    upcoming: ["Nothing due in the next 7 days", "Tasks in projects with an upcoming due date will appear here."],
-    overdue: ["No overdue tasks", "You’re caught up on tasks in overdue projects."],
+    today: [
+      "Nothing due today",
+      "Tasks in projects due today will appear here.",
+    ],
+    upcoming: [
+      "Nothing due in the next 7 days",
+      "Tasks in projects with an upcoming due date will appear here.",
+    ],
+    overdue: [
+      "No overdue tasks",
+      "You’re caught up on tasks in overdue projects.",
+    ],
   };
   const [emptyTitle, emptyDescription] = hasSearchFilters
     ? ["No matching tasks", "Try a different search or clear your filters."]
-    : dateEmptyStates[viewState.scope] ?? (viewState.status === "completed"
-      ? ["No completed tasks yet", "Tasks you complete will appear here."]
-      : viewState.status === "open" && (group ? group.tasks.length > 0 : tasks.some((task) => !isProjectArchived(task.projectId ? index.projectMap.get(task.projectId) : undefined)))
-        ? ["No open tasks", "Switch to All statuses to see completed tasks, or add a new task."]
-        : ["No tasks yet", project ? "Add the first task to this project." : "Create a task to plan your next focus session."]);
-  const progress = group && group.tasks.length ? Math.round(group.completedCount / group.tasks.length * 100) : 0;
-  return <div className={`grid w-full items-start gap-x-6 gap-y-5 ${workspaceCollapsed ? "lg:grid-cols-1" : "lg:grid-cols-[18.5rem_minmax(0,1fr)]"}`}><p className="sr-only" role="status" aria-live="polite">{announcement}</p><div className="flex flex-wrap items-center justify-between gap-3 lg:col-span-full"><h1 ref={headingRef} tabIndex={-1} className="font-heading text-2xl font-semibold outline-none md:text-3xl">Tasks</h1><div className="flex flex-wrap justify-end gap-2"><Button variant="outline" className="hidden lg:inline-flex" onClick={() => setWorkspaceCollapsed((collapsed) => !collapsed)} aria-expanded={!workspaceCollapsed} aria-controls={workspaceCollapsed ? undefined : "workspace-navigation"}>{workspaceCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}<span>{workspaceCollapsed ? "Show workspace" : "Hide workspace"}</span></Button><Button variant="outline" aria-label="Manage categories" title="Manage categories" onClick={() => setManageCategories(true)}><Settings2 /><span className="hidden sm:inline">Categories</span></Button><Button variant="outline" aria-label="New project" title="New project" onClick={() => setProjectEditor("new")}><Folder /><span className="hidden sm:inline">New project</span></Button><Button onClick={() => setEditorTask("new")}><Plus />New task</Button></div></div>
-    {!workspaceCollapsed ? <DesktopProjectNavigation index={index} scope={viewState.scope} onScopeChange={(scope) => update("scope", scope)} /> : null}
-    <main className="min-w-0">{viewState.scope === "archived" ? <ArchivedProjects index={index} pending={pending} onOpen={(id) => { setSearch(""); setViewState((current) => ({ ...current, scope: `project:${id}`, status: "all", priority: "all", categoryId: null })); setVisible(TASK_BATCH_SIZE); }} onRestore={(id) => mutate(id, () => props.onArchiveProject(id, false), "Project restored.")} navigation={<MobileProjectNavigation index={index} scope={viewState.scope} onScopeChange={(scope) => update("scope", scope)} />} /> : <Card size="sm" className="gap-0"><CardHeader className="gap-3 border-b pb-4"><div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3"><div className="min-w-0 flex-1"><CardTitle className="whitespace-pre-wrap text-lg leading-snug">{heading}</CardTitle><p className="mt-1 text-sm text-muted-foreground">{selected.length} {selected.length === 1 ? "task" : "tasks"}</p>{project && group ? <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground"><Badge variant="outline">{statusLabels[getProjectStatus(project)]}</Badge><span>{group.completedCount}/{group.tasks.length} completed · {progress}%</span><span>{focused(group.focusedSeconds)}</span>{isProjectArchived(project) ? <><Badge variant="secondary">Archived</Badge><Button size="sm" variant="link" onClick={() => update("scope", "archived")}>Back to archived projects</Button></> : null}</div> : null}</div><div className="flex shrink-0 flex-wrap items-center gap-1.5">{project ? <><Button size="sm" variant="outline" disabled={pending.has(project.id)} onClick={() => setProjectEditor(project)}><Pencil /><span className="hidden xl:inline">Edit project</span><span className="xl:hidden">Edit</span></Button><Button size="sm" variant="ghost" disabled={pending.has(project.id)} onClick={() => void mutate(project.id, () => props.onArchiveProject(project.id, !isProjectArchived(project)), isProjectArchived(project) ? "Project restored." : "Project archived.")}>{isProjectArchived(project) ? <RotateCcw /> : <Archive />}{isProjectArchived(project) ? "Restore" : "Archive"}</Button><Button size="icon-sm" variant="ghost" disabled={pending.has(project.id)} aria-label={`Delete project ${project.title}`} onClick={() => { if (window.confirm(`Delete ${project.title}? Its tasks will become unassigned.`)) void mutate(project.id, () => props.onDeleteProject(project.id), "Project deleted."); }}><Trash2 /></Button></> : null}<MobileProjectNavigation index={index} scope={viewState.scope} onScopeChange={(scope) => update("scope", scope)} /></div></div>{project?.dueDate ? <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><CalendarDays className="size-4" />Project due <time dateTime={project.dueDate} className={project.dueDate <= today ? "font-medium text-destructive" : "font-medium text-foreground"}>{dueLabel(project.dueDate, today)}</time></p> : null}
-      <div className="flex flex-col gap-2.5"><label className="relative"><span className="sr-only">Search task titles, descriptions, projects, and categories</span><Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks, projects, and categories" className="pl-9" /></label>
-      <div className="flex flex-wrap gap-2"><Select items={taskStatusLabels} value={viewState.status} onValueChange={(value) => update("status", value as TaskStatusFilter)}><SelectTrigger aria-label="Task status" className="w-28"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="open">Open</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="all">All statuses</SelectItem></SelectContent></Select><Select items={priorityFilterLabels} value={viewState.priority ?? "all"} onValueChange={(value) => update("priority", value as PriorityFilter)}><SelectTrigger aria-label="Priority filter" className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All priorities</SelectItem>{Object.entries(priorityLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select><Select items={categoryFilterLabels} value={viewState.categoryId ?? "all"} onValueChange={(value) => update("categoryId", value === "all" ? null : value)}><SelectTrigger aria-label="Category filter" className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{categories.map((category) => <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>)}</SelectContent></Select><Select items={sortLabels} value={viewState.sort} onValueChange={(value) => update("sort", value as TaskSort)}><SelectTrigger aria-label="Sort tasks" className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="smart">Smart</SelectItem><SelectItem value="due">Due date</SelectItem><SelectItem value="priority">Priority</SelectItem><SelectItem value="newest">Newest</SelectItem><SelectItem value="oldest">Oldest</SelectItem><SelectItem value="alphabetical">A–Z</SelectItem><SelectItem value="focused">Most focused</SelectItem></SelectGroup></SelectContent></Select>{hasFilters ? <Button variant="ghost" onClick={() => { setSearch(""); setViewState((current) => ({ ...current, status: "open", sort: "smart", priority: "all", categoryId: null })); }}><X />Clear</Button> : null}</div></div></CardHeader>
-      <CardContent className="p-0">{selected.length ? <><ul aria-label={`${heading} task list`}>{selected.slice(0, visible).map((task) => <TaskRow key={task.id} showProjectMetadata={!viewState.scope.startsWith("project:")} task={task} project={task.projectId ? index.projectMap.get(task.projectId) : undefined} category={task.categoryId ? categoryMap.get(task.categoryId) : undefined} today={today} pending={pending.has(task.id)} canFocus={canStartPomodoro} onToggle={() => void mutate(task.id, () => props.onStatusChange(task.id, !task.isDone), task.isDone ? "Task reopened." : "Task completed.")} onOpen={() => setDetailId(task.id)} onEdit={() => openEdit(task)} onDelete={() => { if (window.confirm(`Delete ${titlePreview(task.title)}?`)) void mutate(task.id, () => props.onDeleteTask(task.id), "Task deleted."); }} onFocus={() => props.onStartPomodoro(task.id)} />)}</ul>{visible < selected.length ? <Button variant="ghost" className="m-3 w-[calc(100%-1.5rem)]" onClick={() => setVisible((value) => value + TASK_BATCH_SIZE)}>Show {Math.min(TASK_BATCH_SIZE, selected.length - visible)} more</Button> : null}</> : <Empty className="min-h-72"><EmptyHeader><EmptyMedia variant="icon"><Search /></EmptyMedia><EmptyTitle>{emptyTitle}</EmptyTitle><EmptyDescription>{emptyDescription}</EmptyDescription></EmptyHeader><Button onClick={() => setEditorTask("new")}><Plus />New task</Button></Empty>}</CardContent></Card>}</main>
-    <ResponsiveOverlay open={Boolean(editorTask)} onOpenChange={(open) => { if (!open) setEditorTask(null); }} title={editorTask === "new" ? "New task" : "Edit task"}><Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-muted" />}><TaskEditor task={editorTask && editorTask !== "new" ? editorTask : undefined} projects={projects} categories={categories} initialProjectId={isProjectArchived(project) ? null : project?.id ?? null} onCreateCategory={props.onCreateCategory} onCancel={() => setEditorTask(null)} onSave={async (input) => { if (editorTask === "new") await props.onCreateTask(input); else if (editorTask) await props.onEditTask(editorTask.id, input); setEditorTask(null); setAnnouncement(editorTask === "new" ? "Task created." : "Task saved."); }} /></Suspense></ResponsiveOverlay>
-    <ResponsiveOverlay open={Boolean(detailTask)} onOpenChange={(open) => { if (!open) setDetailId(null); }} title="Task details">{detailTask ? <TaskDetail task={detailTask} project={detailTask.projectId ? index.projectMap.get(detailTask.projectId) : undefined} category={detailTask.categoryId ? categoryMap.get(detailTask.categoryId) : undefined} canFocus={canStartPomodoro} isPending={pending.has(detailTask.id)} onEdit={() => { setDetailId(null); openEdit(detailTask); }} onFocus={() => props.onStartPomodoro(detailTask.id)} onDelete={() => { if (window.confirm(`Delete ${titlePreview(detailTask.title)}?`)) { setDetailId(null); void mutate(detailTask.id, () => props.onDeleteTask(detailTask.id), "Task deleted."); } }} /> : null}</ResponsiveOverlay>
-    <ResponsiveOverlay open={Boolean(projectEditor)} onOpenChange={(open) => { if (!open) setProjectEditor(null); }} title={projectEditor === "new" ? "New project" : "Edit project"}>{projectEditor ? <ProjectEditor project={projectEditor === "new" ? undefined : projectEditor} tasks={tasks} onCancel={() => setProjectEditor(null)} onSave={async (input) => { if (projectEditor === "new") { const saved = await props.onCreateProject(input); if (saved) update("scope", `project:${saved.id}`); } else await props.onUpdateProject(projectEditor.id, input); setProjectEditor(null); }} /> : null}</ResponsiveOverlay>
-    <ResponsiveOverlay open={manageCategories} onOpenChange={setManageCategories} title="Manage categories">{props.onUpdateCategory && props.onDeleteCategory ? <CategoryManager categories={categories} tasks={tasks} onUpdate={props.onUpdateCategory} onDelete={props.onDeleteCategory} /> : null}</ResponsiveOverlay>
-  </div>;
+    : (dateEmptyStates[viewState.scope] ??
+      (viewState.status === "completed"
+        ? ["No completed tasks yet", "Tasks you complete will appear here."]
+        : viewState.status === "open" &&
+            (group
+              ? group.tasks.length > 0
+              : tasks.some(
+                  (task) =>
+                    !isProjectArchived(
+                      task.projectId
+                        ? index.projectMap.get(task.projectId)
+                        : undefined,
+                    ),
+                ))
+          ? [
+              "No open tasks",
+              "Switch to All statuses to see completed tasks, or add a new task.",
+            ]
+          : [
+              "No tasks yet",
+              project
+                ? "Add the first task to this project."
+                : "Create a task to plan your next focus session.",
+            ]));
+  const progress =
+    group && group.tasks.length
+      ? Math.round((group.completedCount / group.tasks.length) * 100)
+      : 0;
+  return (
+    <div
+      className={`grid w-full items-start gap-x-6 gap-y-5 ${workspaceCollapsed ? "lg:grid-cols-1" : "lg:grid-cols-[18.5rem_minmax(0,1fr)]"}`}
+    >
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 lg:col-span-full">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="font-heading text-2xl font-semibold outline-none md:text-3xl"
+        >
+          Tasks
+        </h1>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            variant="outline"
+            className="hidden lg:inline-flex"
+            onClick={() => setWorkspaceCollapsed((collapsed) => !collapsed)}
+            aria-expanded={!workspaceCollapsed}
+            aria-controls={
+              workspaceCollapsed ? undefined : "workspace-navigation"
+            }
+          >
+            {workspaceCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            <span>
+              {workspaceCollapsed ? "Show workspace" : "Hide workspace"}
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            aria-label="Manage categories"
+            className="hidden sm:inline-flex"
+            disabled={readOnly}
+            title="Manage categories"
+            onClick={() => setManageCategories(true)}
+          >
+            <Settings2 />
+            <span className="hidden sm:inline">Categories</span>
+          </Button>
+          <Button
+            variant="outline"
+            aria-label="New project"
+            className="hidden sm:inline-flex"
+            disabled={readOnly}
+            title="New project"
+            onClick={() => setProjectEditor("new")}
+          >
+            <Folder />
+            <span className="hidden sm:inline">New project</span>
+          </Button>
+          <DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="sm:hidden" aria-label="Workspace actions" />}><MoreHorizontal /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup>
+            <DropdownMenuItem disabled={readOnly} onClick={() => setProjectEditor("new")}><Folder />New project</DropdownMenuItem>
+            <DropdownMenuItem disabled={readOnly} onClick={() => setManageCategories(true)}><Settings2 />Manage categories</DropdownMenuItem>
+          </DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
+          <Button disabled={readOnly} onClick={() => setEditorTask("new")}>
+            <Plus />
+            New task
+          </Button>
+        </div>
+      </div>
+      {!workspaceCollapsed ? (
+        <DesktopProjectNavigation
+          index={index}
+          scope={viewState.scope}
+          onScopeChange={(scope) => update("scope", scope)}
+        />
+      ) : null}
+      <section className="min-w-0" aria-label="Task workspace">
+        {viewState.scope === "archived" ? (
+          <ArchivedProjects
+            readOnly={readOnly}
+            index={index}
+            pending={pending}
+            onOpen={(id) => {
+              setSearch("");
+              setViewState((current) => ({
+                ...current,
+                scope: `project:${id}`,
+                status: "all",
+                priority: "all",
+                categoryId: null,
+              }));
+              setVisible(TASK_BATCH_SIZE);
+            }}
+            onRestore={(id) =>
+              mutate(
+                id,
+                () => props.onArchiveProject(id, false),
+                "Project restored.",
+              )
+            }
+            navigation={
+              <MobileProjectNavigation
+                index={index}
+                scope={viewState.scope}
+                onScopeChange={(scope) => update("scope", scope)}
+              />
+            }
+          />
+        ) : (
+          <Card size="sm" className="gap-0">
+            <CardHeader className="gap-3 border-b pb-4">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="whitespace-pre-wrap text-lg leading-snug">
+                    {heading}
+                  </CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selected.length} {selected.length === 1 ? "task" : "tasks"}
+                  </p>
+                  {project && group ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+                      <Badge variant="outline">
+                        {statusLabels[getProjectStatus(project)]}
+                      </Badge>
+                      <span>
+                        {group.completedCount}/{group.tasks.length} completed ·{" "}
+                        {progress}%
+                      </span>
+                      <span>{focused(group.focusedSeconds)}</span>
+                      {isProjectArchived(project) ? (
+                        <>
+                          <Badge variant="secondary">Archived</Badge>
+                          <Button
+                            size="sm"
+                            variant="link"
+                            onClick={() => update("scope", "archived")}
+                          >
+                            Back to archived projects
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  {project ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={readOnly || pending.has(project.id)}
+                        onClick={() => setProjectEditor(project)}
+                      >
+                        <Pencil />
+                        <span className="hidden xl:inline">Edit project</span>
+                        <span className="xl:hidden">Edit</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={readOnly || pending.has(project.id)}
+                        onClick={() =>
+                          void mutate(
+                            project.id,
+                            () =>
+                              props.onArchiveProject(
+                                project.id,
+                                !isProjectArchived(project),
+                              ),
+                            isProjectArchived(project)
+                              ? "Project restored."
+                              : "Project archived.",
+                          )
+                        }
+                      >
+                        {isProjectArchived(project) ? (
+                          <RotateCcw />
+                        ) : (
+                          <Archive />
+                        )}
+                        {isProjectArchived(project) ? "Restore" : "Archive"}
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        disabled={readOnly || pending.has(project.id)}
+                        aria-label={`Delete project ${project.title}`}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Delete ${project.title}? Its tasks will become unassigned.`,
+                            )
+                          )
+                            void mutate(
+                              project.id,
+                              () => props.onDeleteProject(project.id),
+                              "Project deleted.",
+                            );
+                        }}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </>
+                  ) : null}
+                  <MobileProjectNavigation
+                    index={index}
+                    scope={viewState.scope}
+                    onScopeChange={(scope) => update("scope", scope)}
+                  />
+                </div>
+              </div>
+              {project?.dueDate ? (
+                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <CalendarDays className="size-4" />
+                  Project due{" "}
+                  <time
+                    dateTime={project.dueDate}
+                    className={
+                      project.dueDate <= today
+                        ? "font-medium text-destructive"
+                        : "font-medium text-foreground"
+                    }
+                  >
+                    {dueLabel(project.dueDate, today)}
+                  </time>
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-2.5">
+                <label className="relative">
+                  <span className="sr-only">
+                    Search task titles, descriptions, projects, and categories
+                  </span>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search tasks, projects, and categories"
+                    className="pl-9"
+                  />
+                </label>
+                <Button variant="outline" className="self-start sm:hidden" onClick={() => setFiltersOpen(true)}><Settings2 />Filters ({[viewState.status !== "open", viewState.sort !== "smart", (viewState.priority ?? "all") !== "all", Boolean(viewState.categoryId)].filter(Boolean).length})</Button>
+                <div className="hidden flex-wrap gap-2 sm:flex">
+                  <Select
+                    items={taskStatusLabels}
+                    value={viewState.status}
+                    onValueChange={(value) =>
+                      update("status", value as TaskStatusFilter)
+                    }
+                  >
+                    <SelectTrigger aria-label="Task status" className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="all">All statuses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    items={priorityFilterLabels}
+                    value={viewState.priority ?? "all"}
+                    onValueChange={(value) =>
+                      update("priority", value as PriorityFilter)
+                    }
+                  >
+                    <SelectTrigger
+                      aria-label="Priority filter"
+                      className="w-32"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All priorities</SelectItem>
+                      {Object.entries(priorityLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    items={categoryFilterLabels}
+                    value={viewState.categoryId ?? "all"}
+                    onValueChange={(value) =>
+                      update("categoryId", value === "all" ? null : value)
+                    }
+                  >
+                    <SelectTrigger
+                      aria-label="Category filter"
+                      className="w-36"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    items={sortLabels}
+                    value={viewState.sort}
+                    onValueChange={(value) => update("sort", value as TaskSort)}
+                  >
+                    <SelectTrigger aria-label="Sort tasks" className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="smart">Smart</SelectItem>
+                        <SelectItem value="due">Due date</SelectItem>
+                        <SelectItem value="priority">Priority</SelectItem>
+                        <SelectItem value="newest">Newest</SelectItem>
+                        <SelectItem value="oldest">Oldest</SelectItem>
+                        <SelectItem value="alphabetical">A–Z</SelectItem>
+                        <SelectItem value="focused">Most focused</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  {hasFilters ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setSearch("");
+                        setViewState((current) => ({
+                          ...current,
+                          status: "open",
+                          sort: "smart",
+                          priority: "all",
+                          categoryId: null,
+                        }));
+                      }}
+                    >
+                      <X />
+                      Clear
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {selected.length ? (
+                <>
+                  <ul aria-label={`${heading} task list`}>
+                    {selected.slice(0, visible).map((task) => (
+                      <TaskRow
+                        readOnly={readOnly}
+                        key={task.id}
+                        showProjectMetadata={
+                          !viewState.scope.startsWith("project:")
+                        }
+                        task={task}
+                        project={
+                          task.projectId
+                            ? index.projectMap.get(task.projectId)
+                            : undefined
+                        }
+                        category={
+                          task.categoryId
+                            ? categoryMap.get(task.categoryId)
+                            : undefined
+                        }
+                        today={today}
+                        pending={pending.has(task.id)}
+                        canFocus={canStartPomodoro}
+                        onToggle={() =>
+                          void mutate(
+                            task.id,
+                            () => props.onStatusChange(task.id, !task.isDone),
+                            task.isDone ? "Task reopened." : "Task completed.",
+                          )
+                        }
+                        onOpen={() => setDetailId(task.id)}
+                        onEdit={() => openEdit(task)}
+                        onDelete={() => {
+                          if (
+                            window.confirm(
+                              `Delete ${titlePreview(task.title)}?`,
+                            )
+                          )
+                            void mutate(
+                              task.id,
+                              () => props.onDeleteTask(task.id),
+                              "Task deleted.",
+                            );
+                        }}
+                        onFocus={() => props.onStartPomodoro(task.id)}
+                      />
+                    ))}
+                  </ul>
+                  {visible < selected.length ? (
+                    <Button
+                      variant="ghost"
+                      className="m-3 w-[calc(100%-1.5rem)]"
+                      onClick={() =>
+                        setVisible((value) => value + TASK_BATCH_SIZE)
+                      }
+                    >
+                      Show{" "}
+                      {Math.min(TASK_BATCH_SIZE, selected.length - visible)}{" "}
+                      more
+                    </Button>
+                  ) : null}
+                </>
+              ) : (
+                <Empty className="min-h-72">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Search />
+                    </EmptyMedia>
+                    <EmptyTitle>{emptyTitle}</EmptyTitle>
+                    <EmptyDescription>{emptyDescription}</EmptyDescription>
+                  </EmptyHeader>
+                  <Button disabled={readOnly} onClick={() => setEditorTask("new")}>
+                    <Plus />
+                    New task
+                  </Button>
+                </Empty>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </section>
+      <ResponsiveOverlay
+        open={Boolean(editorTask)}
+        onOpenChange={(open) => {
+          if (!open) setEditorTask(null);
+        }}
+        title={editorTask === "new" ? "New task" : "Edit task"}
+      >
+        <Suspense
+          fallback={<div className="h-96 animate-pulse rounded-2xl bg-muted" />}
+        >
+          <TaskEditor
+            task={editorTask && editorTask !== "new" ? editorTask : undefined}
+            projects={projects}
+            categories={categories}
+            initialProjectId={
+              isProjectArchived(project) ? null : (project?.id ?? null)
+            }
+            onCreateCategory={props.onCreateCategory}
+            onCancel={() => setEditorTask(null)}
+            onSave={async (input) => {
+              if (editorTask === "new") await props.onCreateTask(input);
+              else if (editorTask) await props.onEditTask(editorTask.id, input);
+              setEditorTask(null);
+              setAnnouncement(
+                editorTask === "new" ? "Task created." : "Task saved.",
+              );
+            }}
+          />
+        </Suspense>
+      </ResponsiveOverlay>
+      <ResponsiveOverlay
+        open={Boolean(detailTask)}
+        onOpenChange={(open) => {
+          if (!open) setDetailId(null);
+        }}
+        title="Task details"
+      >
+        <Suspense fallback={<p role="status">Loading task…</p>}>
+        {detailTask ? (
+          <TaskDetail
+            readOnly={readOnly}
+            task={detailTask}
+            project={
+              detailTask.projectId
+                ? index.projectMap.get(detailTask.projectId)
+                : undefined
+            }
+            category={
+              detailTask.categoryId
+                ? categoryMap.get(detailTask.categoryId)
+                : undefined
+            }
+            canFocus={canStartPomodoro}
+            isPending={pending.has(detailTask.id)}
+            onEdit={() => {
+              setDetailId(null);
+              openEdit(detailTask);
+            }}
+            onFocus={() => props.onStartPomodoro(detailTask.id)}
+            onDelete={() => {
+              if (window.confirm(`Delete ${titlePreview(detailTask.title)}?`)) {
+                setDetailId(null);
+                void mutate(
+                  detailTask.id,
+                  () => props.onDeleteTask(detailTask.id),
+                  "Task deleted.",
+                );
+              }
+            }}
+          />
+        ) : null}
+        </Suspense>
+      </ResponsiveOverlay>
+      <ResponsiveOverlay
+        open={Boolean(projectEditor)}
+        onOpenChange={(open) => {
+          if (!open) setProjectEditor(null);
+        }}
+        title={projectEditor === "new" ? "New project" : "Edit project"}
+      >
+        {projectEditor ? (
+          <ProjectEditor
+            project={projectEditor === "new" ? undefined : projectEditor}
+            tasks={tasks}
+            onCancel={() => setProjectEditor(null)}
+            onSave={async (input) => {
+              if (projectEditor === "new") {
+                const saved = await props.onCreateProject(input);
+                if (saved) update("scope", `project:${saved.id}`);
+              } else await props.onUpdateProject(projectEditor.id, input);
+              setProjectEditor(null);
+            }}
+          />
+        ) : null}
+      </ResponsiveOverlay>
+      <ResponsiveOverlay open={filtersOpen} onOpenChange={setFiltersOpen} title="Filter tasks">
+        <div className="flex flex-col gap-4">
+          {([
+            { key: "status", label: "Task status", value: viewState.status, items: taskStatusLabels },
+            { key: "priority", label: "Priority filter", value: viewState.priority ?? "all", items: priorityFilterLabels },
+            { key: "categoryId", label: "Category filter", value: viewState.categoryId ?? "all", items: categoryFilterLabels },
+            { key: "sort", label: "Sort tasks", value: viewState.sort, items: sortLabels },
+          ] as const).map((filter) => <Field key={filter.key}><FieldLabel>{filter.label}</FieldLabel><Select items={filter.items} value={filter.value} onValueChange={(value) => {
+            if (filter.key === "status") update("status", value as TaskStatusFilter);
+            if (filter.key === "priority") update("priority", value as PriorityFilter);
+            if (filter.key === "sort") update("sort", value as TaskSort);
+            if (filter.key === "categoryId") update("categoryId", value === "all" ? null : value);
+          }}><SelectTrigger aria-label={filter.label} className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{Object.entries(filter.items as Record<string, string>).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>)}
+          <Button onClick={() => setFiltersOpen(false)}>Show tasks</Button>
+          <Button variant="ghost" onClick={() => { setSearch(""); setViewState((current) => ({ ...current, status: "open", priority: "all", sort: "smart", categoryId: null })); }}>Clear filters</Button>
+        </div>
+      </ResponsiveOverlay>
+      <ResponsiveOverlay
+        open={manageCategories}
+        onOpenChange={setManageCategories}
+        title="Manage categories"
+      >
+        {props.onUpdateCategory && props.onDeleteCategory ? (
+          <CategoryManager
+            categories={categories}
+            tasks={tasks}
+            onUpdate={props.onUpdateCategory}
+            onDelete={props.onDeleteCategory}
+          />
+        ) : null}
+      </ResponsiveOverlay>
+    </div>
+  );
 }
 export const TaskWorkspace = memo(TaskWorkspaceComponent);

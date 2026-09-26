@@ -1,0 +1,75 @@
+import { strict as assert } from 'node:assert';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import process from 'node:process';
+import { URL } from 'node:url';
+import console from 'node:console';
+import PocketBase, { ClientResponseError } from 'pocketbase';
+import { createServer } from 'vite';
+
+const endpoint = process.env.POKUS_TEST_PB_URL ?? 'http://127.0.0.1:8099';
+if (!['127.0.0.1', 'localhost'].includes(new URL(endpoint).hostname)) throw new Error('Integration tests require an isolated local PocketBase instance.');
+const admin = new PocketBase(endpoint);
+await admin.collection('_superusers').authWithPassword('pokus-test@example.com', 'Pokus-local-test-2026!');
+await admin.collections.import(JSON.parse(await readFile('pb_schema.json', 'utf8')), false);
+await admin.settings.update({ batch: { enabled: true, maxRequests: 3, timeout: 3, maxBodySize: 65536 } });
+const vite = await createServer({ configFile: false, optimizeDeps: { noDiscovery: true, include: [] }, resolve: { alias: { '@': resolve('src') } }, define: { 'import.meta.env.VITE_POCKETBASE_URL': JSON.stringify(endpoint) }, server: { middlewareMode: true } });
+try {
+  const { pb } = await vite.ssrLoadModule('/src/lib/pocketbase.ts');
+  const { sendSessionOperation } = await vite.ssrLoadModule('/src/lib/session-sync.ts');
+  const user = await admin.collection('users').create({ email: `pokus-${Date.now()}@example.com`, password: 'Pokus-test-user-2026!', passwordConfirm: 'Pokus-test-user-2026!' });
+  await pb.collection('users').authWithPassword(user.email, 'Pokus-test-user-2026!');
+  const owner = user.id;
+  const makeTask = () => pb.collection('tasks').create({ owner, title: 'Integration focus task', focusedSeconds: 100, priority: 'none' });
+  const session = (id, taskId, mode = 'complete') => ({ id, taskId, mode, durationMinutes: 25, remainingSeconds: mode === 'complete' ? 0 : 1500, isActive: mode === 'running', lastTick: Date.now() });
+  const op = (value) => ({ revision: 1, session: value });
+  const task = await makeTask();
+  const id = 'test' + Math.random().toString(36).slice(2).padEnd(11,'0').slice(0,11);
+  const completed = session(id, task.id);
+  await sendSessionOperation(owner, op(completed));
+  assert.equal((await pb.collection('tasks').getOne(task.id)).focusedSeconds, 1600);
+  await sendSessionOperation(owner, op(completed));
+  assert.equal((await pb.collection('tasks').getOne(task.id)).focusedSeconds, 1600);
+  assert.equal((await pb.collection('pomodoro_completion_receipts').getOne(id)).creditedSeconds, 1500);
+  await assert.rejects(pb.collection('pomodoro_sessions').update(id, { mode: 'running', isActive: true }));
+  await assert.rejects(pb.collection('pomodoro_sessions').delete(id));
+  await assert.rejects(pb.collection('pomodoro_completion_receipts').update(id, { creditedSeconds: 0 }));
+
+  const concurrentTask = await makeTask();
+  const concurrent = session('race' + id.slice(4), concurrentTask.id);
+  await Promise.all([sendSessionOperation(owner, op(concurrent)), sendSessionOperation(owner, op(concurrent))]);
+  assert.equal((await pb.collection('tasks').getOne(concurrentTask.id)).focusedSeconds, 1600);
+
+  const lostTask = await makeTask();
+  const lost = session('lost' + id.slice(4), lostTask.id);
+  const originalBatch = pb.createBatch.bind(pb);
+  let responseLost = false;
+  pb.createBatch = () => {
+    const batch = originalBatch(); const send = batch.send.bind(batch);
+    batch.send = async (...args) => { const response = await send(...args); if (!responseLost) { responseLost = true; throw new ClientResponseError({ status: 0 }); } return response; };
+    return batch;
+  };
+  await sendSessionOperation(owner, op(lost));
+  pb.createBatch = originalBatch;
+  assert.equal((await pb.collection('tasks').getOne(lostTask.id)).focusedSeconds, 1600);
+
+  const deletedTask = await makeTask();
+  await pb.collection('tasks').delete(deletedTask.id);
+  const deleted = session('gone' + id.slice(4), deletedTask.id);
+  await sendSessionOperation(owner, op(deleted));
+  assert.equal((await pb.collection('pomodoro_sessions').getOne(deleted.id)).task, '');
+  assert.equal((await pb.collection('pomodoro_completion_receipts').getOne(deleted.id)).creditedSeconds, 0);
+
+  const rollbackId = 'roll' + id.slice(4);
+  const batch = pb.createBatch();
+  batch.collection('pomodoro_sessions').create({ ...session(rollbackId, null), owner });
+  batch.collection('tasks').update('missing00000000', { 'focusedSeconds+': 25 });
+  await assert.rejects(batch.send());
+  await assert.rejects(pb.collection('pomodoro_sessions').getOne(rollbackId));
+
+  const discarded = session('stop' + id.slice(4), null, 'discarded');
+  await sendSessionOperation(owner, op(discarded));
+  const result = await sendSessionOperation(owner, op({ ...discarded, mode: 'running', isActive: true }));
+  assert.equal(result.mode, 'discarded');
+  console.log('PASS: atomic credit, duplicate retry, concurrent clients, lost response, deleted task, rollback, immutable terminal sessions and receipts.');
+} finally { await vite.close(); }

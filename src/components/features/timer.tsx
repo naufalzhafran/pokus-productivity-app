@@ -17,6 +17,7 @@ interface TimerProps {
   durationMinutes: number;
   remainingSeconds: number;
   isActive: boolean;
+  isSaving?: boolean;
   onToggle: () => void;
   onStop: (options: TimerStopOptions) => void;
   sessionTitle: string;
@@ -62,6 +63,7 @@ export function Timer({
   durationMinutes,
   remainingSeconds,
   isActive,
+  isSaving = false,
   onToggle,
   onStop,
   sessionTitle,
@@ -117,7 +119,7 @@ export function Timer({
         {announcement}
       </p>
       <div
-        className="timer-shell relative mx-auto flex aspect-square w-[min(78vw,54dvh,540px)] justify-center"
+        className="focus-dial relative mx-auto flex aspect-square justify-center"
         role="timer"
         aria-label={`${formatTime(remainingSeconds)} remaining`}
       >
@@ -134,12 +136,13 @@ export function Timer({
         </CircularDurationInput>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex w-full max-w-sm flex-col justify-center gap-3">
         <Button
           type="button"
-          variant="secondary"
+          variant="default"
           size="lg"
-          className="min-h-11 rounded-full px-6"
+          className="focus-primary w-full"
+          disabled={isSaving}
           onClick={onToggle}
           aria-label={isActive ? "Pause Pomodoro timer" : "Resume Pomodoro timer"}
         >
@@ -152,9 +155,10 @@ export function Timer({
         </Button>
         <Button
           type="button"
-          variant="destructive"
+          variant="ghost"
           size="lg"
-          className="min-h-11 rounded-full px-6"
+          className="w-full"
+          disabled={isSaving}
           onClick={() => setShowConfirm(true)}
           aria-label="Stop Pomodoro timer"
         >

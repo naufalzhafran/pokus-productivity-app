@@ -6,7 +6,7 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 
 - Adjustable Pomodoro duration with a circular control
 - Quick presets for 15, 25, 45, and 60 minutes
-- Tasks-first workspace with Tasks, Timer, and Profile hash routes
+- Installable Timer-first PWA with Timer, Tasks, and Profile hash routes
 - Responsive sticky desktop navigation and safe-area-aware mobile navigation
 - Smart Today, Upcoming 7 days, and Overdue views with live counts
 - Flat responsive task rows with 25-row progressive loading and detail overlays
@@ -52,7 +52,8 @@ No environment variables are required.
 ## PocketBase setup
 
 The frontend connects to `https://pb1.madebynz.xyz` and expects the
-`projects`, `tasks`, `categories`, and `pomodoro_sessions` collections. Their fields,
+`projects`, `tasks`, `categories`, `pomodoro_sessions`, and
+`pomodoro_completion_receipts` collections. Their fields,
 relations, indexes, and owner-only API rules are available in `pb_schema.json`.
 
 New and renamed task titles have a 160-character maximum; project titles remain
@@ -121,3 +122,71 @@ src/
 └── styles/
     └── globals.css
 ```
+
+## Install on iPhone
+
+Open the HTTPS site in Safari, sign in, then choose **Share → Add to Home Screen**.
+Keep **Open as Web App** enabled when Safari shows it. Launch Pokus from its icon;
+it opens the Timer without browser navigation. Profile includes dismissible install
+help, System/Light/Dark appearance, completion sound, and optional screen wake lock.
+
+After the first online visit finishes downloading the app, timers and previously
+loaded tasks work offline. Task and project editing requires a connection. Session
+transitions are saved in user-scoped IndexedDB before the controls confirm them;
+completed focus sessions queue for automatic sync. Profile shows pending work and
+Retry. An expired login allows local use but requires signing in again to sync.
+Signing out locks cached data and leaves pending work attached to its original
+account. Browser storage can be cleared by the user or operating system; do not
+clear site data while sessions are pending.
+
+Sound works while the app is open and audio has been unlocked by Start, Resume,
+or Test sound. iOS may suspend background web apps: there is no push service or
+locked-screen alarm. Timer deadlines reconcile on return, including lock/unlock.
+Wake lock is optional and best effort; it releases when paused or hidden.
+
+## PWA rollout and hosting
+
+Before releasing this frontend:
+
+1. Back up PocketBase, then import `pb_schema.json` with **Delete missing
+   collections disabled**. It adds `pomodoro_completion_receipts` and the
+   `discarded` session status, and makes terminal sessions immutable to clients.
+2. Enable the PocketBase batch API on a compatible server (batch support requires
+   PocketBase 0.23 or newer). Allow at least **3 requests per batch**. Validation
+   used PocketBase 0.40.4, a 3-second batch timeout, and 64 KiB maximum body size.
+3. Refresh older clients during rollout. Completed sessions and historical task
+   totals are preserved; old completions are never retrospectively credited.
+4. Build and host `dist` at the origin root over HTTPS. No live deployment or
+   production database import is performed by this repository's build.
+
+Each new completion writes the session, a unique owner-scoped receipt, and the
+atomic task increment in one batch. Duplicate retries and uncertain responses
+reconcile with the terminal server record. Deleted tasks retain session history
+without receiving credit. Schema changes belong only in `pb_schema.json`.
+
+Use these response headers in the hosting configuration:
+
+| Path | Cache-Control |
+| --- | --- |
+| `/`, `/index.html`, `/sw.js`, `/manifest.webmanifest` | `no-cache` |
+| `/assets/*` (hashed filenames) | `public, max-age=31536000, immutable` |
+| Unhashed icons and other static files | `no-cache` |
+
+Serve JavaScript with the correct MIME type, serve the worker from `/sw.js`, and
+return `index.html` for application navigation. Keep old hashed assets available
+during rollout for existing tabs. Workbox precaches all route/editor chunks,
+fonts and icons, but never caches PocketBase authentication or API responses.
+Updates download in the background and require an explicit **Update app** action;
+activation waits while a timer is running/paused, a transition is saving, or a
+dialog is open. Production service-worker behavior is intentionally disabled in
+`npm run dev`; use a production build and preview to test it.
+
+The optional build variable `VITE_POCKETBASE_URL` overrides the default backend.
+Use a separate local server for tests; never point integration tests at production.
+
+## Verification
+
+Run `npm run lint`, `npm test`, and `npm run build` for the standard checks.
+`npm run icons` regenerates install icons from the existing concentric-circle mark.
+See [PWA verification](docs/pwa-verification.md) for browser checks, isolated
+PocketBase test setup, and the remaining physical iPhone checklist.

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/field";
 import { AUTH_COLLECTION, pb } from "@/lib/pocketbase";
 import { saveOAuthAvatar } from "@/lib/user-profile";
+import { PwaUpdate } from "@/components/features/PwaUpdate";
 
 function getGoogleLoginError(error: unknown) {
   if (error instanceof ClientResponseError) {
@@ -56,8 +57,9 @@ export function LoginForm() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-5 py-10 text-foreground">
+    <main className="app-main flex min-h-dvh items-center justify-center bg-background py-[max(2rem,env(safe-area-inset-top))] text-foreground">
       <div className="screen-panel flex w-full max-w-sm flex-col gap-5">
+        <PwaUpdate />
         <div className="text-center">
           <Badge>Pokus</Badge>
           <h1 className="mt-3 font-heading text-3xl font-semibold tracking-tight">

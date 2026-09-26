@@ -85,7 +85,12 @@
         "required": false,
         "system": false,
         "type": "select",
-        "values": ["planned", "active", "on_hold", "completed"]
+        "values": [
+          "planned",
+          "active",
+          "on_hold",
+          "completed"
+        ]
       },
       {
         "autogeneratePattern": "",
@@ -243,7 +248,13 @@
         "required": false,
         "system": false,
         "type": "select",
-        "values": ["none", "low", "medium", "high", "urgent"]
+        "values": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "urgent"
+        ]
       },
       {
         "cascadeDelete": false,
@@ -298,14 +309,97 @@
     "name": "categories",
     "type": "base",
     "fields": [
-      { "autogeneratePattern": "[a-z0-9]{15}", "help": "", "hidden": false, "id": "text3208210256", "max": 15, "min": 15, "name": "id", "pattern": "^[a-z0-9]+$", "presentable": false, "primaryKey": true, "required": true, "system": true, "type": "text" },
-      { "cascadeDelete": true, "collectionId": "_pb_users_auth_", "help": "", "hidden": false, "id": "relation3479234172", "maxSelect": 1, "minSelect": 0, "name": "owner", "presentable": false, "required": true, "system": false, "type": "relation" },
-      { "autogeneratePattern": "", "help": "", "hidden": false, "id": "txtcatname001", "max": 40, "min": 1, "name": "name", "pattern": "", "presentable": true, "primaryKey": false, "required": true, "system": false, "type": "text" },
-      { "help": "", "hidden": false, "id": "selcatcolor01", "maxSelect": 1, "name": "color", "presentable": false, "required": true, "system": false, "type": "select", "values": ["slate", "red", "orange", "amber", "green", "teal", "blue", "violet", "pink"] },
-      { "hidden": false, "id": "autodate2990389176", "name": "created", "onCreate": true, "onUpdate": false, "presentable": false, "system": false, "type": "autodate" },
-      { "hidden": false, "id": "autodate3332085495", "name": "updated", "onCreate": true, "onUpdate": true, "presentable": false, "system": false, "type": "autodate" }
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "_pb_users_auth_",
+        "help": "",
+        "hidden": false,
+        "id": "relation3479234172",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "owner",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "txtcatname001",
+        "max": 40,
+        "min": 1,
+        "name": "name",
+        "pattern": "",
+        "presentable": true,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "selcatcolor01",
+        "maxSelect": 1,
+        "name": "color",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "slate",
+          "red",
+          "orange",
+          "amber",
+          "green",
+          "teal",
+          "blue",
+          "violet",
+          "pink"
+        ]
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
     ],
-    "indexes": ["CREATE INDEX idx_categories_owner ON categories (owner)", "CREATE UNIQUE INDEX idx_categories_owner_name_nocase ON categories (owner, name COLLATE NOCASE)"],
+    "indexes": [
+      "CREATE INDEX idx_categories_owner ON categories (owner)",
+      "CREATE UNIQUE INDEX idx_categories_owner_name_nocase ON categories (owner, name COLLATE NOCASE)"
+    ],
     "created": "2026-07-29 00:00:00.000Z",
     "updated": "2026-07-29 00:00:00.000Z",
     "system": false
@@ -315,8 +409,8 @@
     "listRule": "owner = @request.auth.id",
     "viewRule": "owner = @request.auth.id",
     "createRule": "@request.auth.id != '' && owner = @request.auth.id && (task = '' || task.owner = @request.auth.id)",
-    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false && (task = '' || task.owner = @request.auth.id)",
-    "deleteRule": "owner = @request.auth.id",
+    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false && (task = '' || task.owner = @request.auth.id) && mode = \"running\"",
+    "deleteRule": null,
     "name": "pomodoro_sessions",
     "type": "base",
     "fields": [
@@ -388,7 +482,8 @@
         "type": "select",
         "values": [
           "running",
-          "complete"
+          "complete",
+          "discarded"
         ]
       },
       {
@@ -454,5 +549,94 @@
     "created": "2026-07-15 02:31:16.850Z",
     "updated": "2026-07-15 02:31:16.850Z",
     "system": false
+  },
+  {
+    "id": "pbc_pokusreceipts",
+    "name": "pomodoro_completion_receipts",
+    "type": "base",
+    "system": false,
+    "listRule": "owner = @request.auth.id",
+    "viewRule": "owner = @request.auth.id",
+    "createRule": "@request.auth.id != \"\" && owner = @request.auth.id && session.owner = @request.auth.id && session.mode = \"complete\" && id = session.id",
+    "updateRule": null,
+    "deleteRule": null,
+    "fields": [
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "text_receiptid",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "id": "rel_receiptowner",
+        "name": "owner",
+        "type": "relation",
+        "system": false,
+        "hidden": false,
+        "presentable": false,
+        "collectionId": "_pb_users_auth_",
+        "cascadeDelete": true,
+        "maxSelect": 1,
+        "minSelect": 0,
+        "required": true
+      },
+      {
+        "id": "rel_receiptsession",
+        "name": "session",
+        "type": "relation",
+        "system": false,
+        "hidden": false,
+        "presentable": false,
+        "collectionId": "pbc_2747464433",
+        "cascadeDelete": false,
+        "maxSelect": 1,
+        "minSelect": 0,
+        "required": true
+      },
+      {
+        "id": "txt_receipttask",
+        "name": "creditedTaskId",
+        "type": "text",
+        "system": false,
+        "hidden": false,
+        "presentable": false,
+        "max": 15,
+        "required": false
+      },
+      {
+        "id": "num_receiptseconds",
+        "name": "creditedSeconds",
+        "type": "number",
+        "system": false,
+        "hidden": false,
+        "presentable": false,
+        "min": 0,
+        "max": 86400,
+        "onlyInt": true,
+        "required": false
+      },
+      {
+        "id": "date_receiptcreated",
+        "name": "created",
+        "type": "autodate",
+        "system": false,
+        "hidden": false,
+        "presentable": false,
+        "onCreate": true,
+        "onUpdate": false
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_receipts_owner ON pomodoro_completion_receipts (owner)"
+    ]
   }
 ]

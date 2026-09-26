@@ -1,102 +1,66 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type SetStateAction,
-} from "react";
-import { ClientResponseError } from "pocketbase";
+import { useCallback, useEffect, useState, type SetStateAction } from "react";
 import { pb } from "@/lib/pocketbase";
-import {
-  COLLECTIONS,
-  loadCurrentSession,
-  sessionToRecord,
-} from "@/lib/pocketbase-records";
+import { loadCurrentSession } from "@/lib/pocketbase-records";
+import { persistTransition, readTimer, restoreTimer, type TimerSnapshot } from "@/lib/offline-store";
+import { getSyncState, notifyTimer, subscribeTimer, syncTimers } from "@/lib/session-sync";
 import type { PomodoroSession } from "@/types/task";
 
 export function usePomodoroSession() {
-  const [session, setSessionState] = useState<PomodoroSession | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const sessionRef = useRef<PomodoroSession | null>(null);
-  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const owner = pb.authStore.record?.id ?? "anonymous";
+  const [snapshot, setSnapshot] = useState<TimerSnapshot>({ current: null, operations: [], revision: 0 });
+  const [isLoading, setLoading] = useState(true);
+  const [isSaving, setSaving] = useState(false);
+  const [loadError, setError] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState(() => getSyncState(owner));
 
   useEffect(() => {
-    let isMounted = true;
-
-    void loadCurrentSession()
-      .then((savedSession) => {
-        if (!isMounted) return;
-        sessionRef.current = savedSession;
-        setSessionState(savedSession);
-        setLoadError(null);
-      })
-      .catch((error) => {
-        console.error("Failed to load Pomodoro session from PocketBase:", error);
-        if (isMounted) setLoadError("Your active session could not be restored.");
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const value = await readTimer(owner);
+        if (alive) { setSnapshot(value); setSyncState(getSyncState(owner)); }
+      } catch { if (alive) setError("Device storage is unavailable. A timer cannot be saved safely. Free some space and retry."); }
+      finally { if (alive) setLoading(false); }
     };
-  }, []);
-
-  const setSession = useCallback(
-    (action: SetStateAction<PomodoroSession | null>) => {
-      const previousSession = sessionRef.current;
-      const nextSession =
-        typeof action === "function" ? action(previousSession) : action;
-
-      sessionRef.current = nextSession;
-      setSessionState(nextSession);
-
-      if (nextSession) {
-        writeQueueRef.current = writeQueueRef.current
-          .catch(() => undefined)
-          .then(async () => {
-            const collection = pb.collection(COLLECTIONS.sessions);
-            const data = sessionToRecord(nextSession);
-
-            if (!previousSession || previousSession.id !== nextSession.id) {
-              await collection.create(data, { requestKey: null });
-            } else {
-              await collection.update(nextSession.id, data, { requestKey: null });
-            }
-          })
-          .catch((error: unknown) => {
-            console.error("Failed to save Pomodoro session to PocketBase:", error);
-          });
-      } else if (previousSession && previousSession.mode !== "complete") {
-        writeQueueRef.current = writeQueueRef.current
-          .catch(() => undefined)
-          .then(async () => {
-            try {
-              await pb
-                .collection(COLLECTIONS.sessions)
-                .delete(previousSession.id, { requestKey: null });
-            } catch (error) {
-              if (
-                error instanceof ClientResponseError &&
-                error.status === 404
-              ) {
-                return;
-              }
-              throw error;
-            }
-          })
-          .catch((error: unknown) => {
-            console.error(
-              "Failed to delete Pomodoro session from PocketBase:",
-              error,
-            );
-          });
+    const retry = () => { if (document.visibilityState !== "hidden") void syncTimers(owner); };
+    const unsubscribe = subscribeTimer(() => { void refresh(); });
+    void refresh().then(async () => {
+      const local = await readTimer(owner);
+      if (!local.current && !local.operations.length && navigator.onLine && pb.authStore.isValid) {
+        try {
+          const remote = await loadCurrentSession();
+          if (remote && alive) { await restoreTimer(owner, remote); await refresh(); }
+        } catch { /* The local timer remains usable when the server is unavailable. */ }
       }
-    },
-    [],
-  );
+      if (alive) retry();
+    }).catch(() => undefined);
+    window.addEventListener("online", retry);
+    window.addEventListener("pageshow", retry);
+    document.addEventListener("visibilitychange", retry);
+    const interval = window.setInterval(retry, 30_000);
+    return () => {
+      alive = false; unsubscribe(); window.clearInterval(interval);
+      window.removeEventListener("online", retry);
+      window.removeEventListener("pageshow", retry);
+      document.removeEventListener("visibilitychange", retry);
+    };
+  }, [owner]);
 
-  return { session, setSession, isLoading, loadError };
+  const setSession = useCallback(async (action: SetStateAction<PomodoroSession | null>) => {
+    setSaving(true);
+    try {
+      const saved = await persistTransition(owner, action);
+      setSnapshot(saved); setError(null); notifyTimer();
+      void syncTimers(owner);
+      return true;
+    } catch {
+      setError("Your timer could not be saved on this device. Free some space and retry.");
+      return false;
+    } finally { setSaving(false); }
+  }, [owner]);
+  return {
+    session: snapshot.current, setSession, isLoading, isSaving, loadError,
+    pending: snapshot.operations, syncState,
+    retrySync: () => { void syncTimers(owner, true); },
+  };
 }

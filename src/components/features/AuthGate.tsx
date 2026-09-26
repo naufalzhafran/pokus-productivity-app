@@ -1,31 +1,22 @@
 import { useEffect, useState, type ReactNode } from "react";
-import type { RecordModel } from "pocketbase";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ClientResponseError, type RecordAuthResponse } from "pocketbase";
 import { LoginForm } from "@/components/features/LoginForm";
 import { AUTH_COLLECTION, pb } from "@/lib/pocketbase";
 
 let authRefreshPromise: Promise<void> | null = null;
-
 function refreshSavedSession() {
-  if (!pb.authStore.isValid) {
-    pb.authStore.clear();
-    return Promise.resolve();
-  }
-
-  if (!authRefreshPromise) {
-    authRefreshPromise = pb
-      .collection(AUTH_COLLECTION)
-      .authRefresh()
-      .then(() => undefined)
-      .catch(() => {
-        pb.authStore.clear();
-      })
-      .finally(() => {
-        authRefreshPromise = null;
-      });
-  }
-
+  if (!navigator.onLine || !pb.authStore.isValid) return Promise.resolve();
+  const owner = pb.authStore.record?.id;
+  const token = pb.authStore.token;
+  authRefreshPromise ??= pb.send<RecordAuthResponse>(`/api/collections/${AUTH_COLLECTION}/auth-refresh`, { method: "POST" })
+    .then((auth) => {
+      // A refresh started before sign-out must not unlock the account again.
+      if (pb.authStore.record?.id === owner && pb.authStore.token === token) pb.authStore.save(auth.token, auth.record);
+    })
+    .catch((error: unknown) => {
+      if (error instanceof ClientResponseError && (error.status === 401 || error.status === 403) && pb.authStore.record?.id === owner) pb.authStore.clear();
+    })
+    .finally(() => { authRefreshPromise = null; });
   return authRefreshPromise;
 }
 
@@ -33,52 +24,19 @@ interface AuthGateProps {
   children: ReactNode;
   preloadAuthenticatedApp?: () => Promise<unknown>;
 }
-
 export function AuthGate({ children, preloadAuthenticatedApp }: AuthGateProps) {
-  const [authRecord, setAuthRecord] = useState<RecordModel | null>(() =>
-    pb.authStore.isValid ? pb.authStore.record : null,
-  );
-  const [isRestoring, setIsRestoring] = useState(pb.authStore.isValid);
-
+  const [record, setRecord] = useState(() => pb.authStore.record);
   useEffect(() => {
-    let isMounted = true;
-    const unsubscribe = pb.authStore.onChange((_token, record) => {
-      if (isMounted) {
-        setAuthRecord(pb.authStore.isValid ? record : null);
-      }
-    });
-
-    if (pb.authStore.isValid) {
+    const unsubscribe = pb.authStore.onChange((_token, record) => setRecord(record));
+    if (pb.authStore.record) {
       void preloadAuthenticatedApp?.();
-      void refreshSavedSession().finally(() => {
-        if (isMounted) setIsRestoring(false);
-      });
+      void refreshSavedSession();
     }
-
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
+    const refresh = () => { if (document.visibilityState !== "hidden") void refreshSavedSession(); };
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { unsubscribe(); window.removeEventListener("online", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, [preloadAuthenticatedApp]);
-
-  useEffect(() => {
-    if (isRestoring) document.title = "Restoring session | Pokus";
-  }, [isRestoring]);
-
-  if (isRestoring) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
-        <div className="flex w-full max-w-sm flex-col items-center gap-3 text-center" role="status">
-          <Badge>Pokus</Badge>
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-40 w-full" />
-          <span className="sr-only">Restoring your session…</span>
-        </div>
-      </main>
-    );
-  }
-
-  if (!authRecord) return <LoginForm />;
-
-  return children;
+  if (!record) return <LoginForm />;
+  return <div key={record.id}>{children}</div>;
 }

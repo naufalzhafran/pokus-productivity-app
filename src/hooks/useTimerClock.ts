@@ -15,7 +15,7 @@ export function calculateRemainingSeconds(
 
 export function useTimerClock(
   session: PomodoroSession | null,
-  onComplete: (session: PomodoroSession) => void,
+  onComplete: (session: PomodoroSession) => void | boolean | Promise<boolean>,
 ) {
   const [clock, setClock] = useState(() => ({
     sessionId: session?.id ?? null,
@@ -38,15 +38,27 @@ export function useTimerClock(
         completedSessionId.current !== session.id
       ) {
         completedSessionId.current = session.id;
-        onComplete(session);
+        void Promise.resolve(onComplete(session)).then((saved) => {
+          if (saved === false) completedSessionId.current = null;
+        }).catch(() => { completedSessionId.current = null; });
       }
     };
 
-    const interval = window.setInterval(update, 1000);
-    document.addEventListener("visibilitychange", update);
-    return () => {
+    let interval: number | undefined;
+    const visible = () => {
       window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", update);
+      if (document.visibilityState !== "hidden") {
+        update(); interval = window.setInterval(update, 1000);
+      }
+    };
+    const initial = window.setTimeout(visible, 0);
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("pageshow", visible);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("pageshow", visible);
     };
   }, [onComplete, session]);
 

@@ -13,6 +13,8 @@ import {
 
 interface TimerCompletionProps {
   durationMinutes: number;
+  syncPending?: boolean;
+  isSaving?: boolean;
   taskTitle?: string;
   onMarkTaskDone?: () => Promise<unknown>;
   onFocusAgain: () => void;
@@ -21,6 +23,8 @@ interface TimerCompletionProps {
 
 export function TimerCompletion({
   durationMinutes,
+  syncPending = false,
+  isSaving = false,
   taskTitle,
   onMarkTaskDone,
   onFocusAgain,
@@ -49,7 +53,7 @@ export function TimerCompletion({
   };
 
   return (
-    <Card className="complete-banner" aria-busy={isFinishingTask}>
+    <Card className="complete-banner w-full" aria-busy={isFinishingTask || isSaving}>
       <CardHeader>
         <CardTitle>
           <h2
@@ -61,7 +65,8 @@ export function TimerCompletion({
           </h2>
         </CardTitle>
         <CardDescription>
-          {durationMinutes} focused minutes recorded.
+          {Math.floor(durationMinutes)}m {Math.round((durationMinutes % 1) * 60)}s of focus.
+          {syncPending ? " Saved on this device. Waiting to sync." : " Saved to your history."}
         </CardDescription>
       </CardHeader>
       {taskTitle ? (
@@ -81,7 +86,7 @@ export function TimerCompletion({
           <Button
             type="button"
             onClick={() => void finishTask()}
-            disabled={isFinishingTask}
+            disabled={isFinishingTask || isSaving}
           >
             {isFinishingTask ? (
               <Loader2 data-icon="inline-start" className="animate-spin" />
@@ -93,9 +98,9 @@ export function TimerCompletion({
         ) : null}
         <Button
           type="button"
-          variant="outline"
+          variant="default"
           onClick={onFocusAgain}
-          disabled={isFinishingTask}
+          disabled={isFinishingTask || isSaving}
         >
           Focus again
         </Button>
@@ -103,7 +108,7 @@ export function TimerCompletion({
           type="button"
           variant="ghost"
           onClick={onViewTasks}
-          disabled={isFinishingTask}
+          disabled={isFinishingTask || isSaving}
         >
           View tasks
         </Button>

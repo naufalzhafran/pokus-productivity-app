@@ -70,7 +70,7 @@ describe("TaskWorkspace", () => {
     expect(screen.queryByText(/Writing · violet/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /open details/i }));
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("Check every link")).toBeInTheDocument();
+    expect(await within(dialog).findByText("Check every link")).toBeInTheDocument();
     expect(within(dialog).getByText("high")).toBeInTheDocument();
   });
 

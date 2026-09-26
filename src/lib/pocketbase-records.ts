@@ -42,10 +42,10 @@ export interface CategoryRecord extends RecordModel {
   updated: string;
 }
 
-interface PomodoroSessionRecord extends RecordModel {
+export interface PomodoroSessionRecord extends RecordModel {
   task: string;
   durationMinutes: number;
-  mode: PomodoroSession["mode"];
+  mode: PomodoroSession["mode"] | "discarded";
   remainingSeconds: number;
   isActive: boolean;
   lastTick: number;
@@ -98,7 +98,7 @@ export function sessionFromRecord(
     id: record.id,
     taskId: record.task || null,
     durationMinutes: record.durationMinutes,
-    mode: record.mode,
+    mode: record.mode === "complete" ? "complete" : "running",
     remainingSeconds: Math.max(0, Math.floor(record.remainingSeconds)),
     isActive: record.isActive,
     lastTick: record.lastTick,

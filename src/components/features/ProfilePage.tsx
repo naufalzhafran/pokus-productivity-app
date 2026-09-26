@@ -25,11 +25,17 @@ import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
 import { pb } from "@/lib/pocketbase";
 import { getUserDisplayName } from "@/lib/user-profile";
 import type { PomodoroHistoryEntry, Task } from "@/types/task";
+import { AppSettings } from "@/components/features/AppSettings";
+import type { SessionOperation } from "@/lib/offline-store";
+import type { SyncState } from "@/lib/session-sync";
 
 interface ProfilePageProps {
   tasks: Task[];
   openTaskId: string | null;
   onOpenTask: (taskId: string | null) => void;
+  pendingSessions?: SessionOperation[];
+  syncState?: SyncState;
+  onRetrySync?: () => void;
 }
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -108,9 +114,22 @@ export function ProfilePage({
   tasks,
   openTaskId,
   onOpenTask,
+  pendingSessions = [],
+  syncState,
+  onRetrySync,
 }: ProfilePageProps) {
   const record = pb.authStore.record;
-  const { history, isLoading, error } = usePomodoroHistory();
+  const { history: savedHistory, isLoading, error } = usePomodoroHistory();
+  const history = useMemo(() => {
+    const entries = new Map(savedHistory.map((entry) => [entry.id, entry]));
+    for (const { session } of pendingSessions) {
+      if (session.mode === "complete" && !entries.has(session.id)) entries.set(session.id, {
+        id: session.id, taskId: session.taskId, durationMinutes: session.durationMinutes,
+        focusedSeconds: session.durationMinutes * 60 - session.remainingSeconds, completedAt: session.lastTick,
+      });
+    }
+    return [...entries.values()].sort((a, b) => b.completedAt - a.completedAt);
+  }, [pendingSessions, savedHistory]);
   const [visibleCount, setVisibleCount] = useState(25);
   const [historyAnnouncement, setHistoryAnnouncement] = useState("");
 
@@ -137,26 +156,15 @@ export function ProfilePage({
     <div className="screen-panel grid w-full max-w-5xl gap-5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
       <div className="flex flex-col gap-5">
         <Card>
-          <CardHeader className="items-center text-center">
-            <UserAvatar className="size-20" />
-            <CardTitle className="mt-2 text-xl">{displayName}</CardTitle>
+          <CardHeader>
+            <UserAvatar className="size-12" />
+            <CardTitle className="mt-2 text-xl break-words">{displayName}</CardTitle>
             <CardDescription>{email}</CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center gap-2">
+          <CardContent className="flex gap-2">
             <Badge variant="secondary">Google account</Badge>
             {record.verified ? <Badge variant="outline">Verified</Badge> : null}
           </CardContent>
-          <CardFooter>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => pb.authStore.clear()}
-            >
-              <LogOut data-icon="inline-start" />
-              Sign out
-            </Button>
-          </CardFooter>
         </Card>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
@@ -175,6 +183,14 @@ export function ProfilePage({
             </CardHeader>
           </Card>
         </div>
+        <AppSettings />
+        <Card><CardHeader><CardTitle>Sync & account</CardTitle><CardDescription>{pendingSessions.length ? `${pendingSessions.length} session changes saved on this device.` : "All session changes are synced."}</CardDescription></CardHeader>
+          <CardContent><p className="text-sm text-muted-foreground" role="status">{syncState?.error ?? (syncState?.syncing ? "Syncing…" : "Pending changes stay on this device until your account reconnects.")}</p></CardContent>
+          <CardFooter className="flex flex-col gap-2">
+            {pendingSessions.length ? <Button variant="outline" className="w-full" disabled={syncState?.syncing} onClick={onRetrySync}>Retry sync</Button> : null}
+            <Button variant="ghost" className="w-full" onClick={() => pb.authStore.clear()}><LogOut data-icon="inline-start" />{pb.authStore.isValid ? "Sign out" : "Sign in again"}</Button>
+          </CardFooter>
+        </Card>
       </div>
 
       <Card className="min-h-[420px]">
@@ -190,7 +206,7 @@ export function ProfilePage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error ? (
+          {error && history.length === 0 ? (
             <Empty role="alert">
               <EmptyHeader>
                 <EmptyMedia variant="icon">

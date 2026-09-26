@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
+import { useCachedResource } from "@/hooks/useCachedResource";
+import { requireConnection } from "@/hooks/useConnectivity";
 import { pb } from "@/lib/pocketbase";
 import {
   COLLECTIONS,
@@ -11,41 +13,11 @@ import {
 import type { Project, ProjectInput, ProjectStatus } from "@/types/task";
 
 export function useProjects() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const projectsRef = useRef<Project[]>([]);
-
-  const replaceProjects = useCallback((nextProjects: Project[]) => {
-    projectsRef.current = nextProjects;
-    setProjects(nextProjects);
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    void listProjects()
-      .then((savedProjects) => {
-        if (isMounted) {
-          replaceProjects(savedProjects);
-          setLoadError(null);
-        }
-      })
-      .catch((error) => {
-        console.error("Failed to load projects from PocketBase:", error);
-        if (isMounted) setLoadError("Your projects could not be loaded.");
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [replaceProjects]);
+  const { items: projects, itemsRef: projectsRef, replace: replaceProjects, isLoading, loadError } = useCachedResource<Project>("projects", listProjects);
 
   const createProject = useCallback(
     async (input: ProjectInput) => {
+      requireConnection();
       const normalizedTitle = input.title.trim();
       if (!normalizedTitle) return null;
 
@@ -73,11 +45,12 @@ export function useProjects() {
         throw error;
       }
     },
-    [replaceProjects],
+    [replaceProjects, projectsRef],
   );
 
   const deleteProject = useCallback(
     async (projectId: string) => {
+      requireConnection();
       const deletedProject = projectsRef.current.find(
         (project) => project.id === projectId,
       );
@@ -99,11 +72,12 @@ export function useProjects() {
         throw error;
       }
     },
-    [replaceProjects],
+    [replaceProjects, projectsRef],
   );
 
   const setProjectArchived = useCallback(
     async (projectId: string, isArchived: boolean) => {
+      requireConnection();
       const previousProject = projectsRef.current.find(
         (project) => project.id === projectId,
       );
@@ -135,11 +109,12 @@ export function useProjects() {
         throw error;
       }
     },
-    [replaceProjects],
+    [replaceProjects, projectsRef],
   );
 
   const updateProject = useCallback(
     async (projectId: string, input: ProjectInput) => {
+      requireConnection();
       const normalizedTitle = input.title.trim();
       if (!normalizedTitle || normalizedTitle.length > 120) {
         throw new Error("Enter a project name up to 120 characters.");
@@ -162,7 +137,7 @@ export function useProjects() {
         throw error;
       }
     },
-    [replaceProjects],
+    [replaceProjects, projectsRef],
   );
 
   return {
@@ -178,6 +153,6 @@ export function useProjects() {
       description: projectsRef.current.find((project) => project.id === projectId)?.description ?? "",
       status,
       dueDate: projectsRef.current.find((project) => project.id === projectId)?.dueDate ?? null,
-    }), [updateProject]),
+    }), [updateProject, projectsRef]),
   };
 }

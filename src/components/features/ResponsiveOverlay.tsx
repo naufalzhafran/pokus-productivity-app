@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -25,11 +25,21 @@ export function ResponsiveOverlay({
   children,
   className,
 }: ResponsiveOverlayProps) {
+  useEffect(() => {
+    if (!open || !window.visualViewport) return;
+    const viewport = window.visualViewport;
+    const update = () => {
+      document.documentElement.style.setProperty("--visible-height", `${viewport.height}px`);
+      document.documentElement.style.setProperty("--visible-top", `${viewport.offsetTop}px`);
+    };
+    update(); viewport.addEventListener("resize", update); viewport.addEventListener("scroll", update);
+    return () => { viewport.removeEventListener("resize", update); viewport.removeEventListener("scroll", update); };
+  }, [open]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-3xl",
+          "mobile-sheet max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-3xl",
           className,
         )}
       >
@@ -39,7 +49,7 @@ export function ResponsiveOverlay({
             <DialogDescription>{description}</DialogDescription>
           ) : null}
         </DialogHeader>
-        <div className="min-h-0 overscroll-contain overflow-y-auto">
+        <div className="min-h-0 min-w-0 overscroll-contain overflow-y-auto">
           {children}
         </div>
       </DialogContent>
