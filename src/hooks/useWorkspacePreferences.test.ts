@@ -9,6 +9,7 @@ describe("workspace preference restoration", () => {
       "pokus-workspace-v1:user-a",
       JSON.stringify({
         scope: "project:abc",
+        projectFilter: "due",
         status: "completed",
         sort: "alphabetical",
         lastDuration: 45,
@@ -17,18 +18,20 @@ describe("workspace preference restoration", () => {
     );
     const restored = loadWorkspacePreferences("user-a");
     expect(restored).toEqual({
-      scope: "project:abc",
+      projectFilter: "due",
       status: "completed",
       sort: "alphabetical",
       priority: "all",
       categoryId: null,
       lastDuration: 45,
     });
-    expect(loadWorkspacePreferences("user-b").scope).toBe("all");
+    expect(loadWorkspacePreferences("user-b").projectFilter).toBe("all");
   });
 
-  it("falls back safely for corrupt values", () => {
+  it("falls back safely for corrupt values and removed options", () => {
     localStorage.setItem("pokus-workspace-v1:user-a", "{");
     expect(loadWorkspacePreferences("user-a").status).toBe("open");
+    localStorage.setItem("pokus-workspace-v1:user-a", JSON.stringify({ sort: "due", projectFilter: "today" }));
+    expect(loadWorkspacePreferences("user-a")).toMatchObject({ sort: "smart", projectFilter: "all" });
   });
 });

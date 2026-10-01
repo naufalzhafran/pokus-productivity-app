@@ -1,51 +1,57 @@
 import { describe, expect, it } from "vitest";
-import { addLocalDays, buildFlatWorkspaceIndex, createDefaultWorkspaceState, selectWorkspaceTasks, TASK_BATCH_SIZE, validateTaskTitle } from "@/lib/workspace";
+import { addLocalDays, buildProjectStats, countProjectsByFilter, createDefaultWorkspaceState, NO_PROJECT_ID, selectProjects, selectProjectTasks, validateTaskTitle } from "@/lib/workspace";
 import type { Category, Project, Task } from "@/types/task";
 
 const today = "2026-07-29";
-const categories: Category[] = [{ id: "work", name: "Work", color: "blue", createdAt: 1, updatedAt: 1 }];
+const categories = new Map<string, Category>([["work", { id: "work", name: "Work", color: "blue", createdAt: 1, updatedAt: 1 }]]);
 const projects: Project[] = [
-  { id: "active", title: "Launch", description: "", createdAt: 4, status: "active", isArchived: false, dueDate: "2026-07-28" },
-  { id: "today-project", title: "Today", description: "", createdAt: 3, status: "active", isArchived: false, dueDate: today },
-  { id: "upcoming-project", title: "Upcoming", description: "", createdAt: 2, status: "planned", isArchived: false, dueDate: addLocalDays(today, 7) },
-  { id: "archived", title: "Old", description: "", createdAt: 1, status: "completed", isArchived: true, dueDate: today },
+  { id: "overdue", title: "Launch", description: "<p>Beta release</p>", createdAt: 4, status: "active", isArchived: false, dueDate: "2026-07-28" },
+  { id: "soon", title: "Review", description: "", createdAt: 3, status: "planned", isArchived: false, dueDate: addLocalDays(today, 7) },
+  { id: "later", title: "Later", description: "", createdAt: 2, status: "active", isArchived: false, dueDate: addLocalDays(today, 8) },
+  { id: "undated", title: "Someday", description: "", createdAt: 5, status: "on_hold", isArchived: false, dueDate: null },
+  { id: "done", title: "Shipped", description: "", createdAt: 1, status: "completed", isArchived: false, dueDate: "2026-07-01" },
+  { id: "archived", title: "Old", description: "", createdAt: 0, status: "active", isArchived: true, dueDate: today },
 ];
-const task = (values: Partial<Task> & Pick<Task, "id" | "title">): Task => ({ isDone: false, createdAt: 1, focusedSeconds: 0, projectId: null, description: "", priority: "none", categoryId: null, ...values });
+const task = (values: Partial<Task> & Pick<Task, "id" | "title">): Task => ({ isDone: false, createdAt: 1, focusedSeconds: 0, projectId: "overdue", description: "", priority: "none", categoryId: null, ...values });
 const tasks = [
-  task({ id: "overdue", title: "Ship notes", description: "<p>Release context</p>", projectId: "active", categoryId: "work", priority: "urgent", createdAt: 4 }),
-  task({ id: "today", title: "Review", projectId: "today-project", priority: "low", createdAt: 3 }),
-  task({ id: "upcoming", title: "Plan", projectId: "upcoming-project", createdAt: 2 }),
-  task({ id: "archived-task", title: "Hidden", projectId: "archived" }),
-  task({ id: "completed", title: "Done", projectId: "today-project", isDone: true }),
+  task({ id: "low", title: "Draft", priority: "low", createdAt: 4 }),
+  task({ id: "urgent", title: "Ship notes", description: "<p>Release context</p>", categoryId: "work", priority: "urgent", createdAt: 3 }),
+  task({ id: "done", title: "Done", isDone: true, priority: "urgent", createdAt: 5, focusedSeconds: 900 }),
+  task({ id: "loose", title: "Loose", projectId: null }),
 ];
 
-describe("workspace smart selectors", () => {
-  it("counts and selects local-calendar smart views while excluding archived and completed tasks", () => {
-    const index = buildFlatWorkspaceIndex(projects, tasks, categories, today);
-    expect([index.overdueCount, index.todayCount, index.upcomingCount]).toEqual([1, 1, 1]);
-    for (const [scope, expected] of [["overdue", "overdue"], ["today", "today"], ["upcoming", "upcoming"]] as const) {
-      expect(selectWorkspaceTasks(index, tasks, { ...createDefaultWorkspaceState(), scope }, "", today).map((item) => item.id)).toEqual([expected]);
-    }
+describe("project list selectors", () => {
+  it("orders projects by due date, then newest, and hides archived ones outside the archive", () => {
+    expect(selectProjects(projects, "all", "", today).map((project) => project.id)).toEqual(["done", "overdue", "soon", "later", "undated"]);
+    expect(selectProjects(projects, "archived", "", today).map((project) => project.id)).toEqual(["archived"]);
   });
 
-  it("searches description, project, and category metadata and applies filters", () => {
-    const index = buildFlatWorkspaceIndex(projects, tasks, categories, today);
-    const state = { ...createDefaultWorkspaceState(), status: "all" as const };
-    expect(selectWorkspaceTasks(index, tasks, state, "release context", today)[0].id).toBe("overdue");
-    expect(selectWorkspaceTasks(index, tasks, state, "launch", today).map((item) => item.id)).toContain("overdue");
-    expect(selectWorkspaceTasks(index, tasks, { ...state, categoryId: "work", priority: "urgent" }, "", today).map((item) => item.id)).toEqual(["overdue"]);
+  it("filters due-soon and status views and searches descriptions", () => {
+    expect(selectProjects(projects, "due", "", today).map((project) => project.id)).toEqual(["overdue", "soon"]);
+    expect(selectProjects(projects, "on_hold", "", today).map((project) => project.id)).toEqual(["undated"]);
+    expect(selectProjects(projects, "all", "beta", today).map((project) => project.id)).toEqual(["overdue"]);
+    expect(countProjectsByFilter(projects, today)).toMatchObject({ all: 5, active: 2, due: 2, archived: 1, completed: 1 });
   });
 
-  it("smart sorts dated tasks first, then priority and newest", () => {
-    const index = buildFlatWorkspaceIndex(projects, tasks, categories, today);
-    expect(selectWorkspaceTasks(index, tasks, { ...createDefaultWorkspaceState(), status: "all" }, "", today).slice(0, 3).map((item) => item.id)).toEqual(["overdue", "today", "completed"]);
+  it("summarizes tasks per project, including tasks without a project", () => {
+    const stats = buildProjectStats(tasks);
+    expect(stats.get("overdue")).toEqual({ taskCount: 3, openCount: 2, completedCount: 1, focusedSeconds: 900 });
+    expect(stats.get(NO_PROJECT_ID)?.taskCount).toBe(1);
+  });
+});
+
+describe("project task selector", () => {
+  const state = { ...createDefaultWorkspaceState(), status: "all" as const };
+
+  it("smart sorts open tasks first, then by priority and newest", () => {
+    expect(selectProjectTasks(tasks, "overdue", state, "", categories).map((item) => item.id)).toEqual(["urgent", "low", "done"]);
+    expect(selectProjectTasks(tasks, null, state, "", categories).map((item) => item.id)).toEqual(["loose"]);
   });
 
-  it("handles the 1,000-task target with bounded progressive batches", () => {
-    const many = Array.from({ length: 1000 }, (_, index) => task({ id: `t${index}`, title: `Task ${index}`, createdAt: index }));
-    const workspace = buildFlatWorkspaceIndex([], many, [], today);
-    expect(selectWorkspaceTasks(workspace, many, createDefaultWorkspaceState(), "", today)).toHaveLength(1000);
-    expect(TASK_BATCH_SIZE).toBe(25);
+  it("searches descriptions and categories and applies filters", () => {
+    expect(selectProjectTasks(tasks, "overdue", state, "release context", categories).map((item) => item.id)).toEqual(["urgent"]);
+    expect(selectProjectTasks(tasks, "overdue", state, "work", categories).map((item) => item.id)).toEqual(["urgent"]);
+    expect(selectProjectTasks(tasks, "overdue", { ...state, status: "open", priority: "low" }, "", categories).map((item) => item.id)).toEqual(["low"]);
   });
 });
 

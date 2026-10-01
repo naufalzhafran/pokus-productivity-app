@@ -5,7 +5,9 @@ import { LoginForm } from "@/components/features/LoginForm";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 import { ProfilePage } from "@/components/features/ProfilePage";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
-import { TaskWorkspace } from "@/components/features/TaskWorkspace";
+import { ProjectDetailPage } from "@/components/features/ProjectDetailPage";
+import { ProjectsPage } from "@/components/features/ProjectsPage";
+import { createDefaultWorkspaceState, NO_PROJECT_ID } from "@/lib/workspace";
 import { Timer } from "@/components/features/timer";
 import { TimerCompletion } from "@/components/features/TimerCompletion";
 import { Button } from "@/components/ui/button";
@@ -60,31 +62,24 @@ describe("accessibility smoke states", () => {
     await expectNoCriticalViolations(container);
   });
 
-  it("has no critical violations in the task workspace", async () => {
-    const { container } = render(
-      <TaskWorkspace
-        tasks={[task]}
-        projects={[]}
-        viewState={{
-          scope: "all",
-          status: "open",
-          sort: "newest",
-          lastDuration: 25,
-        }}
-        setViewState={vi.fn()}
-        canStartPomodoro
-        onCreateTask={vi.fn()}
-        onCreateProject={vi.fn()}
-        onUpdateProject={vi.fn()}
-        onDeleteProject={vi.fn()}
-        onArchiveProject={vi.fn()}
-        onStartPomodoro={vi.fn()}
-        onStatusChange={vi.fn()}
-        onEditTask={vi.fn()}
-        onDeleteTask={vi.fn()}
-      />,
+  it("has no critical violations on the projects list and a project", async () => {
+    const list = render(
+      <main>
+        <ProjectsPage readOnly={false} projects={[{ id: "p1", title: "Launch", description: "", createdAt: 1, status: "active", dueDate: null }]} tasks={[task]} categories={[]}
+          viewState={createDefaultWorkspaceState()} setViewState={vi.fn()} onCreateProject={vi.fn()} onOpenProject={vi.fn()} onUpdateCategory={vi.fn()} onDeleteCategory={vi.fn()} />
+      </main>,
     );
-    await expectNoCriticalViolations(container);
+    await expectNoCriticalViolations(list.container);
+    list.unmount();
+
+    const detail = render(
+      <main>
+        <ProjectDetailPage projectId={NO_PROJECT_ID} readOnly={false} tasks={[task]} projects={[]} categories={[]} viewState={createDefaultWorkspaceState()} setViewState={vi.fn()}
+          canStartPomodoro onCreateTask={vi.fn()} onEditTask={vi.fn()} onDeleteTask={vi.fn()} onStatusChange={vi.fn()} onStartPomodoro={vi.fn()}
+          onUpdateProject={vi.fn()} onArchiveProject={vi.fn()} onDeleteProject={vi.fn()} />
+      </main>,
+    );
+    await expectNoCriticalViolations(detail.container);
   });
 
   it("has no critical violations in timer setup, running, and completion", async () => {

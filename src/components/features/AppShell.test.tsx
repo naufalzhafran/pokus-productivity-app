@@ -26,9 +26,9 @@ describe("AppShell", () => {
       expect(screen.getByRole("heading", { name: "Profile" })).toHaveFocus(),
     );
 
-    await user.click(screen.getAllByRole("link", { name: "Tasks" })[0]);
-    expect(onNavigateIntent).toHaveBeenCalledWith("tasks");
-    expect(onNavigate).toHaveBeenCalledWith("tasks");
+    await user.click(screen.getAllByRole("link", { name: "Projects" })[0]);
+    expect(onNavigateIntent).toHaveBeenCalledWith("projects");
+    expect(onNavigate).toHaveBeenCalledWith("projects");
 
     await user.hover(screen.getAllByRole("link", { name: "Timer" })[0]);
     expect(onNavigateIntent).toHaveBeenCalledWith("timer");
@@ -37,7 +37,7 @@ describe("AppShell", () => {
   it("shows the active timer countdown in the header", () => {
     render(
       <AppShell
-        page="tasks"
+        page="projects"
         session={{ id: "session", taskId: null, durationMinutes: 25, mode: "running", remainingSeconds: 1505, isActive: true, lastTick: Date.now() }}
         remainingSeconds={1505}
         onNavigate={vi.fn()}

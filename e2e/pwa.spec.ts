@@ -6,6 +6,11 @@ const endpoint = "http://127.0.0.1:8099";
 async function tab(page: Page, name: string) {
   await page.getByRole("navigation", { name: "Primary navigation" }).filter({ visible: true }).getByRole("link", { name, exact: name !== "Timer" }).click();
 }
+// The seeded task has no project, so it lives under the "No project" card.
+async function openTasks(page: Page) {
+  await tab(page, "Projects");
+  await page.getByRole("link", { name: /No project/ }).click();
+}
 async function setOffline(page: Page, context: BrowserContext, request: APIRequestContext, browserName: string, offline: boolean) {
   if (browserName !== "webkit") { await context.setOffline(offline); return; }
   // Playwright issue #42775: its WebKit offline switch rejects even cached SW responses.
@@ -45,7 +50,7 @@ test("phone controls, sheets, themes, and responsive layouts", async ({ page }, 
   const bounds = await start.boundingBox();
   expect(bounds!.y + bounds!.height).toBeLessThan(785);
   await page.screenshot({ path: testInfo.outputPath("timer-light.png"), fullPage: true, animations: "disabled" });
-  await tab(page, "Tasks");
+  await openTasks(page);
   await expect(page.getByRole("button", { name: "Open details for Plan the next release" })).toBeVisible();
   await page.getByRole("button", { name: "Filters (0)" }).click();
   await expect(page.getByRole("dialog", { name: "Filter tasks" })).toBeVisible();
@@ -97,7 +102,7 @@ test("an update waits for a paused session and an open editor", async ({ page, r
   await page.getByRole("button", { name: "Stop Pomodoro timer", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Stop Pomodoro timer", exact: true }).click();
   await expect(update).toBeEnabled();
-  await tab(page, "Tasks");
+  await openTasks(page);
   await page.getByRole("button", { name: "New task", exact: true }).click();
   await expect(page.getByRole("button", { name: "Update app", includeHidden: true })).toBeDisabled();
   await page.getByRole("dialog", { name: "New task" }).getByRole("button", { name: "Cancel", exact: true }).click();
@@ -113,7 +118,7 @@ test("offline relaunch restores a paused timer and opens precached routes", asyn
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
-  await tab(page, "Tasks");
+  await openTasks(page);
   await expect(page.getByRole("button", { name: "Open details for Plan the next release" })).toBeVisible();
   await tab(page, "Timer");
   await page.getByRole("button", { name: "Start focus" }).click();
@@ -122,7 +127,7 @@ test("offline relaunch restores a paused timer and opens precached routes", asyn
   await setOffline(page, context, request, browserName, true);
   await page.reload();
   await expect(page.getByRole("button", { name: "Resume Pomodoro timer" })).toBeVisible();
-  await tab(page, "Tasks");
+  await openTasks(page);
   await expect(page.getByRole("button", { name: "Open details for Plan the next release" })).toBeVisible();
   await expect(page.getByRole("button", { name: "New task", exact: true })).toBeDisabled();
   await tab(page, "Profile");
@@ -132,7 +137,7 @@ test("offline relaunch restores a paused timer and opens precached routes", asyn
 });
 
 test("offline completion is saved and synced once after reconnecting", async ({ page, context, request, browserName }) => {
-  await page.goto("/#tasks");
+  await page.goto("/#projects/none");
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);

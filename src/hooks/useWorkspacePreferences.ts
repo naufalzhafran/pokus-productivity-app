@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import {
   createDefaultWorkspaceState,
+  PROJECT_LIST_FILTERS,
+  TASK_SORTS,
+  type ProjectListFilter,
+  type TaskSort,
   type WorkspaceViewState,
 } from "@/lib/workspace";
 
@@ -17,19 +21,13 @@ export function loadWorkspacePreferences(userId: string): WorkspaceViewState {
       localStorage.getItem(getStorageKey(userId)) ?? "{}",
     ) as Partial<WorkspaceViewState>;
     return {
-      scope:
-        saved.scope === "all" ||
-        saved.scope === "today" || saved.scope === "upcoming" || saved.scope === "overdue" ||
-        saved.scope === "archived" ||
-        saved.scope?.startsWith("project:")
-          ? saved.scope
-          : defaults.scope,
+      projectFilter: PROJECT_LIST_FILTERS.includes(saved.projectFilter as ProjectListFilter)
+        ? saved.projectFilter!
+        : defaults.projectFilter,
       status: ["open", "completed", "all"].includes(saved.status ?? "")
         ? saved.status!
         : defaults.status,
-      sort: ["smart", "due", "priority", "newest", "oldest", "alphabetical", "focused"].includes(
-        saved.sort ?? "",
-      )
+      sort: TASK_SORTS.includes(saved.sort as TaskSort)
         ? saved.sort!
         : defaults.sort,
       priority: ["all", "none", "low", "medium", "high", "urgent"].includes(saved.priority ?? "") ? saved.priority! : defaults.priority,

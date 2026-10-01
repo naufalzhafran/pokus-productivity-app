@@ -6,13 +6,21 @@ export const PROJECT_TITLE_MAX_LENGTH = 120;
 export const CATEGORY_NAME_MAX_LENGTH = 40;
 export const TASK_BATCH_SIZE = 25;
 
-export type WorkspaceScope = "all" | "today" | "upcoming" | "overdue" | "archived" | `project:${string}`;
+export const DUE_SOON_DAYS = 7;
+/** Route id for tasks that are not in any project. */
+export const NO_PROJECT_ID = "none";
+
+export type ProjectListFilter = "all" | ProjectStatus | "due" | "archived";
 export type TaskStatusFilter = "open" | "completed" | "all";
-export type TaskSort = "smart" | "due" | "priority" | "newest" | "oldest" | "alphabetical" | "focused";
+export type TaskSort = "smart" | "priority" | "newest" | "oldest" | "alphabetical" | "focused";
 export type PriorityFilter = "all" | TaskPriority;
 
+export const PROJECT_LIST_FILTERS: ProjectListFilter[] = ["all", "active", "planned", "on_hold", "completed", "due", "archived"];
+export const TASK_SORTS: TaskSort[] = ["smart", "priority", "newest", "oldest", "alphabetical", "focused"];
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = { planned: "Planned", active: "Active", on_hold: "On hold", completed: "Completed" };
+
 export interface WorkspaceViewState {
-  scope: WorkspaceScope;
+  projectFilter: ProjectListFilter;
   status: TaskStatusFilter;
   sort: TaskSort;
   priority?: PriorityFilter;
@@ -20,31 +28,11 @@ export interface WorkspaceViewState {
   lastDuration: number;
 }
 
-export interface TaskGroup {
-  id: string;
-  project: Project | null;
-  tasks: Task[];
-  openCount: number;
-  completedCount: number;
-  focusedSeconds: number;
-}
-
-export interface WorkspaceIndex {
-  projectMap: Map<string, Project>;
-  activeProjects: Project[];
-  archivedProjects: Project[];
-  groups: TaskGroup[];
-  groupMap: Map<string, TaskGroup>;
-  activeOpenCount: number;
-  projectSearchText: Map<string, string>;
-  taskSearchText: Map<string, string>;
-}
-
 const taskTitleCollator = new Intl.Collator(undefined, { sensitivity: "base" });
 
 export function createDefaultWorkspaceState(): WorkspaceViewState {
   return {
-    scope: "all",
+    projectFilter: "all",
     status: "open",
     sort: "smart",
     priority: "all",
@@ -97,181 +85,95 @@ export function plainTextFromHtml(html: string) {
   return html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export function buildWorkspaceIndex(
-  projects: Project[],
-  tasks: Task[],
-): WorkspaceIndex {
-  const projectMap = new Map<string, Project>();
-  const projectSearchText = new Map<string, string>();
-  const taskSearchText = new Map<string, string>();
-  const activeProjects: Project[] = [];
-  const archivedProjects: Project[] = [];
+export interface ProjectStats {
+  taskCount: number;
+  openCount: number;
+  completedCount: number;
+  focusedSeconds: number;
+}
 
-  for (const project of projects) {
-    projectMap.set(project.id, project);
-    projectSearchText.set(project.id, project.title.toLocaleLowerCase());
-    (isProjectArchived(project) ? archivedProjects : activeProjects).push(project);
+/** Task totals per project id; tasks without a project are counted under `NO_PROJECT_ID`. */
+export function buildProjectStats(tasks: Task[]) {
+  const stats = new Map<string, ProjectStats>();
+  for (const task of tasks) {
+    const key = task.projectId ?? NO_PROJECT_ID;
+    const entry = stats.get(key) ?? { taskCount: 0, openCount: 0, completedCount: 0, focusedSeconds: 0 };
+    entry.taskCount += 1;
+    entry.focusedSeconds += task.focusedSeconds;
+    if (task.isDone) entry.completedCount += 1;
+    else entry.openCount += 1;
+    stats.set(key, entry);
   }
+  return stats;
+}
 
-  const unassigned: TaskGroup = {
-    id: "unassigned",
-    project: null,
-    tasks: [],
-    openCount: 0,
-    completedCount: 0,
-    focusedSeconds: 0,
-  };
-  const groupMap = new Map<string, TaskGroup>([["unassigned", unassigned]]);
+export function isProjectDueSoon(project: Project, today = localDateKey()) {
+  return Boolean(project.dueDate && !isProjectArchived(project) && getProjectStatus(project) !== "completed" && project.dueDate <= addLocalDays(today, DUE_SOON_DAYS));
+}
 
-  for (const project of projects) {
-    groupMap.set(project.id, {
-      id: project.id,
-      project,
-      tasks: [],
-      openCount: 0,
-      completedCount: 0,
-      focusedSeconds: 0,
+function matchesProjectFilter(project: Project, filter: ProjectListFilter, today: string) {
+  if (filter === "archived") return isProjectArchived(project);
+  if (isProjectArchived(project)) return false;
+  if (filter === "all") return true;
+  if (filter === "due") return isProjectDueSoon(project, today);
+  return getProjectStatus(project) === filter;
+}
+
+export function countProjectsByFilter(projects: Project[], today = localDateKey()) {
+  return Object.fromEntries(PROJECT_LIST_FILTERS.map((filter) => [filter, projects.filter((project) => matchesProjectFilter(project, filter, today)).length])) as Record<ProjectListFilter, number>;
+}
+
+/** Projects for the list page: soonest due date first, then newest. */
+export function selectProjects(projects: Project[], filter: ProjectListFilter, search: string, today = localDateKey()) {
+  const needle = search.trim().toLocaleLowerCase();
+  return projects
+    .filter((project) => matchesProjectFilter(project, filter, today))
+    .filter((project) => !needle || [project.title, plainTextFromHtml(project.description)].some((value) => value.toLocaleLowerCase().includes(needle)))
+    .sort((a, b) => {
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate) || b.createdAt - a.createdAt;
+      if (a.dueDate || b.dueDate) return a.dueDate ? -1 : 1;
+      return b.createdAt - a.createdAt;
     });
-  }
-
-  let activeOpenCount = 0;
-  for (const task of tasks) {
-    taskSearchText.set(task.id, task.title.toLocaleLowerCase());
-    const project = task.projectId ? projectMap.get(task.projectId) : undefined;
-    const group = project ? groupMap.get(project.id)! : unassigned;
-    group.tasks.push(task);
-    group.focusedSeconds += task.focusedSeconds;
-    if (task.isDone) group.completedCount += 1;
-    else {
-      group.openCount += 1;
-      if (!isProjectArchived(project)) activeOpenCount += 1;
-    }
-  }
-
-  return {
-    projectMap,
-    activeProjects,
-    archivedProjects,
-    groups: [
-      unassigned,
-      ...activeProjects.map((project) => groupMap.get(project.id)!),
-      ...archivedProjects.map((project) => groupMap.get(project.id)!),
-    ],
-    groupMap,
-    activeOpenCount,
-    projectSearchText,
-    taskSearchText,
-  };
 }
 
-function sortTasks(tasks: Task[], sort: TaskSort) {
-  return [...tasks].sort((a, b) => {
-    if (sort === "oldest") return a.createdAt - b.createdAt;
-    if (sort === "alphabetical") return taskTitleCollator.compare(a.title, b.title);
-    if (sort === "focused") {
-      return b.focusedSeconds - a.focusedSeconds || b.createdAt - a.createdAt;
-    }
-    return b.createdAt - a.createdAt;
-  });
-}
-
-export function selectWorkspaceGroups(
-  index: WorkspaceIndex,
-  state: WorkspaceViewState,
-  search: string,
-) {
+/** Tasks for one project (or `null` for tasks without a project) after filters, search, and sorting. */
+export function selectProjectTasks(tasks: Task[], projectId: string | null, state: Pick<WorkspaceViewState, "status" | "sort" | "priority" | "categoryId">, search: string, categoryMap: Map<string, Category>) {
   const needle = search.trim().toLocaleLowerCase();
-  const scopeProjectId = state.scope.startsWith("project:")
-    ? state.scope.slice(8)
-    : null;
-
-  return index.groups
-    .filter((group) => {
-      if (state.scope === "archived") return isProjectArchived(group.project);
-      if (scopeProjectId) return group.id === scopeProjectId;
-      return !isProjectArchived(group.project);
+  return tasks
+    .filter((task) => {
+      if (task.projectId !== projectId) return false;
+      if (state.status === "open" && task.isDone) return false;
+      if (state.status === "completed" && !task.isDone) return false;
+      if ((state.priority ?? "all") !== "all" && taskPriority(task) !== state.priority) return false;
+      if (state.categoryId && task.categoryId !== state.categoryId) return false;
+      if (!needle) return true;
+      const category = task.categoryId ? categoryMap.get(task.categoryId) : undefined;
+      return [task.title, plainTextFromHtml(task.description ?? ""), category?.name ?? ""].some((value) => value.toLocaleLowerCase().includes(needle));
     })
-    .map((group) => {
-      const projectMatches =
-        needle.length > 0 &&
-        Boolean(
-          group.project &&
-            index.projectSearchText.get(group.project.id)?.includes(needle),
-        );
-      const filtered = group.tasks.filter((task) => {
-        if (state.status === "open" && task.isDone) return false;
-        if (state.status === "completed" && !task.isDone) return false;
-        if (!needle || projectMatches) return true;
-        return index.taskSearchText.get(task.id)?.includes(needle) ?? false;
-      });
-      return { ...group, tasks: sortTasks(filtered, state.sort) };
-    })
-    .filter((group) => group.project || group.tasks.length > 0);
+    .sort((a, b) => {
+      if (state.sort === "oldest") return a.createdAt - b.createdAt;
+      if (state.sort === "alphabetical") return taskTitleCollator.compare(a.title, b.title);
+      if (state.sort === "focused") return b.focusedSeconds - a.focusedSeconds || b.createdAt - a.createdAt;
+      if (state.sort === "newest") return b.createdAt - a.createdAt;
+      const byPriority = PRIORITY_RANK[taskPriority(b)] - PRIORITY_RANK[taskPriority(a)];
+      if (state.sort === "priority") return byPriority || b.createdAt - a.createdAt;
+      return Number(a.isDone) - Number(b.isDone) || byPriority || b.createdAt - a.createdAt;
+    });
 }
 
-export interface FlatWorkspaceIndex extends WorkspaceIndex {
-  categoryMap: Map<string, Category>;
-  todayCount: number;
-  upcomingCount: number;
-  overdueCount: number;
+export function titlePreview(title: string) {
+  const value = normalizeTaskTitle(title);
+  return value.length > 160 ? `${value.slice(0, 157)}…` : value;
 }
 
-export function buildFlatWorkspaceIndex(projects: Project[], tasks: Task[], categories: Category[], today = localDateKey()): FlatWorkspaceIndex {
-  const base = buildWorkspaceIndex(projects, tasks);
-  const categoryMap = new Map(categories.map((category) => [category.id, category]));
-  let todayCount = 0, upcomingCount = 0, overdueCount = 0;
-  const end = addLocalDays(today, 7);
-  for (const task of tasks) {
-    const project = task.projectId ? base.projectMap.get(task.projectId) : undefined;
-    const dueDate = project?.dueDate;
-    if (task.isDone || isProjectArchived(project) || !dueDate) continue;
-    if (dueDate === today) todayCount += 1;
-    else if (dueDate < today) overdueCount += 1;
-    else if (dueDate <= end) upcomingCount += 1;
-  }
-  return { ...base, categoryMap, todayCount, upcomingCount, overdueCount };
+export function formatFocused(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  return minutes < 60 ? `${minutes}m focused` : `${Math.floor(minutes / 60)}h ${minutes % 60}m focused`;
 }
 
-function compareDue(a: Task, b: Task, index: FlatWorkspaceIndex) {
-  const aDueDate = a.projectId ? index.projectMap.get(a.projectId)?.dueDate : null;
-  const bDueDate = b.projectId ? index.projectMap.get(b.projectId)?.dueDate : null;
-  if (!aDueDate && !bDueDate) return 0;
-  if (!aDueDate) return 1;
-  if (!bDueDate) return -1;
-  return aDueDate.localeCompare(bDueDate);
-}
-
-export function selectWorkspaceTasks(index: FlatWorkspaceIndex, tasks: Task[], state: WorkspaceViewState, search: string, today = localDateKey()) {
-  const needle = search.trim().toLocaleLowerCase();
-  const end = addLocalDays(today, 7);
-  const projectId = state.scope.startsWith("project:") ? state.scope.slice(8) : null;
-  const archivedScope = state.scope === "archived" || Boolean(projectId && isProjectArchived(index.projectMap.get(projectId)));
-  const filtered = tasks.filter((task) => {
-    const project = task.projectId ? index.projectMap.get(task.projectId) : undefined;
-    const dueDate = project?.dueDate;
-    const archived = isProjectArchived(project);
-    if (archivedScope ? !archived : archived) return false;
-    if (projectId && task.projectId !== projectId) return false;
-    if (["today", "upcoming", "overdue"].includes(state.scope) && task.isDone) return false;
-    if (state.scope === "today" && dueDate !== today) return false;
-    if (state.scope === "upcoming" && (!dueDate || dueDate <= today || dueDate > end)) return false;
-    if (state.scope === "overdue" && (!dueDate || dueDate >= today)) return false;
-    if (state.status === "open" && task.isDone) return false;
-    if (state.status === "completed" && !task.isDone) return false;
-    if ((state.priority ?? "all") !== "all" && taskPriority(task) !== state.priority) return false;
-    if (state.categoryId && task.categoryId !== state.categoryId) return false;
-    if (!needle) return true;
-    const category = task.categoryId ? index.categoryMap.get(task.categoryId) : undefined;
-    return [task.title, plainTextFromHtml(task.description ?? ""), project?.title ?? "", category?.name ?? ""]
-      .some((value) => value.toLocaleLowerCase().includes(needle));
-  });
-  return filtered.sort((a, b) => {
-    if (state.sort === "oldest") return a.createdAt - b.createdAt;
-    if (state.sort === "alphabetical") return taskTitleCollator.compare(a.title, b.title);
-    if (state.sort === "focused") return b.focusedSeconds - a.focusedSeconds || b.createdAt - a.createdAt;
-    if (state.sort === "due") return compareDue(a, b, index) || b.createdAt - a.createdAt;
-    if (state.sort === "priority") return PRIORITY_RANK[taskPriority(b)] - PRIORITY_RANK[taskPriority(a)] || b.createdAt - a.createdAt;
-    if (state.sort === "newest") return b.createdAt - a.createdAt;
-    return compareDue(a, b, index) || PRIORITY_RANK[taskPriority(b)] - PRIORITY_RANK[taskPriority(a)] || b.createdAt - a.createdAt;
-  });
+export function dueLabel(dueDate: string | null | undefined, today: string) {
+  if (!dueDate) return null;
+  if (dueDate < today) return `Overdue · ${dueDate}`;
+  if (dueDate === today) return "Due today";
+  return `Due ${dueDate}`;
 }

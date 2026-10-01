@@ -68,7 +68,8 @@ const editorKey = findKey(
   "the rich-text editor chunk",
 );
 const timerKey = findKey((chunk) => chunk.src === "src/components/features/TimerPage.tsx", "Timer page");
-const tasksKey = findKey((chunk) => chunk.name === "TaskWorkspace", "Tasks page");
+const projectsKey = findKey((chunk) => chunk.src === "src/components/features/ProjectsPage.tsx", "Projects page");
+const projectDetailKey = findKey((chunk) => chunk.name === "ProjectDetailPage", "Project detail page");
 
 const signedOutGraph = collectStaticGraph(entryKey);
 const authenticatedGraph = new Set([
@@ -82,7 +83,8 @@ for (const key of signedOutGraph) {
 
 checkBudget("Signed-out initial JavaScript", javascriptFiles(signedOutGraph), 110);
 checkBudget("Authenticated Timer loading graph", javascriptFiles(new Set([...authenticatedGraph, ...collectStaticGraph(timerKey)])), 200);
-checkBudget("Authenticated Tasks loading graph", javascriptFiles(new Set([...authenticatedGraph, ...collectStaticGraph(tasksKey)])), 200);
+checkBudget("Authenticated Projects loading graph", javascriptFiles(new Set([...authenticatedGraph, ...collectStaticGraph(projectsKey)])), 200);
+checkBudget("Authenticated Project detail loading graph", javascriptFiles(new Set([...authenticatedGraph, ...collectStaticGraph(projectDetailKey)])), 200);
 checkBudget("Rich-text editor chunk", [manifest[editorKey].file], 130);
 checkBudget("Total initial CSS", [...initialCss], 20);
 

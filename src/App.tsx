@@ -8,7 +8,7 @@ import {
 } from "react";
 import { TimerReset } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell, type AppPage } from "@/components/features/AppShell";
+import { AppShell } from "@/components/features/AppShell";
 import { PwaUpdate } from "@/components/features/PwaUpdate";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useAppPreferences } from "@/hooks/useAppPreferences";
@@ -35,12 +35,15 @@ import {
   loadSelectedTaskId,
   saveSelectedTaskId,
 } from "@/lib/selection-storage";
-import { isProjectArchived } from "@/lib/workspace";
+import { parseRoute, projectHash, routeHash, type AppPage, type AppRoute } from "@/lib/routes";
+import { isProjectArchived, NO_PROJECT_ID } from "@/lib/workspace";
 import type { PomodoroSession } from "@/types/task";
 
 const loadProfilePage = () => import("@/components/features/ProfilePage");
-const loadTaskWorkspace = () => import("@/components/features/TaskWorkspace");
-const TaskWorkspace = lazy(() => loadTaskWorkspace().then((module) => ({ default: module.TaskWorkspace })));
+const loadProjectsPage = () => import("@/components/features/ProjectsPage");
+const ProjectsPage = lazy(() => loadProjectsPage().then((module) => ({ default: module.ProjectsPage })));
+const loadProjectDetailPage = () => import("@/components/features/ProjectDetailPage");
+const ProjectDetailPage = lazy(() => loadProjectDetailPage().then((module) => ({ default: module.ProjectDetailPage })));
 const ProfilePage = lazy(() =>
   loadProfilePage().then((module) => ({
     default: module.ProfilePage,
@@ -53,11 +56,11 @@ const TimerPage = lazy(() =>
   loadTimerPage().then((module) => ({ default: module.TimerPage })),
 );
 
-function getPageFromHash(): AppPage {
-  if (window.location.hash === "#timer") return "timer";
-  if (window.location.hash === "#profile") return "profile";
-  if (window.location.hash === "#capture") return "capture";
-  return window.location.hash === "#tasks" ? "tasks" : "timer";
+function readRoute(): AppRoute {
+  const route = parseRoute(window.location.hash);
+  // Old `#tasks` links and installed shortcuts now open the projects list.
+  if (window.location.hash === "#tasks" || window.location.hash.startsWith("#tasks/")) history.replaceState(null, "", routeHash(route));
+  return route;
 }
 
 function WorkspaceSkeleton() {
@@ -84,7 +87,8 @@ export default function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
     loadSelectedTaskId,
   );
-  const [page, setPage] = useState<AppPage>(getPageFromHash);
+  const [route, setRoute] = useState<AppRoute>(readRoute);
+  const page = route.page;
   const [profileTaskId, setProfileTaskId] = useState<string | null>(null);
   const [appFeedback, setAppFeedback] = useState<{
     kind: "status" | "alert";
@@ -169,7 +173,7 @@ export default function App() {
   const remainingSeconds = useTimerClock(currentSession, completeSession);
 
   useEffect(() => {
-    const handleHashChange = () => setPage(getPageFromHash());
+    const handleHashChange = () => setRoute(readRoute());
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
@@ -178,10 +182,12 @@ export default function App() {
     saveSelectedTaskId(selectedTaskId);
   }, [selectedTaskId]);
 
-  const navigate = useCallback((nextPage: AppPage) => {
-    window.location.hash = nextPage;
-    setPage(nextPage);
+  const navigateTo = useCallback((nextRoute: AppRoute) => {
+    window.location.hash = routeHash(nextRoute);
+    setRoute(nextRoute);
   }, []);
+  const navigate = useCallback((nextPage: AppPage) => navigateTo({ page: nextPage, projectId: null }), [navigateTo]);
+  const openProject = useCallback((projectId: string | null) => navigateTo({ page: "projects", projectId: projectId ?? NO_PROJECT_ID }), [navigateTo]);
 
   useEffect(() => {
     if (currentSession?.mode === "complete") {
@@ -271,9 +277,7 @@ export default function App() {
     try {
       await deleteProject(projectId);
       reconcileDeletedProject(projectId);
-      if (viewState.scope === `project:${projectId}`) {
-        setViewState((current) => ({ ...current, scope: "all" }));
-      }
+      if (window.location.hash === projectHash(projectId)) navigate("projects");
       toast.success("Project deleted. Its tasks now have no project.");
       setAppFeedback({
         kind: "status",
@@ -287,7 +291,7 @@ export default function App() {
       });
       throw error;
     }
-  }, [deleteProject, reconcileDeletedProject, setViewState, viewState.scope]);
+  }, [deleteProject, navigate, reconcileDeletedProject]);
 
   const handleStatusChange = useCallback(async (taskId: string, isDone: boolean) => {
     try {
@@ -352,7 +356,7 @@ export default function App() {
   const handleNavigationIntent = useCallback((nextPage: AppPage) => {
     if (nextPage === "timer") void loadTimerPage();
     if (nextPage === "profile") void loadProfilePage();
-    if (nextPage === "tasks") void loadTaskWorkspace();
+    if (nextPage === "projects") { void loadProjectsPage(); void loadProjectDetailPage(); }
     if (nextPage === "capture") void loadCapturePage();
   }, []);
 
@@ -365,8 +369,8 @@ export default function App() {
     if (!sessionTask) return;
     await handleStatusChange(sessionTask.id, true);
     if (!(await setSession(null))) return;
-    navigate("tasks");
-  }, [handleStatusChange, navigate, sessionTask, setSession]);
+    openProject(sessionTask.projectId);
+  }, [handleStatusChange, openProject, sessionTask, setSession]);
 
   const handleFocusAgain = useCallback(async () => {
     if (!(await setSession(null))) return;
@@ -375,8 +379,9 @@ export default function App() {
 
   const handleViewTasks = useCallback(async () => {
     if (!(await setSession(null))) return;
-    navigate("tasks");
-  }, [navigate, setSession]);
+    if (sessionTask) openProject(sessionTask.projectId);
+    else navigate("projects");
+  }, [navigate, openProject, sessionTask, setSession]);
 
   if (isSessionLoading) {
     return <WorkspaceSkeleton />;
@@ -409,7 +414,7 @@ export default function App() {
           {appFeedback.message}
         </p>
       ) : null}
-      {page === "tasks" ? (
+      {page === "projects" ? (
         <div className="screen-panel">
           {loadError ? (
             <Card className="mb-5 border-destructive/30" role="alert">
@@ -447,7 +452,9 @@ export default function App() {
             </Card>
           ) : null}
           <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-          {areTasksLoading || areProjectsLoading || areCategoriesLoading ? <Skeleton className="h-96 w-full" /> : <TaskWorkspace
+          {areTasksLoading || areProjectsLoading || areCategoriesLoading ? <Skeleton className="h-96 w-full" /> : route.projectId ? <ProjectDetailPage
+            key={route.projectId}
+            projectId={route.projectId}
             readOnly={!canEdit}
             tasks={tasks}
             projects={projects}
@@ -456,15 +463,23 @@ export default function App() {
             setViewState={setViewState}
             canStartPomodoro={!currentSession}
             onCreateTask={createTask}
-            onCreateProject={createProject}
-            onUpdateProject={updateProject}
-            onDeleteProject={handleDeleteProject}
-            onArchiveProject={handleArchiveProject}
-            onStartPomodoro={setUpTimerForTask}
-            onStatusChange={handleStatusChange}
             onEditTask={editTask}
             onDeleteTask={handleDeleteTask}
+            onStatusChange={handleStatusChange}
+            onStartPomodoro={setUpTimerForTask}
             onCreateCategory={createCategory}
+            onUpdateProject={updateProject}
+            onArchiveProject={handleArchiveProject}
+            onDeleteProject={handleDeleteProject}
+          /> : <ProjectsPage
+            readOnly={!canEdit}
+            projects={projects}
+            tasks={tasks}
+            categories={categories}
+            viewState={viewState}
+            setViewState={setViewState}
+            onCreateProject={createProject}
+            onOpenProject={openProject}
             onUpdateCategory={updateCategory}
             onDeleteCategory={handleDeleteCategory}
           />}
@@ -502,7 +517,9 @@ export default function App() {
             onStart={startTimer}
             onToggle={toggleTimer}
             onStop={stopTimer}
-            onChooseTask={() => navigate("tasks")}
+            tasks={tasks}
+            projects={projects}
+            onSelectTask={setSelectedTaskId}
             onMarkTaskDone={handleTimerTaskDone}
             onFocusAgain={handleFocusAgain}
             onViewTasks={handleViewTasks}

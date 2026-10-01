@@ -1,10 +1,10 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Inbox, ListTodo, Timer, UserRound } from "lucide-react";
+import { FolderKanban, Inbox, Timer, UserRound } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { AppPage } from "@/lib/routes";
 import type { PomodoroSession } from "@/types/task";
 
-export type AppPage = "tasks" | "timer" | "capture" | "profile";
 interface AppShellProps {
   page: AppPage;
   session: PomodoroSession | null;
@@ -17,14 +17,14 @@ export function AppShell({ page, session, remainingSeconds = session?.remainingS
   const headingRef = useRef<HTMLHeadingElement>(null);
   const timerStatus = session ? session.mode === "complete" ? "Complete" : session.isActive ? "Running" : "Paused" : null;
   const display = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`;
-  const title = page === "timer" ? "Pomodoro Timer" : page === "profile" ? "Profile" : page === "capture" ? "Capture" : "Tasks";
+  const title = page === "timer" ? "Pomodoro Timer" : page === "profile" ? "Profile" : page === "capture" ? "Capture" : "Projects";
   useEffect(() => { headingRef.current?.focus({ preventScroll: true }); }, [page]);
   useEffect(() => {
     if (page === "timer" && session?.mode === "running") return;
     document.title = `${page === "timer" ? session?.mode === "complete" ? "Session complete" : "Set up timer" : title} | Pokus`;
   }, [page, session?.mode, title]);
   const navigation = (mobile: boolean) => <nav aria-label="Primary navigation" className={cn("flex gap-1", mobile ? "mx-auto max-w-md" : "w-[26rem]")}>
-    {([{ page: "timer", label: "Timer", Icon: Timer }, { page: "tasks", label: "Tasks", Icon: ListTodo }, { page: "capture", label: "Capture", Icon: Inbox }, { page: "profile", label: "Profile", Icon: UserRound }] as const).map(({ page: value, label, Icon }) => <a key={value} href={`#${value}`} onClick={() => { onNavigateIntent?.(value); onNavigate(value); }}
+    {([{ page: "timer", label: "Timer", Icon: Timer }, { page: "projects", label: "Projects", Icon: FolderKanban }, { page: "capture", label: "Capture", Icon: Inbox }, { page: "profile", label: "Profile", Icon: UserRound }] as const).map(({ page: value, label, Icon }) => <a key={value} href={`#${value}`} onClick={() => { onNavigateIntent?.(value); onNavigate(value); }}
       onMouseEnter={() => onNavigateIntent?.(value)} onFocus={() => onNavigateIntent?.(value)} onTouchStart={() => onNavigateIntent?.(value)}
       className={cn(buttonVariants({ variant: page === value ? "secondary" : "ghost" }), "min-h-12 flex-1", mobile && "h-11 min-h-11 flex-col gap-0.5 px-2 py-1 text-xs")}
       aria-current={page === value ? "page" : undefined} aria-label={value === "timer" && timerStatus ? `Timer, ${timerStatus.toLowerCase()}` : label}>
@@ -47,7 +47,7 @@ export function AppShell({ page, session, remainingSeconds = session?.remainingS
       </div>
     </header>
     <main id="main-content" className="app-main mx-auto w-full max-w-7xl pb-[calc(4rem+env(safe-area-inset-bottom))] pt-4 md:pb-10 md:pt-8">
-      {page !== "tasks" ? <h1 ref={headingRef} tabIndex={-1} className="sr-only outline-none md:not-sr-only md:mb-6 md:text-2xl md:font-semibold">{title}</h1> : null}
+      {page !== "projects" ? <h1 ref={headingRef} tabIndex={-1} className="sr-only outline-none md:not-sr-only md:mb-6 md:text-2xl md:font-semibold">{title}</h1> : null}
       {children}
     </main>
     <div className="app-main fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] pt-1 md:hidden">{navigation(true)}</div>

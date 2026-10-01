@@ -6,11 +6,11 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 
 - Adjustable Pomodoro duration with a circular control
 - Quick presets for 15, 25, 45, and 60 minutes
-- Installable Timer-first PWA with Timer, Tasks, and Profile hash routes
+- Installable Timer-first PWA with Timer, Projects, Capture, and Profile hash routes
 - Responsive sticky desktop navigation and safe-area-aware mobile navigation
-- Smart Today, Upcoming 7 days, and Overdue views with live counts
-- Flat responsive task rows with 25-row progressive loading and detail overlays
-- Searchable project navigation grouped by Planned, Active, On hold, Completed, and Archived
+- Projects list with status, Due soon, and Archived filters, progress, and focused time per project
+- Project detail pages with the project's tasks, filters, and actions, plus a No project page for loose tasks
+- Responsive task rows with 25-row progressive loading and detail overlays
 - Archive, restore, rename, and delete projects without changing child statuses
 - Group tasks under optional projects and move tasks between projects
 - Task priority, reusable single categories, rich descriptions, and project due dates
@@ -19,7 +19,7 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 - Derive each project's focused time from its child tasks
 - Create and edit tasks through accessible modals
 - Persistent task creation, selection, completion, and reopening
-- Set up a Pomodoro from a task and choose its duration before starting
+- Set up a Pomodoro from a task, or pick one on the Timer, and choose its duration before starting
 - Run a Pomodoro without attaching a task
 - Track successful Pomodoro time per task in hours and minutes
 - Save or discard elapsed task time when stopping a session early
