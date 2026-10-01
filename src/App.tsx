@@ -46,6 +46,8 @@ const ProfilePage = lazy(() =>
     default: module.ProfilePage,
   })),
 );
+const loadCapturePage = () => import("@/components/features/CapturePage");
+const CapturePage = lazy(() => loadCapturePage().then((module) => ({ default: module.CapturePage })));
 const loadTimerPage = () => import("@/components/features/TimerPage");
 const TimerPage = lazy(() =>
   loadTimerPage().then((module) => ({ default: module.TimerPage })),
@@ -54,6 +56,7 @@ const TimerPage = lazy(() =>
 function getPageFromHash(): AppPage {
   if (window.location.hash === "#timer") return "timer";
   if (window.location.hash === "#profile") return "profile";
+  if (window.location.hash === "#capture") return "capture";
   return window.location.hash === "#tasks" ? "tasks" : "timer";
 }
 
@@ -350,6 +353,7 @@ export default function App() {
     if (nextPage === "timer") void loadTimerPage();
     if (nextPage === "profile") void loadProfilePage();
     if (nextPage === "tasks") void loadTaskWorkspace();
+    if (nextPage === "capture") void loadCapturePage();
   }, []);
 
   const handleNavigate = useCallback((nextPage: AppPage) => {
@@ -464,6 +468,12 @@ export default function App() {
             onUpdateCategory={updateCategory}
             onDeleteCategory={handleDeleteCategory}
           />}
+          </Suspense>
+        </div>
+      ) : page === "capture" ? (
+        <div className="screen-panel">
+          <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
+            <CapturePage readOnly={!canEdit} />
           </Suspense>
         </div>
       ) : page === "profile" ? (

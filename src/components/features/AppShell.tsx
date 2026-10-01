@@ -1,10 +1,10 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { ListTodo, Timer, UserRound } from "lucide-react";
+import { Inbox, ListTodo, Timer, UserRound } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PomodoroSession } from "@/types/task";
 
-export type AppPage = "tasks" | "timer" | "profile";
+export type AppPage = "tasks" | "timer" | "capture" | "profile";
 interface AppShellProps {
   page: AppPage;
   session: PomodoroSession | null;
@@ -17,14 +17,14 @@ export function AppShell({ page, session, remainingSeconds = session?.remainingS
   const headingRef = useRef<HTMLHeadingElement>(null);
   const timerStatus = session ? session.mode === "complete" ? "Complete" : session.isActive ? "Running" : "Paused" : null;
   const display = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`;
-  const title = page === "timer" ? "Pomodoro Timer" : page === "profile" ? "Profile" : "Tasks";
+  const title = page === "timer" ? "Pomodoro Timer" : page === "profile" ? "Profile" : page === "capture" ? "Capture" : "Tasks";
   useEffect(() => { headingRef.current?.focus({ preventScroll: true }); }, [page]);
   useEffect(() => {
     if (page === "timer" && session?.mode === "running") return;
     document.title = `${page === "timer" ? session?.mode === "complete" ? "Session complete" : "Set up timer" : title} | Pokus`;
   }, [page, session?.mode, title]);
-  const navigation = (mobile: boolean) => <nav aria-label="Primary navigation" className={cn("flex gap-1", mobile ? "mx-auto max-w-md" : "w-80")}>
-    {([{ page: "timer", label: "Timer", Icon: Timer }, { page: "tasks", label: "Tasks", Icon: ListTodo }, { page: "profile", label: "Profile", Icon: UserRound }] as const).map(({ page: value, label, Icon }) => <a key={value} href={`#${value}`} onClick={() => { onNavigateIntent?.(value); onNavigate(value); }}
+  const navigation = (mobile: boolean) => <nav aria-label="Primary navigation" className={cn("flex gap-1", mobile ? "mx-auto max-w-md" : "w-[26rem]")}>
+    {([{ page: "timer", label: "Timer", Icon: Timer }, { page: "tasks", label: "Tasks", Icon: ListTodo }, { page: "capture", label: "Capture", Icon: Inbox }, { page: "profile", label: "Profile", Icon: UserRound }] as const).map(({ page: value, label, Icon }) => <a key={value} href={`#${value}`} onClick={() => { onNavigateIntent?.(value); onNavigate(value); }}
       onMouseEnter={() => onNavigateIntent?.(value)} onFocus={() => onNavigateIntent?.(value)} onTouchStart={() => onNavigateIntent?.(value)}
       className={cn(buttonVariants({ variant: page === value ? "secondary" : "ghost" }), "min-h-12 flex-1", mobile && "h-11 min-h-11 flex-col gap-0.5 px-2 py-1 text-xs")}
       aria-current={page === value ? "page" : undefined} aria-label={value === "timer" && timerStatus ? `Timer, ${timerStatus.toLowerCase()}` : label}>

@@ -41,9 +41,6 @@ export default defineConfig({
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) {
             return "react-runtime";
           }
-          if (id.includes("node_modules/lucide-react/")) {
-            return "lucide";
-          }
           return undefined;
         },
       },

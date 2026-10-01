@@ -7,12 +7,15 @@ import type {
   Task,
   Category,
 } from "@/types/task";
+import { sanitizeLinkPreview } from "@/lib/link-preview";
+import type { Capture } from "@/types/capture";
 
 export const COLLECTIONS = {
   projects: "projects",
   tasks: "tasks",
   sessions: "pomodoro_sessions",
   categories: "categories",
+  captures: "captures",
 } as const;
 
 export interface ProjectRecord extends RecordModel {
@@ -38,6 +41,17 @@ export interface TaskRecord extends RecordModel {
 export interface CategoryRecord extends RecordModel {
   name: string;
   color: Category["color"];
+  created: string;
+  updated: string;
+}
+
+export interface CaptureRecord extends RecordModel {
+  kind: Capture["kind"];
+  url: string;
+  title: string;
+  note: string;
+  preview: unknown;
+  isProcessed: boolean;
   created: string;
   updated: string;
 }
@@ -175,6 +189,38 @@ export function categoryToRecord(category: Category) {
 export async function listCategories() {
   const records = await pb.collection(COLLECTIONS.categories).getFullList<CategoryRecord>({ sort: "name", requestKey: null });
   return records.map(categoryFromRecord);
+}
+
+export function captureFromRecord(record: CaptureRecord): Capture {
+  return {
+    id: record.id,
+    kind: record.kind || "note",
+    url: record.url || null,
+    title: record.title || "",
+    note: record.note || "",
+    preview: sanitizeLinkPreview(record.preview),
+    isProcessed: record.isProcessed,
+    createdAt: Date.parse(record.created),
+    updatedAt: Date.parse(record.updated),
+  };
+}
+
+export function captureToRecord(capture: Capture) {
+  return {
+    id: capture.id,
+    owner: getAuthenticatedUserId(),
+    kind: capture.kind,
+    url: capture.url ?? "",
+    title: capture.title,
+    note: capture.note,
+    preview: capture.preview,
+    isProcessed: capture.isProcessed,
+  };
+}
+
+export async function listCaptures() {
+  const records = await pb.collection(COLLECTIONS.captures).getFullList<CaptureRecord>({ sort: "-created", requestKey: null });
+  return records.map(captureFromRecord);
 }
 
 export async function loadCurrentSession() {

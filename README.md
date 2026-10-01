@@ -28,6 +28,7 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 - Google OAuth authentication through PocketBase
 - User-scoped PocketBase persistence for projects, tasks, focused time, and the active Pomodoro session
 - Profile page with account details, focus totals, and Pomodoro history
+- Capture inbox for links and thoughts with rich previews for YouTube videos, social posts, articles, and Google Drive files
 
 ## Tech Stack
 
@@ -52,9 +53,15 @@ No environment variables are required.
 ## PocketBase setup
 
 The frontend connects to `https://pb1.madebynz.xyz` and expects the
-`projects`, `tasks`, `categories`, `pomodoro_sessions`, and
+`projects`, `tasks`, `categories`, `captures`, `pomodoro_sessions`, and
 `pomodoro_completion_receipts` collections. Their fields,
 relations, indexes, and owner-only API rules are available in `pb_schema.json`.
+
+Copy `pb_hooks/link_preview.pb.js` into your PocketBase `pb_hooks` directory to
+enable capture link previews. It adds an authenticated
+`GET /api/pokus/link-preview?url=` route that reads public page metadata
+server-side. Without it, captures still work and fall back to built-in YouTube
+thumbnails and type-specific cards.
 
 New and renamed task titles have a 160-character maximum; project titles remain
 limited to 120 characters. Existing legacy task titles are preserved when only
