@@ -140,6 +140,56 @@ export function useProjects() {
     [replaceProjects, projectsRef],
   );
 
+  /** Adds and removes captures on one project with PocketBase `+`/`-` modifiers, so concurrent edits don't overwrite each other. */
+  const changeProjectCaptures = useCallback(
+    async (projectId: string, add: string[], remove: string[]) => {
+      requireConnection();
+      const previousProject = projectsRef.current.find((project) => project.id === projectId);
+      if (!previousProject || (!add.length && !remove.length)) return false;
+      const current = previousProject.captureIds ?? [];
+      const captureIds = [...current.filter((id) => !remove.includes(id)), ...add.filter((id) => !current.includes(id))];
+      replaceProjects(projectsRef.current.map((project) => project.id === projectId ? { ...project, captureIds } : project));
+      try {
+        const body: Record<string, string[]> = {};
+        if (add.length) body["captures+"] = add;
+        if (remove.length) body["captures-"] = remove;
+        const record = await pb.collection(COLLECTIONS.projects).update<ProjectRecord>(projectId, body, { requestKey: null });
+        const savedProject = projectFromRecord(record);
+        replaceProjects(projectsRef.current.map((project) => project.id === projectId ? savedProject : project));
+        return savedProject;
+      } catch (error) {
+        replaceProjects(projectsRef.current.map((project) => project.id === projectId ? previousProject : project));
+        console.error("Failed to update project captures in PocketBase:", error);
+        throw error;
+      }
+    },
+    [replaceProjects, projectsRef],
+  );
+
+  /** Puts a capture in exactly the given projects. */
+  const setCaptureProjects = useCallback(
+    async (captureId: string, projectIds: string[]) => {
+      const changes = projectsRef.current.flatMap((project) => {
+        const contains = project.captureIds?.includes(captureId) ?? false;
+        const wanted = projectIds.includes(project.id);
+        if (contains === wanted) return [];
+        return [changeProjectCaptures(project.id, wanted ? [captureId] : [], wanted ? [] : [captureId])];
+      });
+      const failed = (await Promise.allSettled(changes)).find((result) => result.status === "rejected");
+      if (failed) throw failed.reason;
+    },
+    [changeProjectCaptures, projectsRef],
+  );
+
+  /** Drops a deleted capture from projects locally; PocketBase clears the relation itself. */
+  const reconcileDeletedCapture = useCallback(
+    (captureId: string) => {
+      if (!projectsRef.current.some((project) => project.captureIds?.includes(captureId))) return;
+      replaceProjects(projectsRef.current.map((project) => project.captureIds?.includes(captureId) ? { ...project, captureIds: project.captureIds.filter((id) => id !== captureId) } : project));
+    },
+    [replaceProjects, projectsRef],
+  );
+
   return {
     projects,
     isLoading,
@@ -148,6 +198,9 @@ export function useProjects() {
     deleteProject,
     setProjectArchived,
     updateProject,
+    changeProjectCaptures,
+    setCaptureProjects,
+    reconcileDeletedCapture,
     setProjectStatus: useCallback(async (projectId: string, status: ProjectStatus) => updateProject(projectId, {
       title: projectsRef.current.find((project) => project.id === projectId)?.title ?? "",
       description: projectsRef.current.find((project) => project.id === projectId)?.description ?? "",

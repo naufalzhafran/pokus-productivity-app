@@ -75,6 +75,15 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByRole("button", { name: "Focus on Review release notes" })).toBeDisabled();
   });
 
+  it("switches between the Tasks and Captures tabs", async () => {
+    const user = userEvent.setup();
+    render(<Detail capturesPanel={<p>Saved links</p>} captureCount={2} />);
+    expect(screen.getByRole("tab", { name: /Tasks/ })).toHaveAttribute("aria-selected", "true");
+    await user.click(screen.getByRole("tab", { name: /Captures/ }));
+    expect(screen.getByText("Saved links")).toBeVisible();
+    await waitFor(() => expect(screen.queryByRole("list", { name: "Launch tasks" })).not.toBeInTheDocument());
+  });
+
   it("shows tasks without a project and a not-found state", () => {
     const { rerender } = render(<Detail projectId={NO_PROJECT_ID} tasks={[{ ...task, projectId: null }]} />);
     expect(screen.getByRole("heading", { level: 1, name: "No project" })).toBeInTheDocument();

@@ -11,10 +11,11 @@ interface ProjectCardProps {
   project: Project | null;
   href: string;
   stats?: ProjectStats;
+  captureCount?: number;
   today: string;
 }
 
-export function ProjectCard({ project, href, stats = EMPTY_STATS, today }: ProjectCardProps) {
+export function ProjectCard({ project, href, stats = EMPTY_STATS, captureCount = 0, today }: ProjectCardProps) {
   const title = project?.title ?? "No project";
   const progress = stats.taskCount ? Math.round((stats.completedCount / stats.taskCount) * 100) : 0;
   const due = dueLabel(project?.dueDate, today);
@@ -38,7 +39,10 @@ export function ProjectCard({ project, href, stats = EMPTY_STATS, today }: Proje
         </div>
         <p className="flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
           <span>{stats.taskCount ? `${stats.completedCount}/${stats.taskCount} ${stats.taskCount === 1 ? "task" : "tasks"} done` : "No tasks yet"}</span>
-          {stats.focusedSeconds ? <span>{formatFocused(stats.focusedSeconds)}</span> : null}
+          <span className="flex gap-3">
+            {captureCount ? <span>{captureCount} {captureCount === 1 ? "capture" : "captures"}</span> : null}
+            {stats.focusedSeconds ? <span>{formatFocused(stats.focusedSeconds)}</span> : null}
+          </span>
         </p>
       </div>
     </a>

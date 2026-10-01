@@ -1,10 +1,161 @@
 [
   {
-    "id": "pbc_484305853",
+    "id": "pbc_captures01",
     "listRule": "owner = @request.auth.id",
     "viewRule": "owner = @request.auth.id",
     "createRule": "@request.auth.id != '' && owner = @request.auth.id",
     "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false",
+    "deleteRule": "owner = @request.auth.id",
+    "name": "captures",
+    "type": "base",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "_pb_users_auth_",
+        "help": "",
+        "hidden": false,
+        "id": "relation3479234172",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "owner",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "selcapkind001",
+        "maxSelect": 1,
+        "name": "kind",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "note",
+          "article",
+          "social",
+          "video",
+          "drive"
+        ]
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "Captured http(s) link; empty for plain notes",
+        "hidden": false,
+        "id": "txtcapurl0001",
+        "max": 2048,
+        "min": 0,
+        "name": "url",
+        "pattern": "^$|^https?://\\S+$",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "txtcaptitle01",
+        "max": 300,
+        "min": 0,
+        "name": "title",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "txtcapnote001",
+        "max": 10000,
+        "min": 0,
+        "name": "note",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "boolcapdone01",
+        "name": "isProcessed",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "help": "Cached link metadata: title, description, image, siteName, icon, author",
+        "hidden": false,
+        "id": "jsoncapprev01",
+        "maxSize": 10000,
+        "name": "preview",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "json"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_captures_owner_processed ON captures (owner, isProcessed)"
+    ],
+    "created": "2026-10-01 00:00:00.000Z",
+    "updated": "2026-10-01 00:00:00.000Z",
+    "system": false
+  },
+  {
+    "id": "pbc_484305853",
+    "listRule": "owner = @request.auth.id",
+    "viewRule": "owner = @request.auth.id",
+    "createRule": "@request.auth.id != '' && owner = @request.auth.id && (@request.body.captures:length = 0 || @request.body.captures.owner = @request.auth.id)",
+    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false && (@request.body.captures:length = 0 || @request.body.captures.owner = @request.auth.id)",
     "deleteRule": "owner = @request.auth.id",
     "name": "projects",
     "type": "base",
@@ -108,6 +259,20 @@
         "type": "text"
       },
       {
+        "cascadeDelete": false,
+        "collectionId": "pbc_captures01",
+        "help": "Captures this project contains; a capture can belong to many projects",
+        "hidden": false,
+        "id": "relprjcaps001",
+        "maxSelect": 1000,
+        "minSelect": 0,
+        "name": "captures",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
         "hidden": false,
         "id": "autodate2990389176",
         "name": "created",
@@ -132,7 +297,7 @@
       "CREATE INDEX idx_projects_owner ON projects (owner)"
     ],
     "created": "2026-07-15 02:31:16.847Z",
-    "updated": "2026-07-21 03:40:00.000Z",
+    "updated": "2026-10-01 00:00:00.000Z",
     "system": false
   },
   {
@@ -638,156 +803,5 @@
     "indexes": [
       "CREATE INDEX idx_receipts_owner ON pomodoro_completion_receipts (owner)"
     ]
-  },
-  {
-    "id": "pbc_captures01",
-    "listRule": "owner = @request.auth.id",
-    "viewRule": "owner = @request.auth.id",
-    "createRule": "@request.auth.id != '' && owner = @request.auth.id",
-    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false",
-    "deleteRule": "owner = @request.auth.id",
-    "name": "captures",
-    "type": "base",
-    "fields": [
-      {
-        "autogeneratePattern": "[a-z0-9]{15}",
-        "help": "",
-        "hidden": false,
-        "id": "text3208210256",
-        "max": 15,
-        "min": 15,
-        "name": "id",
-        "pattern": "^[a-z0-9]+$",
-        "presentable": false,
-        "primaryKey": true,
-        "required": true,
-        "system": true,
-        "type": "text"
-      },
-      {
-        "cascadeDelete": true,
-        "collectionId": "_pb_users_auth_",
-        "help": "",
-        "hidden": false,
-        "id": "relation3479234172",
-        "maxSelect": 1,
-        "minSelect": 0,
-        "name": "owner",
-        "presentable": false,
-        "required": true,
-        "system": false,
-        "type": "relation"
-      },
-      {
-        "help": "",
-        "hidden": false,
-        "id": "selcapkind001",
-        "maxSelect": 1,
-        "name": "kind",
-        "presentable": false,
-        "required": true,
-        "system": false,
-        "type": "select",
-        "values": [
-          "note",
-          "article",
-          "social",
-          "video",
-          "drive"
-        ]
-      },
-      {
-        "autogeneratePattern": "",
-        "help": "Captured http(s) link; empty for plain notes",
-        "hidden": false,
-        "id": "txtcapurl0001",
-        "max": 2048,
-        "min": 0,
-        "name": "url",
-        "pattern": "^$|^https?://\\S+$",
-        "presentable": false,
-        "primaryKey": false,
-        "required": false,
-        "system": false,
-        "type": "text"
-      },
-      {
-        "autogeneratePattern": "",
-        "help": "",
-        "hidden": false,
-        "id": "txtcaptitle01",
-        "max": 300,
-        "min": 0,
-        "name": "title",
-        "pattern": "",
-        "presentable": false,
-        "primaryKey": false,
-        "required": false,
-        "system": false,
-        "type": "text"
-      },
-      {
-        "autogeneratePattern": "",
-        "help": "",
-        "hidden": false,
-        "id": "txtcapnote001",
-        "max": 10000,
-        "min": 0,
-        "name": "note",
-        "pattern": "",
-        "presentable": false,
-        "primaryKey": false,
-        "required": false,
-        "system": false,
-        "type": "text"
-      },
-      {
-        "help": "",
-        "hidden": false,
-        "id": "boolcapdone01",
-        "name": "isProcessed",
-        "presentable": false,
-        "required": false,
-        "system": false,
-        "type": "bool"
-      },
-      {
-        "help": "Cached link metadata: title, description, image, siteName, icon, author",
-        "hidden": false,
-        "id": "jsoncapprev01",
-        "maxSize": 10000,
-        "name": "preview",
-        "presentable": false,
-        "required": false,
-        "system": false,
-        "type": "json"
-      },
-      {
-        "hidden": false,
-        "id": "autodate2990389176",
-        "name": "created",
-        "onCreate": true,
-        "onUpdate": false,
-        "presentable": false,
-        "system": false,
-        "type": "autodate"
-      },
-      {
-        "hidden": false,
-        "id": "autodate3332085495",
-        "name": "updated",
-        "onCreate": true,
-        "onUpdate": true,
-        "presentable": false,
-        "system": false,
-        "type": "autodate"
-      }
-    ],
-    "indexes": [
-      "CREATE INDEX idx_captures_owner_processed ON captures (owner, isProcessed)"
-    ],
-    "created": "2026-10-01 00:00:00.000Z",
-    "updated": "2026-10-01 00:00:00.000Z",
-    "system": false
   }
 ]

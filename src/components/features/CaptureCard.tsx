@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from "react";
-import { CheckCheck, CirclePlay, ClipboardList, ExternalLink, File, FileText, Folder, HardDrive, MessagesSquare, MoreHorizontal, Newspaper, PenTool, Pencil, Play, Presentation, RefreshCw, Sheet, StickyNote, Trash2, Undo2, type LucideIcon } from "lucide-react";
+import { CheckCheck, CirclePlay, ClipboardList, ExternalLink, File, FileText, Folder, FolderInput, FolderMinus, HardDrive, MessagesSquare, MoreHorizontal, Newspaper, PenTool, Pencil, Play, Presentation, RefreshCw, Sheet, StickyNote, Trash2, Undo2, type LucideIcon } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CAPTURE_KIND_LABELS, captureDisplayTitle, captureHost } from "@/lib/capture";
 import { driveApp, socialSource, youtubeEmbedUrl, youtubeThumbnail, youtubeVideoId, type DriveApp } from "@/lib/link-preview";
+import { projectHash } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import type { Capture, CaptureKind } from "@/types/capture";
+import type { Project } from "@/types/task";
 
 const captureKindIcons: Record<CaptureKind, LucideIcon> = { note: StickyNote, article: Newspaper, social: MessagesSquare, video: CirclePlay, drive: HardDrive };
 
@@ -119,12 +121,24 @@ interface CaptureCardProps {
   onEdit: () => void;
   onRefreshPreview: () => void;
   onDelete: () => void;
+  /** Projects that contain this capture, shown as links. */
+  projects?: Project[];
+  onOrganize?: () => void;
+  /** Set when the card is shown inside a project. */
+  onRemoveFromProject?: () => void;
 }
 
-export function CaptureCard({ capture, readOnly, pending, loadingPreview, onToggleProcessed, onEdit, onRefreshPreview, onDelete }: CaptureCardProps) {
+export function CaptureCard({ capture, readOnly, pending, loadingPreview, onToggleProcessed, onEdit, onRefreshPreview, onDelete, projects = [], onOrganize, onRemoveFromProject }: CaptureCardProps) {
   const title = captureDisplayTitle(capture);
   return <article aria-busy={pending || loadingPreview} aria-label={title} className="flex min-w-0 flex-col overflow-hidden rounded-[min(var(--radius-4xl),24px)] border bg-card text-card-foreground">
     <CapturePreview capture={capture} loading={loadingPreview} />
+    {projects.length ? <ul aria-label="In projects" className="flex flex-wrap gap-1.5 px-4 pb-3">
+      {projects.map((project) => <li key={project.id} className="min-w-0">
+        <a href={projectHash(project.id)} className="flex max-w-full items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
+          <Folder aria-hidden="true" className="size-3 shrink-0" /><span className="truncate">{project.title}</span>
+        </a>
+      </li>)}
+    </ul> : null}
     <div className="mt-auto flex items-center gap-1 border-t py-1.5 pl-4 pr-2">
       <p className="mr-auto truncate text-xs text-muted-foreground">
         {CAPTURE_KIND_LABELS[capture.kind]} · <time dateTime={new Date(capture.createdAt).toISOString()}>{dateFormatter.format(capture.createdAt)}</time>
@@ -137,6 +151,8 @@ export function CaptureCard({ capture, readOnly, pending, loadingPreview, onTogg
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${title}`} disabled={pending} />}><MoreHorizontal /></DropdownMenuTrigger>
         <DropdownMenuContent align="end"><DropdownMenuGroup>
+          {onOrganize ? <DropdownMenuItem onClick={onOrganize} disabled={readOnly}><FolderInput />Add to projects…</DropdownMenuItem> : null}
+          {onRemoveFromProject ? <DropdownMenuItem onClick={onRemoveFromProject} disabled={readOnly}><FolderMinus />Remove from project</DropdownMenuItem> : null}
           <DropdownMenuItem onClick={onEdit} disabled={readOnly}><Pencil />Edit</DropdownMenuItem>
           {capture.url ? <DropdownMenuItem onClick={onRefreshPreview} disabled={readOnly || loadingPreview}><RefreshCw />Refresh preview</DropdownMenuItem> : null}
           <DropdownMenuItem variant="destructive" onClick={onDelete} disabled={readOnly}><Trash2 />Delete</DropdownMenuItem>

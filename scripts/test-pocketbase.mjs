@@ -72,4 +72,31 @@ try {
   const result = await sendSessionOperation(owner, op({ ...discarded, mode: 'running', isActive: true }));
   assert.equal(result.mode, 'discarded');
   console.log('PASS: atomic credit, duplicate retry, concurrent clients, lost response, deleted task, rollback, immutable terminal sessions and receipts.');
+
+  // Projects contain captures through a many-to-many `captures` relation.
+  const capture = (note) => pb.collection('captures').create({ owner, kind: 'note', note });
+  const [first, second] = await Promise.all([capture('First'), capture('Second')]);
+  const project = await pb.collection('projects').create({ owner, title: 'Capture links', isDone: false, status: 'active' });
+  const otherProject = await pb.collection('projects').create({ owner, title: 'Other', isDone: false, status: 'active', captures: [first.id] });
+  await Promise.all([
+    pb.collection('projects').update(project.id, { 'captures+': [first.id] }),
+    pb.collection('projects').update(project.id, { 'captures+': [second.id] }),
+  ]);
+  assert.deepEqual([...(await pb.collection('projects').getOne(project.id)).captures].sort(), [first.id, second.id].sort());
+  await pb.collection('projects').update(project.id, { 'captures-': [second.id] });
+  assert.deepEqual((await pb.collection('projects').getOne(project.id)).captures, [first.id]);
+  await pb.collection('projects').update(project.id, { title: 'Renamed' });
+  assert.deepEqual((await pb.collection('projects').getOne(project.id)).captures, [first.id]);
+
+  const stranger = await admin.collection('users').create({ email: `pokus-other-${Date.now()}@example.com`, password: 'Pokus-test-user-2026!', passwordConfirm: 'Pokus-test-user-2026!' });
+  const foreign = await admin.collection('captures').create({ owner: stranger.id, kind: 'note', note: 'Not yours' });
+  await assert.rejects(pb.collection('projects').update(project.id, { 'captures+': [foreign.id] }));
+  await assert.rejects(pb.collection('projects').create({ owner, title: 'Sneaky', isDone: false, captures: [foreign.id] }));
+
+  await pb.collection('captures').delete(first.id);
+  assert.deepEqual((await pb.collection('projects').getOne(project.id)).captures, []);
+  assert.deepEqual((await pb.collection('projects').getOne(otherProject.id)).captures, []);
+  await pb.collection('projects').delete(otherProject.id);
+  assert.equal((await pb.collection('captures').getOne(second.id)).note, 'Second');
+  console.log('PASS: project capture links add and remove atomically, reject foreign captures, clear deleted captures, and keep captures when a project is deleted.');
 } finally { await vite.close(); }

@@ -24,6 +24,7 @@ export interface ProjectRecord extends RecordModel {
   isDone: boolean;
   status?: Project["status"];
   dueDate?: string;
+  captures?: string[];
   created: string;
 }
 
@@ -88,6 +89,7 @@ export function projectFromRecord(record: ProjectRecord): Project {
     status: record.status || "active",
     createdAt: Date.parse(record.created),
     dueDate: record.dueDate || null,
+    captureIds: record.captures ?? [],
   };
 }
 
@@ -128,6 +130,7 @@ export function projectToRecord(project: Project) {
     isDone: project.isArchived ?? project.isDone ?? false,
     status: project.status ?? "active",
     dueDate: project.dueDate ?? "",
+    captures: project.captureIds ?? [],
   };
 }
 

@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ArrowLeft, CalendarDays, FolderSearch, MoreHorizontal, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Archive, ArrowLeft, CalendarDays, FolderSearch, Inbox, ListTodo, MoreHorizontal, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectEditor } from "@/components/features/ProjectEditor";
 import { ProjectTasks, type ProjectTasksProps } from "@/components/features/ProjectTasks";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
@@ -21,11 +22,14 @@ interface ProjectDetailPageProps extends TaskProps {
   onUpdateProject: (id: string, input: ProjectInput) => Promise<unknown>;
   onArchiveProject: (id: string, archived: boolean) => Promise<unknown>;
   onDeleteProject: (id: string) => Promise<unknown>;
+  /** The project's Captures tab; omitted for tasks without a project. */
+  capturesPanel?: ReactNode;
+  captureCount?: number;
 }
 
 const backLink = <a href="#projects" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 self-start")}><ArrowLeft />Projects</a>;
 
-export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject, onDeleteProject, ...taskProps }: ProjectDetailPageProps) {
+export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject, onDeleteProject, capturesPanel, captureCount = 0, ...taskProps }: ProjectDetailPageProps) {
   const { readOnly, projects, tasks, canStartPomodoro } = taskProps;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [editing, setEditing] = useState(false);
@@ -95,9 +99,22 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         {archived ? <p className="text-sm text-muted-foreground">This project is archived. Restore it to focus on its tasks again.</p> : null}
       </header>
-      <section aria-label="Project tasks">
-        <ProjectTasks {...taskProps} project={project} canStartPomodoro={canStartPomodoro && !archived} />
-      </section>
+      {capturesPanel ? (
+        <Tabs defaultValue="tasks">
+          <TabsList aria-label="Project content">
+            <TabsTrigger value="tasks"><ListTodo />Tasks <span className="text-xs font-normal text-muted-foreground">{stats?.openCount ?? 0}</span></TabsTrigger>
+            <TabsTrigger value="captures"><Inbox />Captures <span className="text-xs font-normal text-muted-foreground">{captureCount}</span></TabsTrigger>
+          </TabsList>
+          <TabsContent value="tasks">
+            <ProjectTasks {...taskProps} project={project} canStartPomodoro={canStartPomodoro && !archived} />
+          </TabsContent>
+          <TabsContent value="captures">{capturesPanel}</TabsContent>
+        </Tabs>
+      ) : (
+        <section aria-label="Project tasks">
+          <ProjectTasks {...taskProps} project={project} canStartPomodoro={canStartPomodoro && !archived} />
+        </section>
+      )}
       <ResponsiveOverlay open={editing} onOpenChange={setEditing} title="Edit project">
         {editing && project ? <ProjectEditor project={project} openTaskCount={stats?.openCount ?? 0} onCancel={() => setEditing(false)} onSave={async (input) => { await onUpdateProject(project.id, input); setEditing(false); }} /> : null}
       </ResponsiveOverlay>

@@ -83,3 +83,11 @@ export function captureDisplayTitle(capture: Pick<Capture, "title" | "url" | "no
   }
   return "Untitled capture";
 }
+
+/** Case-insensitive search across a capture's own text and its link preview. */
+export function captureMatches(capture: Capture, search: string) {
+  const needle = search.trim().toLocaleLowerCase();
+  if (!needle) return true;
+  return [capture.title, capture.note, capture.url ?? "", capture.preview?.title ?? "", capture.preview?.description ?? "", capture.preview?.author ?? ""]
+    .some((value) => value.toLocaleLowerCase().includes(needle));
+}

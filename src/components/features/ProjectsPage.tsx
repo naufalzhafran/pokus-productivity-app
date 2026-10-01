@@ -25,9 +25,11 @@ interface ProjectsPageProps {
   onOpenProject: (id: string) => void;
   onUpdateCategory: (id: string, input: CategoryInput) => Promise<unknown>;
   onDeleteCategory: (id: string) => Promise<unknown>;
+  /** Ids of captures that still exist, so deleted captures aren't counted. */
+  captureIds?: ReadonlySet<string>;
 }
 
-export function ProjectsPage({ readOnly, projects, tasks, categories, viewState, setViewState, onCreateProject, onOpenProject, onUpdateCategory, onDeleteCategory }: ProjectsPageProps) {
+export function ProjectsPage({ readOnly, projects, tasks, categories, viewState, setViewState, onCreateProject, onOpenProject, onUpdateCategory, onDeleteCategory, captureIds }: ProjectsPageProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -68,7 +70,7 @@ export function ProjectsPage({ readOnly, projects, tasks, categories, viewState,
       </div>
       {visible.length || showNoProject ? (
         <ul aria-label={`${filterLabels[filter]} projects`} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((project) => <li key={project.id} className="min-w-0"><ProjectCard project={project} href={projectHash(project.id)} stats={stats.get(project.id)} today={today} /></li>)}
+          {visible.map((project) => <li key={project.id} className="min-w-0"><ProjectCard project={project} href={projectHash(project.id)} stats={stats.get(project.id)} captureCount={(project.captureIds ?? []).filter((id) => !captureIds || captureIds.has(id)).length} today={today} /></li>)}
           {showNoProject ? <li className="min-w-0"><ProjectCard project={null} href={projectHash(NO_PROJECT_ID)} stats={noProjectStats} today={today} /></li> : null}
         </ul>
       ) : (

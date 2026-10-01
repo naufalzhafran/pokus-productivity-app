@@ -34,6 +34,8 @@ export interface Project {
   /** Legacy test/record compatibility. PocketBase still stores this column. */
   isDone?: boolean;
   dueDate?: string | null;
+  /** Captures this project contains, in the order they were added. */
+  captureIds?: string[];
 }
 
 export interface ProjectInput {

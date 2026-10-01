@@ -29,6 +29,7 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 - User-scoped PocketBase persistence for projects, tasks, focused time, and the active Pomodoro session
 - Profile page with account details, focus totals, and Pomodoro history
 - Capture inbox for links and thoughts with rich previews for YouTube videos, social posts, articles, and Google Drive files
+- Projects contain captures: add inbox captures to one or more projects, capture straight into a project, and browse them on its Captures tab
 
 ## Tech Stack
 

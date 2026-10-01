@@ -13,6 +13,8 @@ function normalize(input: CaptureInput) {
   return { kind: input.kind, url: input.url?.trim() || null, title: input.title.trim(), note: input.note.trim() };
 }
 
+export type CaptureStore = ReturnType<typeof useCaptures>;
+
 export function useCaptures() {
   const { items: captures, itemsRef: ref, replace, isLoading, loadError } = useCachedResource<Capture>("captures", listCaptures);
   const [previewing, setPreviewing] = useState<ReadonlySet<string>>(() => new Set());
@@ -45,9 +47,9 @@ export function useCaptures() {
     }
   }, [mutate, ref]);
 
-  const createCapture = useCallback(async (input: CaptureInput) => {
+  const createCapture = useCallback(async (input: CaptureInput, { isProcessed = false } = {}) => {
     requireConnection();
-    const capture: Capture = { id: createPocketBaseId(), ...normalize(input), preview: input.preview ?? null, isProcessed: false, createdAt: Date.now(), updatedAt: Date.now() };
+    const capture: Capture = { id: createPocketBaseId(), ...normalize(input), preview: input.preview ?? null, isProcessed, createdAt: Date.now(), updatedAt: Date.now() };
     const record = await pb.collection(COLLECTIONS.captures).create<CaptureRecord>(captureToRecord(capture), { requestKey: null });
     const saved = captureFromRecord(record);
     replace([saved, ...ref.current]);

@@ -25,6 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePomodoroSession } from "@/hooks/usePomodoroSession";
 import { useProjects } from "@/hooks/useProjects";
+import { useCaptures, type CaptureStore } from "@/hooks/useCaptures";
 import { useCategories } from "@/hooks/useCategories";
 import { useTasks } from "@/hooks/useTasks";
 import { useTimerClock } from "@/hooks/useTimerClock";
@@ -37,6 +38,7 @@ import {
 } from "@/lib/selection-storage";
 import { parseRoute, projectHash, routeHash, type AppPage, type AppRoute } from "@/lib/routes";
 import { isProjectArchived, NO_PROJECT_ID } from "@/lib/workspace";
+import type { CaptureInput } from "@/types/capture";
 import type { PomodoroSession } from "@/types/task";
 
 const loadProfilePage = () => import("@/components/features/ProfilePage");
@@ -49,6 +51,7 @@ const ProfilePage = lazy(() =>
     default: module.ProfilePage,
   })),
 );
+const ProjectCaptures = lazy(() => import("@/components/features/ProjectCaptures").then((module) => ({ default: module.ProjectCaptures })));
 const loadCapturePage = () => import("@/components/features/CapturePage");
 const CapturePage = lazy(() => loadCapturePage().then((module) => ({ default: module.CapturePage })));
 const loadTimerPage = () => import("@/components/features/TimerPage");
@@ -121,6 +124,9 @@ export default function App() {
     deleteProject,
     setProjectArchived,
     updateProject,
+    changeProjectCaptures,
+    setCaptureProjects,
+    reconcileDeletedCapture,
     isLoading: areProjectsLoading,
     loadError: projectsLoadError,
   } = useProjects();
@@ -132,6 +138,34 @@ export default function App() {
     isLoading: areCategoriesLoading,
     loadError: categoriesLoadError,
   } = useCategories();
+
+  const captures = useCaptures();
+  const { deleteCapture, createCapture, setCaptureProcessed } = captures;
+  const captureStore = useMemo<CaptureStore>(() => ({
+    ...captures,
+    deleteCapture: async (id: string) => {
+      const deleted = await deleteCapture(id);
+      if (deleted) reconcileDeletedCapture(id);
+      return deleted;
+    },
+  }), [captures, deleteCapture, reconcileDeletedCapture]);
+  const captureIds = useMemo(() => new Set(captures.captures.map((capture) => capture.id)), [captures.captures]);
+
+  const organizeCapture = useCallback(async (captureId: string, projectIds: string[], markProcessed: boolean) => {
+    await setCaptureProjects(captureId, projectIds);
+    if (markProcessed) await setCaptureProcessed(captureId, true);
+  }, [setCaptureProcessed, setCaptureProjects]);
+  const addCapturesToProject = useCallback(async (projectId: string, ids: string[], markProcessed: boolean) => {
+    await changeProjectCaptures(projectId, ids, []);
+    if (!markProcessed) return;
+    const inbox = captures.captures.filter((capture) => ids.includes(capture.id) && !capture.isProcessed);
+    await Promise.all(inbox.map((capture) => setCaptureProcessed(capture.id, true)));
+  }, [captures.captures, changeProjectCaptures, setCaptureProcessed]);
+  const removeCaptureFromProject = useCallback((projectId: string, captureId: string) => changeProjectCaptures(projectId, [], [captureId]), [changeProjectCaptures]);
+  const captureToProject = useCallback(async (projectId: string, input: CaptureInput) => {
+    const saved = await createCapture(input, { isProcessed: true });
+    await changeProjectCaptures(projectId, [saved.id], []);
+  }, [changeProjectCaptures, createCapture]);
 
   const taskMap = useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
@@ -387,7 +421,7 @@ export default function App() {
     return <WorkspaceSkeleton />;
   }
 
-  const loadError = tasksLoadError ?? projectsLoadError ?? categoriesLoadError ?? sessionLoadError;
+  const loadError = tasksLoadError ?? projectsLoadError ?? categoriesLoadError ?? captures.loadError ?? sessionLoadError;
   const timerMode = currentSession?.mode;
 
   return (
@@ -471,6 +505,11 @@ export default function App() {
             onUpdateProject={updateProject}
             onArchiveProject={handleArchiveProject}
             onDeleteProject={handleDeleteProject}
+            captureCount={(projectMap.get(route.projectId)?.captureIds ?? []).filter((id) => captureIds.has(id)).length}
+            capturesPanel={projectMap.has(route.projectId) ? <Suspense fallback={<Skeleton className="h-72 w-full" />}>
+              <ProjectCaptures project={projectMap.get(route.projectId)!} store={captureStore} projects={projects} readOnly={!canEdit}
+                onOrganize={organizeCapture} onAddCaptures={addCapturesToProject} onRemoveCapture={removeCaptureFromProject} onCaptureToProject={captureToProject} />
+            </Suspense> : undefined}
           /> : <ProjectsPage
             readOnly={!canEdit}
             projects={projects}
@@ -482,13 +521,14 @@ export default function App() {
             onOpenProject={openProject}
             onUpdateCategory={updateCategory}
             onDeleteCategory={handleDeleteCategory}
+            captureIds={captures.isLoading ? undefined : captureIds}
           />}
           </Suspense>
         </div>
       ) : page === "capture" ? (
         <div className="screen-panel">
           <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
-            <CapturePage readOnly={!canEdit} />
+            <CapturePage readOnly={!canEdit} store={captureStore} projects={projects} onOrganize={organizeCapture} />
           </Suspense>
         </div>
       ) : page === "profile" ? (
