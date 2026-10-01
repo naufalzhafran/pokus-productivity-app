@@ -109,6 +109,7 @@
   }
 }
 @layer components {
+  .app-header { -webkit-font-smoothing: auto; }
   .app-main { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
   .app-notice { @apply mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2.5 text-sm; }
   .focus-screen { padding-top: clamp(0rem, 2svh, 1.5rem); }

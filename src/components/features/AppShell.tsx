@@ -26,24 +26,30 @@ export function AppShell({ page, session, remainingSeconds = session?.remainingS
   const navigation = (mobile: boolean) => <nav aria-label="Primary navigation" className={cn("flex gap-1", mobile ? "mx-auto max-w-md" : "w-80")}>
     {([{ page: "timer", label: "Timer", Icon: Timer }, { page: "tasks", label: "Tasks", Icon: ListTodo }, { page: "profile", label: "Profile", Icon: UserRound }] as const).map(({ page: value, label, Icon }) => <a key={value} href={`#${value}`} onClick={() => { onNavigateIntent?.(value); onNavigate(value); }}
       onMouseEnter={() => onNavigateIntent?.(value)} onFocus={() => onNavigateIntent?.(value)} onTouchStart={() => onNavigateIntent?.(value)}
-      className={cn(buttonVariants({ variant: page === value ? "secondary" : "ghost" }), "min-h-12 flex-1", mobile && "flex-col gap-1 text-xs")}
+      className={cn(buttonVariants({ variant: page === value ? "secondary" : "ghost" }), "min-h-12 flex-1", mobile && "h-11 min-h-11 flex-col gap-0.5 px-2 py-1 text-xs")}
       aria-current={page === value ? "page" : undefined} aria-label={value === "timer" && timerStatus ? `Timer, ${timerStatus.toLowerCase()}` : label}>
       <Icon aria-hidden="true" /><span>{label}</span>
     </a>)}
   </nav>;
   return <div className="min-h-dvh bg-background text-foreground">
     <a href="#main-content" className="fixed left-3 top-3 z-50 -translate-y-20 rounded-md bg-primary px-3 py-2 text-primary-foreground focus:translate-y-0">Skip to content</a>
-    <header className="app-main border-b pt-[env(safe-area-inset-top)]">
+    <header className="app-header app-main border-b bg-background pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex min-h-14 max-w-7xl items-center justify-between gap-3 md:min-h-18">
-        <a href="#timer" onClick={() => onNavigate("timer")} className="flex min-h-11 items-center gap-2 text-lg font-semibold tracking-tight"><img src="/favicon.svg" width="24" height="24" alt="" />Pokus</a>
+        <a href="#timer" onClick={() => onNavigate("timer")} className="flex min-h-11 items-center gap-2 text-lg font-semibold tracking-tight">
+          <svg viewBox="0 0 24 24" width="24" height="24" className="shrink-0 text-primary" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="3" />
+            <circle cx="12" cy="12" r="4" fill="currentColor" />
+          </svg>
+          Pokus
+        </a>
         <div className="hidden md:block">{navigation(false)}</div>
         <span className="text-sm text-muted-foreground md:hidden" aria-label={session?.isActive ? `Pomodoro running, ${display} remaining` : undefined}>{session ? session.isActive ? display : timerStatus : page === "timer" ? "Your focus, at your pace" : null}</span>
       </div>
     </header>
-    <main id="main-content" className="app-main mx-auto w-full max-w-7xl pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 md:pb-10 md:pt-8">
+    <main id="main-content" className="app-main mx-auto w-full max-w-7xl pb-[calc(4rem+env(safe-area-inset-bottom))] pt-4 md:pb-10 md:pt-8">
       {page !== "tasks" ? <h1 ref={headingRef} tabIndex={-1} className="sr-only outline-none md:not-sr-only md:mb-6 md:text-2xl md:font-semibold">{title}</h1> : null}
       {children}
     </main>
-    <div className="app-main fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 md:hidden">{navigation(true)}</div>
+    <div className="app-main fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] pt-1 md:hidden">{navigation(true)}</div>
   </div>;
 }
