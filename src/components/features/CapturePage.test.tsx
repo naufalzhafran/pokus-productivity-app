@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CapturePage } from "@/components/features/CapturePage";
 import type { CaptureStore } from "@/hooks/useCaptures";
+import { knowledgeBySource } from "@/lib/knowledge";
 import type { Capture } from "@/types/capture";
+import type { Knowledge } from "@/types/knowledge";
 import type { Project } from "@/types/task";
 
 const base = { title: "", note: "", preview: null, isProcessed: false, createdAt: 1, updatedAt: 1 };
@@ -50,24 +52,41 @@ describe("CapturePage", () => {
     render(<CapturePage store={captureStore} projects={projects} onOrganize={vi.fn()} />);
 
     const inbox = screen.getByRole("list", { name: "Inbox captures" });
-    expect(within(inbox).getAllByRole("article")).toHaveLength(4);
-    expect(within(inbox).getByRole("button", { name: "Play Deep work talk" })).toBeInTheDocument();
+    expect(within(inbox).getAllByRole("article")).toHaveLength(3);
     expect(within(inbox).getByText("How to get rich without getting lucky")).toBeInTheDocument();
     expect(within(inbox).getByText("Google Sheets")).toBeInTheDocument();
     expect(within(inbox).getByText("Write about focus rituals")).toBeInTheDocument();
-    expect(within(inbox).getByRole("link", { name: "Launch" })).toHaveAttribute("href", "#projects/launch");
 
-    await user.click(within(inbox).getByRole("button", { name: "Play Deep work talk" }));
-    expect(within(inbox).getByTitle("Deep work talk")).toHaveAttribute("src", expect.stringContaining("youtube-nocookie.com/embed/dQw4w9WgXcQ"));
+    await user.click(screen.getByRole("button", { name: "In progress" }));
+    const inProgress = screen.getByRole("list", { name: "Captures in progress" });
+    expect(within(inProgress).getByRole("link", { name: "Launch" })).toHaveAttribute("href", "#projects/launch");
+    await user.click(within(inProgress).getByRole("button", { name: "Play Deep work talk" }));
+    expect(within(inProgress).getByTitle("Deep work talk")).toHaveAttribute("src", expect.stringContaining("youtube-nocookie.com/embed/dQw4w9WgXcQ"));
 
+    await user.click(screen.getByRole("button", { name: /^Inbox/ }));
     await user.click(screen.getByRole("button", { name: "Notes" }));
-    expect(within(inbox).getAllByRole("article")).toHaveLength(1);
+    expect(within(screen.getByRole("list", { name: "Inbox captures" })).getAllByRole("article")).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Mark Newsletter idea as processed" }));
     expect(captureStore.setCaptureProcessed).toHaveBeenCalledWith("idea", true);
 
     await user.click(screen.getByRole("button", { name: "Processed" }));
     await user.click(screen.getByRole("button", { name: "All" }));
     expect(screen.getByRole("link", { name: /^example\.com\/essay/ })).toBeInTheDocument();
+  });
+
+  it("keeps distilled captures in progress, lists their knowledge, and distills from the menu", async () => {
+    const user = userEvent.setup();
+    const onDistill = vi.fn();
+    const note: Knowledge = { id: "note1", title: "Focus rituals compound", summary: "", body: "", projectId: null, linkedProjectIds: [], sourceIds: ["idea"], locator: "Intro", categoryId: null, status: "draft", reviewStep: 0, nextReviewAt: null, createdAt: 1, updatedAt: 1 };
+    render(<CapturePage store={store()} projects={projects} onOrganize={vi.fn()} knowledgeBySource={knowledgeBySource([note])} onDistill={onDistill} />);
+
+    expect(within(screen.getByRole("list", { name: "Inbox captures" })).queryByText("Write about focus rituals")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "In progress" }));
+    await user.click(screen.getByRole("button", { name: /1 note distilled from Newsletter idea/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Knowledge from this source" });
+    expect(within(dialog).getByRole("link", { name: /Focus rituals compound/ })).toHaveAttribute("href", "#knowledge/note1");
+    await user.click(within(dialog).getByRole("button", { name: "Add knowledge" }));
+    expect(onDistill).toHaveBeenCalledWith(expect.objectContaining({ id: "idea" }));
   });
 
   it("adds a capture to projects from its menu", async () => {

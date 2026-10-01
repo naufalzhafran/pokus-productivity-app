@@ -8,7 +8,8 @@ import { CapturePicker } from "@/components/features/CapturePicker";
 import { QuickCapture } from "@/components/features/QuickCapture";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import type { CaptureStore } from "@/hooks/useCaptures";
-import type { CaptureInput } from "@/types/capture";
+import type { Capture, CaptureInput } from "@/types/capture";
+import type { Knowledge } from "@/types/knowledge";
 import type { Project } from "@/types/task";
 
 export interface ProjectCapturesProps {
@@ -20,10 +21,12 @@ export interface ProjectCapturesProps {
   onAddCaptures: (projectId: string, captureIds: string[], markProcessed: boolean) => Promise<unknown>;
   onRemoveCapture: (projectId: string, captureId: string) => Promise<unknown>;
   onCaptureToProject: (projectId: string, input: CaptureInput) => Promise<unknown>;
+  knowledgeBySource?: ReadonlyMap<string, Knowledge[]>;
+  onDistill?: (capture: Capture) => void;
 }
 
 /** The captures a project contains, newest additions first. */
-export function ProjectCaptures({ project, store, projects, readOnly, onOrganize, onAddCaptures, onRemoveCapture, onCaptureToProject }: ProjectCapturesProps) {
+export function ProjectCaptures({ project, store, projects, readOnly, onOrganize, onAddCaptures, onRemoveCapture, onCaptureToProject, knowledgeBySource, onDistill }: ProjectCapturesProps) {
   const [picking, setPicking] = useState(false);
   const captureMap = useMemo(() => new Map(store.captures.map((capture) => [capture.id, capture])), [store.captures]);
   const contained = useMemo(() => [...(project.captureIds ?? [])].reverse().flatMap((id) => captureMap.get(id) ?? []), [captureMap, project.captureIds]);
@@ -36,7 +39,7 @@ export function ProjectCaptures({ project, store, projects, readOnly, onOrganize
       <Button variant="outline" disabled={readOnly || !available.length} onClick={() => setPicking(true)}><FolderInput />Add existing captures</Button>
     </div>
     <CaptureGrid label={`${project.title} captures`} captures={contained} store={store} projects={projects} readOnly={readOnly} onOrganize={onOrganize}
-      currentProject={project} onRemoveFromProject={(captureId) => onRemoveCapture(project.id, captureId)}
+      currentProject={project} onRemoveFromProject={(captureId) => onRemoveCapture(project.id, captureId)} knowledgeBySource={knowledgeBySource} onDistill={onDistill}
       empty={<Empty className="min-h-64 border">
         <EmptyHeader>
           <EmptyMedia variant="icon"><Inbox /></EmptyMedia>

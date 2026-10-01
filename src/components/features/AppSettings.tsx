@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Volume2, Sun, Smartphone } from "lucide-react";
+import { Download, Lightbulb, Volume2, Sun, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +31,7 @@ export function AppSettings() {
     <label className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><Volume2 className="size-4" />Completion sound</span><Checkbox checked={settings.sound} onCheckedChange={(checked) => { updateAppPreferences({ sound: Boolean(checked) }); if (checked) unlockCompletionSound(); }} /></label>
     {settings.sound ? <Button variant="outline" onClick={() => { unlockCompletionSound(); window.setTimeout(playCompletionSound, 100); }}>Test sound</Button> : null}
     <div><label className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><Smartphone className="size-4" />Keep screen awake</span><Checkbox checked={settings.keepAwake} onCheckedChange={(checked) => updateAppPreferences({ keepAwake: Boolean(checked) })} /></label><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Only while a timer is running and Pokus is open. Your phone may release this in low power mode.</p></div>
+    <div><label className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><Lightbulb className="size-4" />Review knowledge after sessions</span><Checkbox checked={settings.reviewAfterSession} onCheckedChange={(checked) => updateAppPreferences({ reviewAfterSession: Boolean(checked) })} /></label><p className="mt-1 text-xs leading-relaxed text-muted-foreground">When a session ends, offer one knowledge note that’s due for review.</p></div>
     <p className="text-xs leading-relaxed text-muted-foreground">Sound plays while Pokus is open. When your phone is locked, the timer catches up when you return.</p>
     <div className="border-t pt-4"><p className="text-sm font-medium">{installed ? "Pokus is installed" : "Pokus on your Home Screen"}</p><p className="mt-1 text-xs text-muted-foreground">{ready ? "Ready for offline use after sign-in." : "Connect to finish preparing offline use."}</p>
       {!installed && (showHelp ? <div className="mt-3 flex flex-col gap-3 text-sm"><p className="leading-relaxed">{ios ? "In Safari, open Share, choose Add to Home Screen, then keep Open as Web App enabled and tap Add." : "Open your browser menu and choose Install app or Add to Home Screen."}</p>

@@ -9,6 +9,7 @@ import type {
 } from "@/types/task";
 import { sanitizeLinkPreview } from "@/lib/link-preview";
 import type { Capture } from "@/types/capture";
+import type { Knowledge } from "@/types/knowledge";
 
 export const COLLECTIONS = {
   projects: "projects",
@@ -16,6 +17,7 @@ export const COLLECTIONS = {
   sessions: "pomodoro_sessions",
   categories: "categories",
   captures: "captures",
+  knowledge: "knowledge",
 } as const;
 
 export interface ProjectRecord extends RecordModel {
@@ -51,8 +53,25 @@ export interface CaptureRecord extends RecordModel {
   url: string;
   title: string;
   note: string;
+  author?: string;
   preview: unknown;
   isProcessed: boolean;
+  created: string;
+  updated: string;
+}
+
+export interface KnowledgeRecord extends RecordModel {
+  title: string;
+  summary: string;
+  body: string;
+  project: string;
+  linkedProjects: string[];
+  sources: string[];
+  locator: string;
+  category: string;
+  status: Knowledge["status"];
+  reviewStep: number;
+  nextReviewAt: number;
   created: string;
   updated: string;
 }
@@ -201,6 +220,7 @@ export function captureFromRecord(record: CaptureRecord): Capture {
     url: record.url || null,
     title: record.title || "",
     note: record.note || "",
+    author: record.author || "",
     preview: sanitizeLinkPreview(record.preview),
     isProcessed: record.isProcessed,
     createdAt: Date.parse(record.created),
@@ -216,6 +236,7 @@ export function captureToRecord(capture: Capture) {
     url: capture.url ?? "",
     title: capture.title,
     note: capture.note,
+    author: capture.author ?? "",
     preview: capture.preview,
     isProcessed: capture.isProcessed,
   };
@@ -224,6 +245,48 @@ export function captureToRecord(capture: Capture) {
 export async function listCaptures() {
   const records = await pb.collection(COLLECTIONS.captures).getFullList<CaptureRecord>({ sort: "-created", requestKey: null });
   return records.map(captureFromRecord);
+}
+
+export function knowledgeFromRecord(record: KnowledgeRecord): Knowledge {
+  return {
+    id: record.id,
+    title: record.title,
+    summary: record.summary || "",
+    body: record.body || "",
+    projectId: record.project || null,
+    linkedProjectIds: record.linkedProjects ?? [],
+    sourceIds: record.sources ?? [],
+    locator: record.locator || "",
+    categoryId: record.category || null,
+    status: record.status === "evergreen" ? "evergreen" : "draft",
+    reviewStep: Math.max(0, Math.floor(record.reviewStep || 0)),
+    nextReviewAt: record.nextReviewAt > 0 ? record.nextReviewAt : null,
+    createdAt: Date.parse(record.created),
+    updatedAt: Date.parse(record.updated),
+  };
+}
+
+export function knowledgeToRecord(knowledge: Knowledge) {
+  return {
+    id: knowledge.id,
+    owner: getAuthenticatedUserId(),
+    title: knowledge.title,
+    summary: knowledge.summary,
+    body: knowledge.body,
+    project: knowledge.projectId ?? "",
+    linkedProjects: knowledge.linkedProjectIds,
+    sources: knowledge.sourceIds,
+    locator: knowledge.locator,
+    category: knowledge.categoryId ?? "",
+    status: knowledge.status,
+    reviewStep: knowledge.reviewStep,
+    nextReviewAt: knowledge.nextReviewAt ?? 0,
+  };
+}
+
+export async function listKnowledge() {
+  const records = await pb.collection(COLLECTIONS.knowledge).getFullList<KnowledgeRecord>({ sort: "-updated", requestKey: null });
+  return records.map(knowledgeFromRecord);
 }
 
 export async function loadCurrentSession() {

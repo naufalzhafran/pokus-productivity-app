@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { CheckCheck, CirclePlay, ClipboardList, ExternalLink, File, FileText, Folder, FolderInput, FolderMinus, HardDrive, MessagesSquare, MoreHorizontal, Newspaper, PenTool, Pencil, Play, Presentation, RefreshCw, Sheet, StickyNote, Trash2, Undo2, type LucideIcon } from "lucide-react";
+import { BookOpen, CheckCheck, CirclePlay, ClipboardList, ExternalLink, File, FileText, Folder, FolderInput, FolderMinus, FolderPlus, HardDrive, Lightbulb, MessagesSquare, MoreHorizontal, Newspaper, PenTool, Pencil, Play, Presentation, RefreshCw, Sheet, StickyNote, Trash2, Undo2, type LucideIcon } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { Capture, CaptureKind } from "@/types/capture";
 import type { Project } from "@/types/task";
 
-const captureKindIcons: Record<CaptureKind, LucideIcon> = { note: StickyNote, article: Newspaper, social: MessagesSquare, video: CirclePlay, drive: HardDrive };
+const captureKindIcons: Record<CaptureKind, LucideIcon> = { note: StickyNote, article: Newspaper, social: MessagesSquare, video: CirclePlay, drive: HardDrive, book: BookOpen };
 
 const driveApps: Record<DriveApp, { label: string; Icon: LucideIcon; tone: string }> = {
   docs: { label: "Google Docs", Icon: FileText, tone: "bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300" },
@@ -97,7 +97,7 @@ export function CapturePreview({ capture, loading = false }: CapturePreviewProps
       <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
         {preview?.icon && kind !== "drive" ? <RemoteImage key={preview.icon} src={preview.icon} className="size-4 shrink-0 rounded-sm" fallback={<KindIcon aria-hidden="true" className="size-4 shrink-0" />} /> : <KindIcon aria-hidden="true" className="size-4 shrink-0" />}
         <span className="truncate font-medium text-foreground/80">{source ?? CAPTURE_KIND_LABELS[kind]}</span>
-        {social?.handle && headline !== social.handle ? <span className="truncate">{social.handle}</span> : kind === "video" && preview?.author ? <span className="truncate">{preview.author}</span> : null}
+        {social?.handle && headline !== social.handle ? <span className="truncate">{social.handle}</span> : kind === "video" && preview?.author ? <span className="truncate">{preview.author}</span> : kind === "book" && capture.author ? <span className="truncate">{capture.author}</span> : null}
       </p>
       {loading && !preview && url ? <div className="flex flex-col gap-2"><Skeleton className="h-4 w-4/5" /><Skeleton className="h-3 w-3/5" /></div> : <>
         {url ? <a href={url} target="_blank" rel="noopener noreferrer" className={cn(titleClass, "rounded-sm hover:underline")}>
@@ -126,18 +126,31 @@ interface CaptureCardProps {
   onOrganize?: () => void;
   /** Set when the card is shown inside a project. */
   onRemoveFromProject?: () => void;
+  /** How many knowledge notes were distilled from this capture. */
+  knowledgeCount?: number;
+  onShowKnowledge?: () => void;
+  onDistill?: () => void;
+  onStartProject?: () => void;
 }
 
-export function CaptureCard({ capture, readOnly, pending, loadingPreview, onToggleProcessed, onEdit, onRefreshPreview, onDelete, projects = [], onOrganize, onRemoveFromProject }: CaptureCardProps) {
+export function CaptureCard({ capture, readOnly, pending, loadingPreview, onToggleProcessed, onEdit, onRefreshPreview, onDelete, projects = [], onOrganize, onRemoveFromProject, knowledgeCount = 0, onShowKnowledge, onDistill, onStartProject }: CaptureCardProps) {
   const title = captureDisplayTitle(capture);
   return <article aria-busy={pending || loadingPreview} aria-label={title} className="flex min-w-0 flex-col overflow-hidden rounded-[min(var(--radius-4xl),24px)] border bg-card text-card-foreground">
     <CapturePreview capture={capture} loading={loadingPreview} />
-    {projects.length ? <ul aria-label="In projects" className="flex flex-wrap gap-1.5 px-4 pb-3">
+    {projects.length || knowledgeCount ? <ul aria-label="Connections" className="flex flex-wrap gap-1.5 px-4 pb-3">
       {projects.map((project) => <li key={project.id} className="min-w-0">
         <a href={projectHash(project.id)} className="flex max-w-full items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
           <Folder aria-hidden="true" className="size-3 shrink-0" /><span className="truncate">{project.title}</span>
         </a>
       </li>)}
+      {knowledgeCount && onShowKnowledge ? <li>
+        <button type="button" onClick={onShowKnowledge} aria-label={`${knowledgeCount} ${knowledgeCount === 1 ? "note" : "notes"} distilled from ${title}`} className="group/chip -my-3 flex items-center py-3">
+          {/* The button keeps a full touch target; the pill inside matches the project chips. */}
+          <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary group-hover/chip:bg-primary/15">
+            <Lightbulb aria-hidden="true" className="size-3 shrink-0" />{knowledgeCount} {knowledgeCount === 1 ? "note" : "notes"}
+          </span>
+        </button>
+      </li> : null}
     </ul> : null}
     <div className="mt-auto flex items-center gap-1 border-t py-1.5 pl-4 pr-2">
       <p className="mr-auto truncate text-xs text-muted-foreground">
@@ -151,7 +164,9 @@ export function CaptureCard({ capture, readOnly, pending, loadingPreview, onTogg
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${title}`} disabled={pending} />}><MoreHorizontal /></DropdownMenuTrigger>
         <DropdownMenuContent align="end"><DropdownMenuGroup>
+          {onDistill ? <DropdownMenuItem onClick={onDistill} disabled={readOnly}><Lightbulb />Distill into knowledge…</DropdownMenuItem> : null}
           {onOrganize ? <DropdownMenuItem onClick={onOrganize} disabled={readOnly}><FolderInput />Add to projects…</DropdownMenuItem> : null}
+          {onStartProject ? <DropdownMenuItem onClick={onStartProject} disabled={readOnly}><FolderPlus />{capture.kind === "book" ? "Start reading project" : "Start project"}</DropdownMenuItem> : null}
           {onRemoveFromProject ? <DropdownMenuItem onClick={onRemoveFromProject} disabled={readOnly}><FolderMinus />Remove from project</DropdownMenuItem> : null}
           <DropdownMenuItem onClick={onEdit} disabled={readOnly}><Pencil />Edit</DropdownMenuItem>
           {capture.url ? <DropdownMenuItem onClick={onRefreshPreview} disabled={readOnly || loadingPreview}><RefreshCw />Refresh preview</DropdownMenuItem> : null}

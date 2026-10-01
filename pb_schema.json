@@ -53,7 +53,8 @@
           "article",
           "social",
           "video",
-          "drive"
+          "drive",
+          "book"
         ]
       },
       {
@@ -94,6 +95,21 @@
         "max": 10000,
         "min": 0,
         "name": "note",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "Book author or creator",
+        "hidden": false,
+        "id": "txtcapauthor1",
+        "max": 200,
+        "min": 0,
+        "name": "author",
         "pattern": "",
         "presentable": false,
         "primaryKey": false,
@@ -803,5 +819,228 @@
     "indexes": [
       "CREATE INDEX idx_receipts_owner ON pomodoro_completion_receipts (owner)"
     ]
+  },
+  {
+    "id": "pbc_knowledge01",
+    "listRule": "owner = @request.auth.id",
+    "viewRule": "owner = @request.auth.id",
+    "createRule": "@request.auth.id != '' && owner = @request.auth.id && (project = '' || project.owner = @request.auth.id) && (@request.body.linkedProjects:length = 0 || @request.body.linkedProjects.owner = @request.auth.id) && (@request.body.sources:length = 0 || @request.body.sources.owner = @request.auth.id) && (category = '' || category.owner = @request.auth.id)",
+    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false && (project = '' || project.owner = @request.auth.id) && (@request.body.linkedProjects:length = 0 || @request.body.linkedProjects.owner = @request.auth.id) && (@request.body.sources:length = 0 || @request.body.sources.owner = @request.auth.id) && (category = '' || category.owner = @request.auth.id)",
+    "deleteRule": "owner = @request.auth.id",
+    "name": "knowledge",
+    "type": "base",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "help": "",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "_pb_users_auth_",
+        "help": "",
+        "hidden": false,
+        "id": "relation3479234172",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "owner",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "",
+        "hidden": false,
+        "id": "txtknowtitle1",
+        "max": 300,
+        "min": 1,
+        "name": "title",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "One to three sentences shown on cards and in review",
+        "hidden": false,
+        "id": "txtknowsumm01",
+        "max": 1000,
+        "min": 0,
+        "name": "summary",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "convertURLs": false,
+        "help": "",
+        "hidden": false,
+        "id": "editknowbody1",
+        "maxSize": 100000,
+        "name": "body",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "editor"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_484305853",
+        "help": "The project this knowledge was created in",
+        "hidden": false,
+        "id": "relknowproj01",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "project",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_484305853",
+        "help": "Projects that reference this knowledge",
+        "hidden": false,
+        "id": "relknowlink01",
+        "maxSelect": 1000,
+        "minSelect": 0,
+        "name": "linkedProjects",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_captures01",
+        "help": "Captures this knowledge was distilled from",
+        "hidden": false,
+        "id": "relknowsrcs01",
+        "maxSelect": 1000,
+        "minSelect": 0,
+        "name": "sources",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "autogeneratePattern": "",
+        "help": "Where in the source, e.g. a chapter, page, or timestamp",
+        "hidden": false,
+        "id": "txtknowloc001",
+        "max": 120,
+        "min": 0,
+        "name": "locator",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_categories1",
+        "help": "",
+        "hidden": false,
+        "id": "relknowcat001",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "category",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "help": "",
+        "hidden": false,
+        "id": "selknowstat01",
+        "maxSelect": 1,
+        "name": "status",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "draft",
+          "evergreen"
+        ]
+      },
+      {
+        "help": "Index into the spaced review intervals",
+        "hidden": false,
+        "id": "numknowstep01",
+        "max": null,
+        "min": 0,
+        "name": "reviewStep",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "help": "Epoch milliseconds of the next review; 0 when not scheduled",
+        "hidden": false,
+        "id": "numknownext01",
+        "max": null,
+        "min": 0,
+        "name": "nextReviewAt",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_knowledge_owner_updated ON knowledge (owner, updated)",
+      "CREATE INDEX idx_knowledge_owner_project ON knowledge (owner, project)",
+      "CREATE INDEX idx_knowledge_owner_review ON knowledge (owner, nextReviewAt)"
+    ],
+    "created": "2026-10-01 00:00:00.000Z",
+    "updated": "2026-10-01 00:00:00.000Z",
+    "system": false
   }
 ]

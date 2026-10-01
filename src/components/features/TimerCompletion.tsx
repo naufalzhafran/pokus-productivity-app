@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { SessionTask } from "@/components/features/SessionTask";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ interface TimerCompletionProps {
   onMarkTaskDone?: () => Promise<unknown>;
   onFocusAgain: () => void;
   onViewTasks: () => void;
+  /** Shown below the actions, such as a knowledge note to review during the break. */
+  children?: ReactNode;
 }
 
 export function TimerCompletion({
@@ -29,6 +31,7 @@ export function TimerCompletion({
   onMarkTaskDone,
   onFocusAgain,
   onViewTasks,
+  children,
 }: TimerCompletionProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [isFinishingTask, setIsFinishingTask] = useState(false);
@@ -113,6 +116,7 @@ export function TimerCompletion({
           View tasks
         </Button>
       </CardFooter>
+      {children}
     </Card>
   );
 }

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { ListTodo, Minus, Plus, Play } from "lucide-react";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 import { SessionTask } from "@/components/features/SessionTask";
@@ -29,15 +29,17 @@ interface TimerPageProps {
   onMarkTaskDone: () => Promise<void>;
   onFocusAgain: () => void;
   onViewTasks: () => void;
+  /** Content offered on the completion screen while you take a break. */
+  breakContent?: ReactNode;
 }
 export function TimerPage({ session, sessionTask, selectedTask, tasks, projects, duration, remainingSeconds,
   isSaving = false, canEdit = true, syncPending = false, onDurationChange, onStart,
-  onToggle, onStop, onSelectTask, onMarkTaskDone, onFocusAgain, onViewTasks }: TimerPageProps) {
+  onToggle, onStop, onSelectTask, onMarkTaskDone, onFocusAgain, onViewTasks, breakContent }: TimerPageProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  if (session?.mode === "complete") return <div className="mx-auto flex min-h-[55svh] max-w-md items-center">
+  if (session?.mode === "complete") return <div className="mx-auto flex min-h-[55svh] max-w-md flex-col justify-center">
     <TimerCompletion durationMinutes={(session.durationMinutes * 60 - session.remainingSeconds) / 60}
       taskTitle={sessionTask?.title} onMarkTaskDone={sessionTask && canEdit ? onMarkTaskDone : undefined}
-      onFocusAgain={onFocusAgain} onViewTasks={onViewTasks} syncPending={syncPending} isSaving={isSaving} />
+      onFocusAgain={onFocusAgain} onViewTasks={onViewTasks} syncPending={syncPending} isSaving={isSaving}>{breakContent}</TimerCompletion>
   </div>;
   if (session?.mode === "running") return <div className="focus-screen mx-auto w-full max-w-xl text-center">
     <div className="mb-5 flex flex-col gap-2">

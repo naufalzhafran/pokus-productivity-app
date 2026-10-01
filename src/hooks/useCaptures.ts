@@ -10,7 +10,7 @@ import type { Capture, CaptureInput } from "@/types/capture";
 function normalize(input: CaptureInput) {
   const error = validateCaptureInput(input);
   if (error) throw new Error(error);
-  return { kind: input.kind, url: input.url?.trim() || null, title: input.title.trim(), note: input.note.trim() };
+  return { kind: input.kind, url: input.url?.trim() || null, title: input.title.trim(), note: input.note.trim(), author: input.kind === "book" ? input.author?.trim() ?? "" : "" };
 }
 
 export type CaptureStore = ReturnType<typeof useCaptures>;

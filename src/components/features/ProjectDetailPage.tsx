@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ArrowLeft, CalendarDays, FolderSearch, Inbox, ListTodo, MoreHorizontal, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, ArrowLeft, CalendarDays, FolderSearch, Inbox, Lightbulb, ListTodo, MoreHorizontal, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -25,11 +25,14 @@ interface ProjectDetailPageProps extends TaskProps {
   /** The project's Captures tab; omitted for tasks without a project. */
   capturesPanel?: ReactNode;
   captureCount?: number;
+  /** The project's Knowledge tab; omitted for tasks without a project. */
+  knowledgePanel?: ReactNode;
+  knowledgeCount?: number;
 }
 
 const backLink = <a href="#projects" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 self-start")}><ArrowLeft />Projects</a>;
 
-export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject, onDeleteProject, capturesPanel, captureCount = 0, ...taskProps }: ProjectDetailPageProps) {
+export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject, onDeleteProject, capturesPanel, captureCount = 0, knowledgePanel, knowledgeCount = 0, ...taskProps }: ProjectDetailPageProps) {
   const { readOnly, projects, tasks, canStartPomodoro } = taskProps;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [editing, setEditing] = useState(false);
@@ -99,16 +102,18 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         {archived ? <p className="text-sm text-muted-foreground">This project is archived. Restore it to focus on its tasks again.</p> : null}
       </header>
-      {capturesPanel ? (
+      {capturesPanel || knowledgePanel ? (
         <Tabs defaultValue="tasks">
           <TabsList aria-label="Project content">
             <TabsTrigger value="tasks"><ListTodo />Tasks <span className="text-xs font-normal text-muted-foreground">{stats?.openCount ?? 0}</span></TabsTrigger>
-            <TabsTrigger value="captures"><Inbox />Captures <span className="text-xs font-normal text-muted-foreground">{captureCount}</span></TabsTrigger>
+            {capturesPanel ? <TabsTrigger value="captures"><Inbox />Captures <span className="text-xs font-normal text-muted-foreground">{captureCount}</span></TabsTrigger> : null}
+            {knowledgePanel ? <TabsTrigger value="knowledge"><Lightbulb />Knowledge <span className="text-xs font-normal text-muted-foreground">{knowledgeCount}</span></TabsTrigger> : null}
           </TabsList>
           <TabsContent value="tasks">
             <ProjectTasks {...taskProps} project={project} canStartPomodoro={canStartPomodoro && !archived} />
           </TabsContent>
-          <TabsContent value="captures">{capturesPanel}</TabsContent>
+          {capturesPanel ? <TabsContent value="captures">{capturesPanel}</TabsContent> : null}
+          {knowledgePanel ? <TabsContent value="knowledge">{knowledgePanel}</TabsContent> : null}
         </Tabs>
       ) : (
         <section aria-label="Project tasks">

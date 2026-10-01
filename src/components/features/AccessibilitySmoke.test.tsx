@@ -7,6 +7,11 @@ import { ProfilePage } from "@/components/features/ProfilePage";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { ProjectDetailPage } from "@/components/features/ProjectDetailPage";
 import { ProjectsPage } from "@/components/features/ProjectsPage";
+import { BreakReview } from "@/components/features/BreakReview";
+import { KnowledgeDetailPage } from "@/components/features/KnowledgeDetailPage";
+import { KnowledgePage } from "@/components/features/KnowledgePage";
+import { KnowledgeReviewPage } from "@/components/features/KnowledgeReviewPage";
+import { bookCapture, knowledgeProjects, knowledgeStore, makeNote } from "@/test/knowledge-fixtures";
 import { createDefaultWorkspaceState, NO_PROJECT_ID } from "@/lib/workspace";
 import { Timer } from "@/components/features/timer";
 import { TimerCompletion } from "@/components/features/TimerCompletion";
@@ -127,10 +132,24 @@ describe("accessibility smoke states", () => {
           onMarkTaskDone={vi.fn()}
           onFocusAgain={vi.fn()}
           onViewTasks={vi.fn()}
-        />
+        >
+          <BreakReview note={makeNote({ status: "evergreen", nextReviewAt: 1 })} dueCount={1} readOnly={false} onReview={vi.fn()} />
+        </TimerCompletion>
       </main>,
     );
     await expectNoCriticalViolations(complete.container);
+  });
+
+  it("has no critical violations on knowledge pages", async () => {
+    const store = knowledgeStore([makeNote(), makeNote({ id: "due", title: "Due note", status: "evergreen", nextReviewAt: 1 })]);
+    const list = render(<main><KnowledgePage readOnly={false} store={store} projects={knowledgeProjects} captures={[bookCapture]} categories={[]} onCompose={vi.fn()} /></main>);
+    await expectNoCriticalViolations(list.container);
+    list.unmount();
+    const detail = render(<main><KnowledgeDetailPage knowledgeId="due" readOnly={false} store={store} projects={knowledgeProjects} captures={[bookCapture]} categories={[]} onEdit={vi.fn()} onDeleted={vi.fn()} /></main>);
+    await expectNoCriticalViolations(detail.container);
+    detail.unmount();
+    const review = render(<main><KnowledgeReviewPage readOnly={false} store={store} /></main>);
+    await expectNoCriticalViolations(review.container);
   });
 
   it("has no critical violations on profile and an open overlay", async () => {

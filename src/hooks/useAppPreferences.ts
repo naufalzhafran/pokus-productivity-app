@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from "react";
 
-export interface AppPreferences { theme: "system" | "light" | "dark"; sound: boolean; keepAwake: boolean }
-const defaults: AppPreferences = { theme: "system", sound: true, keepAwake: false };
+export interface AppPreferences { theme: "system" | "light" | "dark"; sound: boolean; keepAwake: boolean; reviewAfterSession: boolean }
+const defaults: AppPreferences = { theme: "system", sound: true, keepAwake: false, reviewAfterSession: true };
 const key = "pokus-device-preferences-v1";
 function read(): AppPreferences {
   try {
     const value = JSON.parse(localStorage.getItem(key) ?? "null");
-    return { theme: ["system", "light", "dark"].includes(value?.theme) ? value.theme : "system", sound: value?.sound !== false, keepAwake: value?.keepAwake === true };
+    return { theme: ["system", "light", "dark"].includes(value?.theme) ? value.theme : "system", sound: value?.sound !== false, keepAwake: value?.keepAwake === true, reviewAfterSession: value?.reviewAfterSession !== false };
   } catch { return defaults; }
 }
 let preferences = read();

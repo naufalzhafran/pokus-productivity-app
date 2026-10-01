@@ -1,12 +1,16 @@
 import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
+import { Lightbulb, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CaptureCard } from "@/components/features/CaptureCard";
 import { CaptureOrganizer } from "@/components/features/CaptureOrganizer";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import type { CaptureStore } from "@/hooks/useCaptures";
 import { captureDisplayTitle } from "@/lib/capture";
+import { knowledgeHash } from "@/lib/routes";
 import type { Capture } from "@/types/capture";
+import type { Knowledge } from "@/types/knowledge";
 import type { Project } from "@/types/task";
 
 const CaptureEditor = lazy(() => import("@/components/features/CaptureEditor").then((module) => ({ default: module.CaptureEditor })));
@@ -22,14 +26,20 @@ export interface CaptureGridProps {
   /** The project this grid is shown in; its chip is hidden and cards can be removed from it. */
   currentProject?: Project;
   onRemoveFromProject?: (captureId: string) => Promise<unknown>;
+  /** Knowledge notes keyed by the capture they were distilled from. */
+  knowledgeBySource?: ReadonlyMap<string, Knowledge[]>;
+  onDistill?: (capture: Capture) => void;
+  onStartProject?: (capture: Capture) => Promise<unknown>;
   empty: ReactNode;
 }
 
 /** Capture cards with their actions: process, organize into projects, edit, refresh preview, and delete. */
-export function CaptureGrid({ label, captures, store, projects, readOnly, onOrganize, currentProject, onRemoveFromProject, empty }: CaptureGridProps) {
+export function CaptureGrid({ label, captures, store, projects, readOnly, onOrganize, currentProject, onRemoveFromProject, knowledgeBySource, onDistill, onStartProject, empty }: CaptureGridProps) {
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [editing, setEditing] = useState<Capture | null>(null);
   const [organizing, setOrganizing] = useState<Capture | null>(null);
+  const [showingKnowledge, setShowingKnowledge] = useState<Capture | null>(null);
+  const shownNotes = showingKnowledge ? knowledgeBySource?.get(showingKnowledge.id) ?? [] : [];
   const projectsByCapture = useMemo(() => {
     const map = new Map<string, Project[]>();
     for (const project of projects) {
@@ -64,6 +74,10 @@ export function CaptureGrid({ label, captures, store, projects, readOnly, onOrga
           onToggleProcessed={() => void mutate(capture.id, () => store.setCaptureProcessed(capture.id, !capture.isProcessed), capture.isProcessed ? "Moved back to inbox." : "Marked as processed.", "This capture could not be updated.")}
           onOrganize={() => setOrganizing(capture)}
           onRemoveFromProject={onRemoveFromProject && currentProject ? () => void mutate(capture.id, () => onRemoveFromProject(capture.id), `Removed from ${currentProject.title}.`, "This capture could not be removed.") : undefined}
+          knowledgeCount={knowledgeBySource?.get(capture.id)?.length ?? 0}
+          onShowKnowledge={() => setShowingKnowledge(capture)}
+          onDistill={onDistill ? () => onDistill(capture) : undefined}
+          onStartProject={onStartProject ? () => void mutate(capture.id, () => onStartProject(capture), "Project started.", "The project could not be created.") : undefined}
           onEdit={() => setEditing(capture)}
           onRefreshPreview={() => void refresh(capture)}
           onDelete={() => { if (window.confirm(`Delete ${captureDisplayTitle(capture)}? It will be removed from every project.`)) void mutate(capture.id, () => store.deleteCapture(capture.id), "Capture deleted.", "This capture could not be deleted."); }} />
@@ -73,6 +87,19 @@ export function CaptureGrid({ label, captures, store, projects, readOnly, onOrga
       {editing ? <Suspense fallback={<Skeleton className="h-72 w-full" />}>
         <CaptureEditor capture={editing} onCancel={() => setEditing(null)} onSave={async (input) => { await store.updateCapture(editing.id, input); setEditing(null); toast.success("Capture updated."); }} />
       </Suspense> : null}
+    </ResponsiveOverlay>
+    <ResponsiveOverlay open={Boolean(showingKnowledge)} onOpenChange={(open) => { if (!open) setShowingKnowledge(null); }} title="Knowledge from this source" description={showingKnowledge ? captureDisplayTitle(showingKnowledge) : undefined}>
+      {showingKnowledge ? <div className="flex flex-col gap-4">
+        <ul className="flex flex-col gap-0.5">
+          {shownNotes.map((note) => <li key={note.id}>
+            <a href={knowledgeHash(note.id)} onClick={() => setShowingKnowledge(null)} className="flex min-h-11 items-start gap-3 rounded-xl px-3 py-2 text-sm hover:bg-muted">
+              <Lightbulb aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1"><span className="line-clamp-2 font-medium [overflow-wrap:anywhere]">{note.title}</span>{note.locator ? <span className="block truncate text-xs text-muted-foreground">{note.locator}</span> : null}</span>
+            </a>
+          </li>)}
+        </ul>
+        {onDistill ? <Button variant="outline" className="self-start" disabled={readOnly} onClick={() => { const capture = showingKnowledge; setShowingKnowledge(null); onDistill(capture); }}><Plus />Add knowledge</Button> : null}
+      </div> : null}
     </ResponsiveOverlay>
     <ResponsiveOverlay open={Boolean(organizing)} onOpenChange={(open) => { if (!open) setOrganizing(null); }} title="Add to projects" description={organizing ? captureDisplayTitle(organizing) : undefined}>
       {organizing ? <CaptureOrganizer capture={organizing} projects={projects} onCancel={() => setOrganizing(null)} onSave={async (projectIds, markProcessed) => {

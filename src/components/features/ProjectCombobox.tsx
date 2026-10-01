@@ -22,9 +22,11 @@ interface ProjectComboboxProps {
   value: string | null;
   onValueChange: (projectId: string | null) => void;
   disabled?: boolean;
+  /** Describes the "No project" option. */
+  noneDescription?: string;
 }
 
-function ProjectOptionContent({ option }: { option: ProjectOption }) {
+function ProjectOptionContent({ option, noneDescription }: { option: ProjectOption; noneDescription: string }) {
   return (
     <>
       {option.value ? (
@@ -37,7 +39,7 @@ function ProjectOptionContent({ option }: { option: ProjectOption }) {
           {option.label}
         </span>
         <span className="text-xs text-muted-foreground">
-          {option.value ? "Project" : "Tasks without a project"}
+          {option.value ? "Project" : noneDescription}
         </span>
       </span>
     </>
@@ -50,6 +52,7 @@ export function ProjectCombobox({
   value,
   onValueChange,
   disabled = false,
+  noneDescription = "Tasks without a project",
 }: ProjectComboboxProps) {
   const options: ProjectOption[] = [
     { label: "No project", value: null },
@@ -77,7 +80,7 @@ export function ProjectCombobox({
       >
         <ComboboxValue>
           {(option: ProjectOption) => (
-            <ProjectOptionContent option={option} />
+            <ProjectOptionContent option={option} noneDescription={noneDescription} />
           )}
         </ComboboxValue>
       </ComboboxTrigger>
@@ -97,7 +100,7 @@ export function ProjectCombobox({
               data-project-option={option.value ?? "unassigned"}
               className="my-1 min-h-16 items-start rounded-2xl border border-border bg-card px-3 py-3 pr-10 data-highlighted:border-ring data-highlighted:bg-accent/50"
             >
-              <ProjectOptionContent option={option} />
+              <ProjectOptionContent option={option} noneDescription={noneDescription} />
             </ComboboxItem>
           )}
         </ComboboxList>

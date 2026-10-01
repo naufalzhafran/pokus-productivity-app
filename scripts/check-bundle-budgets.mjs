@@ -84,7 +84,7 @@ for (const key of signedOutGraph) {
 checkBudget("Signed-out initial JavaScript", javascriptFiles(signedOutGraph), 110);
 checkBudget("Authenticated Timer loading graph", javascriptFiles(new Set([...authenticatedGraph, ...collectStaticGraph(timerKey)])), 200);
 checkBudget("Authenticated Projects loading graph", javascriptFiles(new Set([...authenticatedGraph, ...collectStaticGraph(projectsKey)])), 200);
-checkBudget("Authenticated Project detail loading graph", javascriptFiles(new Set([...authenticatedGraph, ...collectStaticGraph(projectDetailKey)])), 200);
+checkBudget("Authenticated Project detail loading graph", javascriptFiles(new Set([...authenticatedGraph, ...collectStaticGraph(projectDetailKey)])), 210);
 checkBudget("Rich-text editor chunk", [manifest[editorKey].file], 130);
 checkBudget("Total initial CSS", [...initialCss], 20);
 

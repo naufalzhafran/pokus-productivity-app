@@ -1,4 +1,4 @@
-export type CaptureKind = "note" | "article" | "social" | "video" | "drive";
+export type CaptureKind = "note" | "article" | "social" | "video" | "drive" | "book";
 
 /** Public page metadata cached on a link capture. */
 export interface LinkPreview {
@@ -16,6 +16,8 @@ export interface Capture {
   url: string | null;
   title: string;
   note: string;
+  /** Book author; empty for other kinds. */
+  author?: string;
   preview: LinkPreview | null;
   isProcessed: boolean;
   createdAt: number;
@@ -27,5 +29,6 @@ export interface CaptureInput {
   url: string | null;
   title: string;
   note: string;
+  author?: string;
   preview?: LinkPreview | null;
 }

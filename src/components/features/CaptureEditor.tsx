@@ -5,7 +5,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CAPTURE_KIND_LABELS, CAPTURE_KINDS, CAPTURE_NOTE_MAX_LENGTH, CAPTURE_TITLE_MAX_LENGTH, CAPTURE_URL_MAX_LENGTH, detectCaptureKind, normalizeCaptureUrl, validateCaptureInput } from "@/lib/capture";
+import { CAPTURE_AUTHOR_MAX_LENGTH, CAPTURE_KIND_LABELS, CAPTURE_KINDS, CAPTURE_NOTE_MAX_LENGTH, captureKindNeedsUrl, CAPTURE_TITLE_MAX_LENGTH, CAPTURE_URL_MAX_LENGTH, detectCaptureKind, normalizeCaptureUrl, validateCaptureInput } from "@/lib/capture";
 import type { Capture, CaptureInput, CaptureKind } from "@/types/capture";
 
 interface CaptureEditorProps {
@@ -19,13 +19,14 @@ export function CaptureEditor({ capture, onCancel, onSave }: CaptureEditorProps)
   const [url, setUrl] = useState(capture.url ?? "");
   const [title, setTitle] = useState(capture.title);
   const [note, setNote] = useState(capture.note);
+  const [author, setAuthor] = useState(capture.author ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const normalizedUrl = url.trim() ? normalizeCaptureUrl(url) ?? url.trim() : null;
-    const input: CaptureInput = { kind, url: normalizedUrl, title, note };
+    const input: CaptureInput = { kind, url: normalizedUrl, title, note, author };
     const invalid = validateCaptureInput(input);
     if (invalid) { setError(invalid); return; }
     setIsSaving(true); setError(null);
@@ -35,9 +36,9 @@ export function CaptureEditor({ capture, onCancel, onSave }: CaptureEditorProps)
   return <form onSubmit={submit} className="flex flex-col gap-5" aria-busy={isSaving}>
     <FieldGroup>
       <Field data-invalid={Boolean(error)}>
-        <FieldLabel htmlFor="capture-editor-url">Link</FieldLabel>
+        <FieldLabel htmlFor="capture-editor-url">{captureKindNeedsUrl(kind) ? "Link" : "Link (optional)"}</FieldLabel>
         <Input id="capture-editor-url" type="url" inputMode="url" value={url} maxLength={CAPTURE_URL_MAX_LENGTH} disabled={isSaving} placeholder="https://"
-          onChange={(event) => { setUrl(event.target.value); const next = normalizeCaptureUrl(event.target.value); if (next || !event.target.value.trim()) setKind(detectCaptureKind(next)); }}
+          onChange={(event) => { setUrl(event.target.value); const next = normalizeCaptureUrl(event.target.value); if (kind !== "book" && (next || !event.target.value.trim())) setKind(detectCaptureKind(next)); }}
           aria-invalid={Boolean(error)} aria-describedby={error ? "capture-editor-error" : undefined} />
         <FieldError id="capture-editor-error">{error}</FieldError>
       </Field>
@@ -50,8 +51,12 @@ export function CaptureEditor({ capture, onCancel, onSave }: CaptureEditorProps)
       </Field>
       <Field>
         <FieldLabel htmlFor="capture-editor-title">Title</FieldLabel>
-        <Input id="capture-editor-title" value={title} maxLength={CAPTURE_TITLE_MAX_LENGTH} disabled={isSaving} placeholder="Optional" onChange={(event) => setTitle(event.target.value)} />
+        <Input id="capture-editor-title" value={title} maxLength={CAPTURE_TITLE_MAX_LENGTH} disabled={isSaving} placeholder={kind === "book" ? "Book title" : "Optional"} onChange={(event) => setTitle(event.target.value)} />
       </Field>
+      {kind === "book" ? <Field>
+        <FieldLabel htmlFor="capture-editor-author">Author</FieldLabel>
+        <Input id="capture-editor-author" value={author} maxLength={CAPTURE_AUTHOR_MAX_LENGTH} disabled={isSaving} placeholder="Optional" onChange={(event) => setAuthor(event.target.value)} />
+      </Field> : null}
       <Field>
         <FieldLabel htmlFor="capture-editor-note">Note</FieldLabel>
         <Textarea id="capture-editor-note" value={note} maxLength={CAPTURE_NOTE_MAX_LENGTH} disabled={isSaving} placeholder="Why does this matter to you?" className="min-h-28" onChange={(event) => setNote(event.target.value)} />

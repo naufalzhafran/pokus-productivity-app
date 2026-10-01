@@ -3,14 +3,21 @@ import type { Capture, CaptureInput, CaptureKind, LinkPreview } from "@/types/ca
 export const CAPTURE_URL_MAX_LENGTH = 2048;
 export const CAPTURE_TITLE_MAX_LENGTH = 300;
 export const CAPTURE_NOTE_MAX_LENGTH = 10000;
-export const CAPTURE_KINDS: CaptureKind[] = ["note", "article", "social", "video", "drive"];
+export const CAPTURE_AUTHOR_MAX_LENGTH = 200;
+export const CAPTURE_KINDS: CaptureKind[] = ["note", "article", "social", "video", "drive", "book"];
 export const CAPTURE_KIND_LABELS: Record<CaptureKind, string> = {
   note: "Note",
   article: "Article",
   social: "Social post",
   video: "YouTube video",
   drive: "Google Drive",
+  book: "Book",
 };
+
+/** Kinds that don't need a link. */
+export function captureKindNeedsUrl(kind: CaptureKind) {
+  return kind !== "note" && kind !== "book";
+}
 
 const SOCIAL_HOSTS = [
   "x.com", "twitter.com", "instagram.com", "threads.net", "threads.com", "tiktok.com", "linkedin.com",
@@ -63,11 +70,13 @@ export function parseCaptureText(text: string): CaptureInput {
 
 export function validateCaptureInput(input: CaptureInput) {
   if (input.url !== null && !normalizeCaptureUrl(input.url)) return "Enter a valid http or https link.";
-  if (input.kind !== "note" && !input.url) return "Add a link for this capture type.";
+  if (captureKindNeedsUrl(input.kind) && !input.url) return "Add a link for this capture type.";
+  if (input.kind === "book" && !input.title.trim()) return "Add the book’s title.";
   if (!input.url && !input.title.trim() && !input.note.trim()) return "Write something or paste a link to capture.";
   if ((input.url?.length ?? 0) > CAPTURE_URL_MAX_LENGTH) return `Links can be up to ${CAPTURE_URL_MAX_LENGTH} characters.`;
   if (input.title.trim().length > CAPTURE_TITLE_MAX_LENGTH) return `Titles can be up to ${CAPTURE_TITLE_MAX_LENGTH} characters.`;
   if (input.note.trim().length > CAPTURE_NOTE_MAX_LENGTH) return `Notes can be up to ${CAPTURE_NOTE_MAX_LENGTH} characters.`;
+  if ((input.author?.trim().length ?? 0) > CAPTURE_AUTHOR_MAX_LENGTH) return `Authors can be up to ${CAPTURE_AUTHOR_MAX_LENGTH} characters.`;
   return null;
 }
 
@@ -88,6 +97,6 @@ export function captureDisplayTitle(capture: Pick<Capture, "title" | "url" | "no
 export function captureMatches(capture: Capture, search: string) {
   const needle = search.trim().toLocaleLowerCase();
   if (!needle) return true;
-  return [capture.title, capture.note, capture.url ?? "", capture.preview?.title ?? "", capture.preview?.description ?? "", capture.preview?.author ?? ""]
+  return [capture.title, capture.note, capture.author ?? "", capture.url ?? "", capture.preview?.title ?? "", capture.preview?.description ?? "", capture.preview?.author ?? ""]
     .some((value) => value.toLocaleLowerCase().includes(needle));
 }

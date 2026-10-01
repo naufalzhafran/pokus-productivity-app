@@ -9,15 +9,17 @@ import { CaptureGrid } from "@/components/features/CaptureGrid";
 import { QuickCapture } from "@/components/features/QuickCapture";
 import type { CaptureStore } from "@/hooks/useCaptures";
 import { CAPTURE_KINDS, captureMatches } from "@/lib/capture";
+import { captureStage, type CaptureStage } from "@/lib/knowledge";
 import { isProjectArchived } from "@/lib/workspace";
-import type { CaptureKind } from "@/types/capture";
+import type { Capture, CaptureKind } from "@/types/capture";
+import type { Knowledge } from "@/types/knowledge";
 import type { Project } from "@/types/task";
 
-const kindFilterLabels: Record<CaptureKind, string> = { note: "Notes", article: "Articles", social: "Social", video: "Videos", drive: "Drive" };
+const kindFilterLabels: Record<CaptureKind, string> = { note: "Notes", article: "Articles", social: "Social", video: "Videos", drive: "Drive", book: "Books" };
+const stageLabels: Record<CaptureStage, string> = { inbox: "Inbox captures", in_progress: "Captures in progress", processed: "Processed captures" };
 const ANY_PROJECT = "all";
 const NO_PROJECT = "none";
 
-type StatusFilter = "inbox" | "processed";
 type KindFilter = "all" | CaptureKind;
 
 interface CapturePageProps {
@@ -25,11 +27,14 @@ interface CapturePageProps {
   store: CaptureStore;
   projects: Project[];
   onOrganize: (captureId: string, projectIds: string[], markProcessed: boolean) => Promise<unknown>;
+  knowledgeBySource?: ReadonlyMap<string, Knowledge[]>;
+  onDistill?: (capture: Capture) => void;
+  onStartProject?: (capture: Capture) => Promise<unknown>;
 }
 
-export function CapturePage({ readOnly = false, store, projects, onOrganize }: CapturePageProps) {
+export function CapturePage({ readOnly = false, store, projects, onOrganize, knowledgeBySource, onDistill, onStartProject }: CapturePageProps) {
   const { captures, loadError, createCapture } = store;
-  const [status, setStatus] = useState<StatusFilter>("inbox");
+  const [status, setStatus] = useState<CaptureStage>("inbox");
   const [kind, setKind] = useState<KindFilter>("all");
   const [projectFilter, setProjectFilter] = useState(ANY_PROJECT);
   const [search, setSearch] = useState("");
@@ -38,13 +43,15 @@ export function CapturePage({ readOnly = false, store, projects, onOrganize }: C
   const filterProject = projects.find((project) => project.id === projectFilter);
   const projectLabels = useMemo<Record<string, string>>(() => Object.fromEntries([[ANY_PROJECT, "All projects"], [NO_PROJECT, "Not in a project"], ...projects.filter((project) => !isProjectArchived(project)).map((project) => [project.id, project.title])]), [projects]);
 
-  const inboxCount = useMemo(() => captures.filter((capture) => !capture.isProcessed).length, [captures]);
+  const sourcedIds = useMemo<ReadonlySet<string>>(() => new Set(knowledgeBySource?.keys()), [knowledgeBySource]);
+  const stageOf = useMemo(() => (capture: Capture) => captureStage(capture, filedIds, sourcedIds), [filedIds, sourcedIds]);
+  const inboxCount = useMemo(() => captures.filter((capture) => stageOf(capture) === "inbox").length, [captures, stageOf]);
   const visible = useMemo(() => captures.filter((capture) =>
-    capture.isProcessed === (status === "processed") &&
+    stageOf(capture) === status &&
     (kind === "all" || capture.kind === kind) &&
     (projectFilter === ANY_PROJECT || (projectFilter === NO_PROJECT ? !filedIds.has(capture.id) : Boolean(filterProject?.captureIds?.includes(capture.id)))) &&
     captureMatches(capture, deferredSearch),
-  ), [captures, deferredSearch, filedIds, filterProject, kind, projectFilter, status]);
+  ), [captures, deferredSearch, filedIds, filterProject, kind, projectFilter, stageOf, status]);
 
   const filtered = Boolean(deferredSearch.trim()) || kind !== "all" || projectFilter !== ANY_PROJECT;
   const clearFilters = () => { setSearch(""); setKind("all"); setProjectFilter(ANY_PROJECT); };
@@ -54,8 +61,9 @@ export function CapturePage({ readOnly = false, store, projects, onOrganize }: C
       {loadError ? <p role="alert" className="text-sm text-destructive">{loadError}</p> : null}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row">
-          <ToggleGroup variant="outline" className="grid w-full shrink-0 grid-cols-2 sm:w-64" value={[status]} onValueChange={(values) => values[0] && setStatus(values[0] as StatusFilter)} aria-label="Capture status">
+          <ToggleGroup variant="outline" className="grid w-full shrink-0 grid-cols-3 sm:w-80" value={[status]} onValueChange={(values) => values[0] && setStatus(values[0] as CaptureStage)} aria-label="Capture status">
             <ToggleGroupItem value="inbox">Inbox{inboxCount ? ` (${inboxCount})` : ""}</ToggleGroupItem>
+            <ToggleGroupItem value="in_progress">In progress</ToggleGroupItem>
             <ToggleGroupItem value="processed">Processed</ToggleGroupItem>
           </ToggleGroup>
           <label className="relative flex-1">
@@ -77,12 +85,13 @@ export function CapturePage({ readOnly = false, store, projects, onOrganize }: C
           </Select>
         </div>
       </div>
-      <CaptureGrid label={status === "inbox" ? "Inbox captures" : "Processed captures"} captures={visible} store={store} projects={projects} readOnly={readOnly} onOrganize={onOrganize}
+      <CaptureGrid label={stageLabels[status]} captures={visible} store={store} projects={projects} readOnly={readOnly} onOrganize={onOrganize}
+        knowledgeBySource={knowledgeBySource} onDistill={onDistill} onStartProject={onStartProject}
         empty={<Empty className="min-h-72 border">
           <EmptyHeader>
             <EmptyMedia variant="icon"><Inbox /></EmptyMedia>
-            <EmptyTitle>{filtered ? "No matching captures" : status === "inbox" ? "Your inbox is clear" : "Nothing processed yet"}</EmptyTitle>
-            <EmptyDescription>{filtered ? "Try a different search or filter." : status === "inbox" ? "Anything you capture lands here until you add it to a project or mark it processed." : "Captures you mark as processed will appear here."}</EmptyDescription>
+            <EmptyTitle>{filtered ? "No matching captures" : status === "inbox" ? "Your inbox is clear" : status === "in_progress" ? "Nothing in progress" : "Nothing processed yet"}</EmptyTitle>
+            <EmptyDescription>{filtered ? "Try a different search or filter." : status === "inbox" ? "Anything you capture lands here until you add it to a project, distill it, or mark it processed." : status === "in_progress" ? "Captures in a project or distilled into knowledge stay here until you mark them processed." : "Captures you mark as processed will appear here."}</EmptyDescription>
           </EmptyHeader>
           {filtered ? <Button variant="outline" onClick={clearFilters}>Clear filters</Button> : null}
         </Empty>} />

@@ -29,6 +29,8 @@ describe("capture parsing", () => {
     expect(validateCaptureInput({ kind: "note", url: null, title: "", note: " " })).toMatch(/Write something/);
     expect(validateCaptureInput({ kind: "video", url: null, title: "", note: "x" })).toMatch(/Add a link/);
     expect(validateCaptureInput({ kind: "article", url: "https://example.com", title: "", note: "" })).toBeNull();
+    expect(validateCaptureInput({ kind: "book", url: null, title: "", note: "", author: "James Clear" })).toMatch(/book’s title/);
+    expect(validateCaptureInput({ kind: "book", url: null, title: "Atomic Habits", note: "", author: "James Clear" })).toBeNull();
     expect(captureDisplayTitle({ title: "", url: "https://www.example.com/blog/post/", note: "" })).toBe("example.com/blog/post");
     expect(captureDisplayTitle({ title: "", url: null, note: "First line\nSecond" })).toBe("First line");
   });

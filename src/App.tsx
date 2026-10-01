@@ -27,6 +27,7 @@ import { usePomodoroSession } from "@/hooks/usePomodoroSession";
 import { useProjects } from "@/hooks/useProjects";
 import { useCaptures, type CaptureStore } from "@/hooks/useCaptures";
 import { useCategories } from "@/hooks/useCategories";
+import { useKnowledge } from "@/hooks/useKnowledge";
 import { useTasks } from "@/hooks/useTasks";
 import { useTimerClock } from "@/hooks/useTimerClock";
 import { useWorkspacePreferences } from "@/hooks/useWorkspacePreferences";
@@ -36,10 +37,14 @@ import {
   loadSelectedTaskId,
   saveSelectedTaskId,
 } from "@/lib/selection-storage";
-import { parseRoute, projectHash, routeHash, type AppPage, type AppRoute } from "@/lib/routes";
-import { isProjectArchived, NO_PROJECT_ID } from "@/lib/workspace";
-import type { CaptureInput } from "@/types/capture";
-import type { PomodoroSession } from "@/types/task";
+import { captureDisplayTitle } from "@/lib/capture";
+import { knowledgeBySource } from "@/lib/knowledge";
+import { dueKnowledge } from "@/lib/review";
+import { knowledgeHash, KNOWLEDGE_REVIEW_ID, parseRoute, projectHash, routeHash, type AppPage, type AppRoute } from "@/lib/routes";
+import { getProjectStatus, isProjectArchived, NO_PROJECT_ID, PROJECT_TITLE_MAX_LENGTH } from "@/lib/workspace";
+import type { Capture, CaptureInput } from "@/types/capture";
+import type { Knowledge, KnowledgeInput } from "@/types/knowledge";
+import type { PomodoroSession, ProjectInput } from "@/types/task";
 
 const loadProfilePage = () => import("@/components/features/ProfilePage");
 const loadProjectsPage = () => import("@/components/features/ProjectsPage");
@@ -54,6 +59,15 @@ const ProfilePage = lazy(() =>
 const ProjectCaptures = lazy(() => import("@/components/features/ProjectCaptures").then((module) => ({ default: module.ProjectCaptures })));
 const loadCapturePage = () => import("@/components/features/CapturePage");
 const CapturePage = lazy(() => loadCapturePage().then((module) => ({ default: module.CapturePage })));
+const loadKnowledgePage = () => import("@/components/features/KnowledgePage");
+const KnowledgePage = lazy(() => loadKnowledgePage().then((module) => ({ default: module.KnowledgePage })));
+const loadKnowledgeDetailPage = () => import("@/components/features/KnowledgeDetailPage");
+const KnowledgeDetailPage = lazy(() => loadKnowledgeDetailPage().then((module) => ({ default: module.KnowledgeDetailPage })));
+const KnowledgeReviewPage = lazy(() => import("@/components/features/KnowledgeReviewPage").then((module) => ({ default: module.KnowledgeReviewPage })));
+const KnowledgeComposer = lazy(() => import("@/components/features/KnowledgeComposer").then((module) => ({ default: module.KnowledgeComposer })));
+const BreakReview = lazy(() => import("@/components/features/BreakReview").then((module) => ({ default: module.BreakReview })));
+const ProjectCompletionDialog = lazy(() => import("@/components/features/ProjectCompletionDialog").then((module) => ({ default: module.ProjectCompletionDialog })));
+const ProjectKnowledge = lazy(() => import("@/components/features/ProjectKnowledge").then((module) => ({ default: module.ProjectKnowledge })));
 const loadTimerPage = () => import("@/components/features/TimerPage");
 const TimerPage = lazy(() =>
   loadTimerPage().then((module) => ({ default: module.TimerPage })),
@@ -139,16 +153,25 @@ export default function App() {
     loadError: categoriesLoadError,
   } = useCategories();
 
+  const knowledgeStore = useKnowledge();
+  const { knowledge, createKnowledge, updateKnowledge, reviewKnowledge } = knowledgeStore;
+  const notesBySource = useMemo(() => knowledgeBySource(knowledge), [knowledge]);
+  const dueNotes = useMemo(() => dueKnowledge(knowledge), [knowledge]);
+  /** The note being edited, or the prefilled fields of a new one. */
+  const [composer, setComposer] = useState<{ note?: Knowledge; defaults?: Partial<KnowledgeInput> } | null>(null);
+  const [completedProjectId, setCompletedProjectId] = useState<string | null>(null);
+
   const captures = useCaptures();
   const { deleteCapture, createCapture, setCaptureProcessed } = captures;
+  const reconcileKnowledgeCapture = knowledgeStore.reconcileDeletedCapture;
   const captureStore = useMemo<CaptureStore>(() => ({
     ...captures,
     deleteCapture: async (id: string) => {
       const deleted = await deleteCapture(id);
-      if (deleted) reconcileDeletedCapture(id);
+      if (deleted) { reconcileDeletedCapture(id); reconcileKnowledgeCapture(id); }
       return deleted;
     },
-  }), [captures, deleteCapture, reconcileDeletedCapture]);
+  }), [captures, deleteCapture, reconcileDeletedCapture, reconcileKnowledgeCapture]);
   const captureIds = useMemo(() => new Set(captures.captures.map((capture) => capture.id)), [captures.captures]);
 
   const organizeCapture = useCallback(async (captureId: string, projectIds: string[], markProcessed: boolean) => {
@@ -166,6 +189,33 @@ export default function App() {
     const saved = await createCapture(input, { isProcessed: true });
     await changeProjectCaptures(projectId, [saved.id], []);
   }, [changeProjectCaptures, createCapture]);
+
+  const startProjectFromCapture = useCallback(async (capture: Capture) => {
+    const title = captureDisplayTitle(capture);
+    const project = await createProject({ title: (capture.kind === "book" ? `Read ${title}` : title).slice(0, PROJECT_TITLE_MAX_LENGTH), description: "", status: "active", dueDate: null });
+    if (!project) return;
+    await changeProjectCaptures(project.id, [capture.id], []);
+    window.location.hash = projectHash(project.id);
+  }, [changeProjectCaptures, createProject]);
+
+  const composeKnowledge = useCallback((defaults: Partial<KnowledgeInput> = {}) => setComposer({ defaults }), []);
+  /** A new note from a capture inherits the capture's project when it's in exactly one. */
+  const distillCapture = useCallback((capture: Capture) => {
+    const containing = projects.filter((project) => project.captureIds?.includes(capture.id) && !isProjectArchived(project));
+    composeKnowledge({ sourceIds: [capture.id], projectId: containing.length === 1 ? containing[0].id : null });
+  }, [composeKnowledge, projects]);
+  const editingNote = composer?.note;
+  const saveComposer = useCallback(async (input: KnowledgeInput) => {
+    if (editingNote) {
+      await updateKnowledge(editingNote.id, input);
+      setComposer(null);
+      toast.success("Knowledge updated.");
+      return;
+    }
+    const saved = await createKnowledge(input);
+    setComposer(null);
+    toast.success("Knowledge saved.", { action: { label: "Open", onClick: () => { window.location.hash = knowledgeHash(saved.id); } } });
+  }, [createKnowledge, editingNote, updateKnowledge]);
 
   const taskMap = useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
@@ -311,6 +361,7 @@ export default function App() {
     try {
       await deleteProject(projectId);
       reconcileDeletedProject(projectId);
+      knowledgeStore.reconcileDeletedProject(projectId);
       if (window.location.hash === projectHash(projectId)) navigate("projects");
       toast.success("Project deleted. Its tasks now have no project.");
       setAppFeedback({
@@ -325,7 +376,7 @@ export default function App() {
       });
       throw error;
     }
-  }, [deleteProject, navigate, reconcileDeletedProject]);
+  }, [deleteProject, knowledgeStore, navigate, reconcileDeletedProject]);
 
   const handleStatusChange = useCallback(async (taskId: string, isDone: boolean) => {
     try {
@@ -383,15 +434,39 @@ export default function App() {
   const handleDeleteCategory = useCallback(async (categoryId: string) => {
     await deleteCategory(categoryId);
     reconcileDeletedCategory(categoryId);
+    knowledgeStore.reconcileDeletedCategory(categoryId);
     if (viewState.categoryId === categoryId) setViewState((current) => ({ ...current, categoryId: null }));
     toast.success("Category deleted. Affected tasks are now uncategorized.");
-  }, [deleteCategory, reconcileDeletedCategory, setViewState, viewState.categoryId]);
+  }, [deleteCategory, knowledgeStore, reconcileDeletedCategory, setViewState, viewState.categoryId]);
+
+  /** Completing a project asks what it taught you. */
+  const handleUpdateProject = useCallback(async (projectId: string, input: ProjectInput) => {
+    const previous = projectMap.get(projectId);
+    const saved = await updateProject(projectId, input);
+    if (saved && previous && input.status === "completed" && getProjectStatus(previous) !== "completed") setCompletedProjectId(projectId);
+    return saved;
+  }, [projectMap, updateProject]);
+  const completedProject = completedProjectId ? projectMap.get(completedProjectId) ?? null : null;
+  const completedUnprocessed = useMemo(() => {
+    const ids = new Set(completedProject?.captureIds ?? []);
+    return captures.captures.filter((capture) => ids.has(capture.id) && !capture.isProcessed);
+  }, [captures.captures, completedProject?.captureIds]);
+  const finishCompletedProject = useCallback(async ({ writeKnowledge, markProcessed }: { writeKnowledge: boolean; markProcessed: boolean }) => {
+    if (!completedProjectId) return;
+    if (markProcessed) {
+      const failed = (await Promise.allSettled(completedUnprocessed.map((capture) => setCaptureProcessed(capture.id, true)))).find((result) => result.status === "rejected");
+      if (failed) throw failed.reason;
+    }
+    setCompletedProjectId(null);
+    if (writeKnowledge) composeKnowledge({ projectId: completedProjectId });
+  }, [completedProjectId, completedUnprocessed, composeKnowledge, setCaptureProcessed]);
 
   const handleNavigationIntent = useCallback((nextPage: AppPage) => {
     if (nextPage === "timer") void loadTimerPage();
     if (nextPage === "profile") void loadProfilePage();
     if (nextPage === "projects") { void loadProjectsPage(); void loadProjectDetailPage(); }
     if (nextPage === "capture") void loadCapturePage();
+    if (nextPage === "knowledge") { void loadKnowledgePage(); void loadKnowledgeDetailPage(); }
   }, []);
 
   const handleNavigate = useCallback((nextPage: AppPage) => {
@@ -421,7 +496,7 @@ export default function App() {
     return <WorkspaceSkeleton />;
   }
 
-  const loadError = tasksLoadError ?? projectsLoadError ?? categoriesLoadError ?? captures.loadError ?? sessionLoadError;
+  const loadError = tasksLoadError ?? projectsLoadError ?? categoriesLoadError ?? captures.loadError ?? knowledgeStore.loadError ?? sessionLoadError;
   const timerMode = currentSession?.mode;
 
   return (
@@ -502,13 +577,18 @@ export default function App() {
             onStatusChange={handleStatusChange}
             onStartPomodoro={setUpTimerForTask}
             onCreateCategory={createCategory}
-            onUpdateProject={updateProject}
+            onUpdateProject={handleUpdateProject}
             onArchiveProject={handleArchiveProject}
             onDeleteProject={handleDeleteProject}
             captureCount={(projectMap.get(route.projectId)?.captureIds ?? []).filter((id) => captureIds.has(id)).length}
             capturesPanel={projectMap.has(route.projectId) ? <Suspense fallback={<Skeleton className="h-72 w-full" />}>
               <ProjectCaptures project={projectMap.get(route.projectId)!} store={captureStore} projects={projects} readOnly={!canEdit}
-                onOrganize={organizeCapture} onAddCaptures={addCapturesToProject} onRemoveCapture={removeCaptureFromProject} onCaptureToProject={captureToProject} />
+                onOrganize={organizeCapture} onAddCaptures={addCapturesToProject} onRemoveCapture={removeCaptureFromProject} onCaptureToProject={captureToProject}
+                knowledgeBySource={notesBySource} onDistill={distillCapture} />
+            </Suspense> : undefined}
+            knowledgeCount={knowledge.filter((note) => note.projectId === route.projectId || note.linkedProjectIds.includes(route.projectId!)).length}
+            knowledgePanel={projectMap.has(route.projectId) ? <Suspense fallback={<Skeleton className="h-72 w-full" />}>
+              <ProjectKnowledge project={projectMap.get(route.projectId)!} store={knowledgeStore} projects={projects} readOnly={!canEdit} onCompose={() => composeKnowledge({ projectId: route.projectId })} />
             </Suspense> : undefined}
           /> : <ProjectsPage
             readOnly={!canEdit}
@@ -528,7 +608,17 @@ export default function App() {
       ) : page === "capture" ? (
         <div className="screen-panel">
           <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
-            <CapturePage readOnly={!canEdit} store={captureStore} projects={projects} onOrganize={organizeCapture} />
+            <CapturePage readOnly={!canEdit} store={captureStore} projects={projects} onOrganize={organizeCapture}
+              knowledgeBySource={notesBySource} onDistill={distillCapture} onStartProject={startProjectFromCapture} />
+          </Suspense>
+        </div>
+      ) : page === "knowledge" ? (
+        <div className="screen-panel">
+          <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
+            {route.knowledgeId === KNOWLEDGE_REVIEW_ID ? <KnowledgeReviewPage readOnly={!canEdit} store={knowledgeStore} />
+              : route.knowledgeId ? <KnowledgeDetailPage key={route.knowledgeId} knowledgeId={route.knowledgeId} readOnly={!canEdit} store={knowledgeStore} projects={projects} captures={captures.captures} categories={categories}
+                onEdit={(note) => setComposer({ note })} onDeleted={() => navigate("knowledge")} />
+              : <KnowledgePage readOnly={!canEdit} store={knowledgeStore} projects={projects} captures={captures.captures} categories={categories} onCompose={() => composeKnowledge()} />}
           </Suspense>
         </div>
       ) : page === "profile" ? (
@@ -563,9 +653,18 @@ export default function App() {
             onMarkTaskDone={handleTimerTaskDone}
             onFocusAgain={handleFocusAgain}
             onViewTasks={handleViewTasks}
+            breakContent={preferences.reviewAfterSession && dueNotes[0] ? <Suspense fallback={null}><BreakReview note={dueNotes[0]} dueCount={dueNotes.length} readOnly={!canEdit}
+              onReview={(remembered) => reviewKnowledge(dueNotes[0].id, remembered)} /></Suspense> : undefined}
           />
         </Suspense>
       )}
+      <Suspense fallback={null}>
+        {composer ? <KnowledgeComposer note={composer.note} defaults={composer.defaults} projects={projects} captures={captures.captures} categories={categories}
+          onClose={() => setComposer(null)} onSave={saveComposer} /> : null}
+        {completedProject ? <ProjectCompletionDialog key={completedProject.id} project={completedProject} unprocessedCaptureCount={completedUnprocessed.length}
+          draftCount={knowledge.filter((note) => note.projectId === completedProject.id && note.status === "draft").length}
+          onClose={() => setCompletedProjectId(null)} onFinish={finishCompletedProject} /> : null}
+      </Suspense>
     </AppShell>
   );
 }

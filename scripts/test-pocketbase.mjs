@@ -99,4 +99,32 @@ try {
   await pb.collection('projects').delete(otherProject.id);
   assert.equal((await pb.collection('captures').getOne(second.id)).note, 'Second');
   console.log('PASS: project capture links add and remove atomically, reject foreign captures, clear deleted captures, and keep captures when a project is deleted.');
+
+  // Knowledge has one origin project, many referencing projects, and many source captures.
+  const book = await pb.collection('captures').create({ owner, kind: 'book', title: 'Atomic Habits', author: 'James Clear' });
+  const reading = await pb.collection('projects').create({ owner, title: 'Read Atomic Habits', isDone: false, status: 'active', captures: [book.id] });
+  const fitness = await pb.collection('projects').create({ owner, title: 'Fitness', isDone: false, status: 'active' });
+  const note = (title) => pb.collection('knowledge').create({ owner, title, status: 'draft', project: reading.id, sources: [book.id], locator: 'Ch. 1' });
+  const [loop, rule] = await Promise.all([note('Habit loop'), note('Two-minute rule')]);
+  await Promise.all([
+    pb.collection('knowledge').update(loop.id, { 'linkedProjects+': [fitness.id] }),
+    pb.collection('knowledge').update(loop.id, { title: 'The habit loop' }),
+  ]);
+  assert.deepEqual((await pb.collection('knowledge').getOne(loop.id)).linkedProjects, [fitness.id]);
+  assert.equal((await pb.collection('knowledge').getList(1, 10, { filter: `sources ~ "${book.id}"` })).totalItems, 2);
+  const foreignProject = await admin.collection('projects').create({ owner: stranger.id, title: 'Not yours', isDone: false });
+  await assert.rejects(pb.collection('knowledge').update(rule.id, { 'linkedProjects+': [foreignProject.id] }));
+  await assert.rejects(pb.collection('knowledge').update(rule.id, { project: foreignProject.id }));
+  await assert.rejects(pb.collection('knowledge').update(rule.id, { 'sources+': [foreign.id] }));
+  await assert.rejects(pb.collection('knowledge').create({ owner, title: 'Sneaky', status: 'draft', sources: [foreign.id] }));
+  await assert.rejects(pb.collection('knowledge').create({ owner: stranger.id, title: 'Impostor', status: 'draft' }));
+  await assert.rejects(pb.collection('knowledge').create({ owner, title: '', status: 'draft' }));
+  await pb.collection('projects').delete(fitness.id);
+  assert.deepEqual((await pb.collection('knowledge').getOne(loop.id)).linkedProjects, []);
+  await pb.collection('projects').delete(reading.id);
+  assert.equal((await pb.collection('knowledge').getOne(loop.id)).project, '');
+  await pb.collection('captures').delete(book.id);
+  assert.deepEqual((await pb.collection('knowledge').getOne(rule.id)).sources, []);
+  assert.equal((await pb.collection('knowledge').getOne(rule.id)).title, 'Two-minute rule');
+  console.log('PASS: knowledge links projects and sources, rejects foreign relations, and survives deleted projects and captures.');
 } finally { await vite.close(); }
