@@ -1,0 +1,114 @@
+import { test, expect } from "@playwright/test";
+import PocketBase from "pocketbase";
+import axe from "axe-core";
+
+const endpoint = "http://127.0.0.1:8099";
+test("habits sync, retain targets and history, and remain readable offline", async ({ page, context, browser }, info) => {
+  const admin = new PocketBase(endpoint);
+  await admin.collection("_superusers").authWithPassword("pokus-test@example.com", "Pokus-local-test-2026!");
+  const user = await admin.collection("users").create({ email: `habit-browser-${Date.now()}@example.com`, password: "Habit-browser-test!", passwordConfirm: "Habit-browser-test!", verified: true });
+  const client = new PocketBase(endpoint);
+  const auth = await client.collection("users").authWithPassword(user.email, "Habit-browser-test!");
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await context.route("https://pb1.madebynz.xyz/**", (route) => route.abort());
+  const seedAuth = ({ token, record }: { token: string; record: unknown }) => {
+    localStorage.setItem("pocketbase_auth", JSON.stringify({ token, record }));
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => localStorage.getItem("habit-test-offline") !== "true" });
+  };
+  await context.addInitScript(seedAuth, { token: auth.token, record: auth.record });
+  try {
+    await page.goto("/#habits");
+    await expect(page.getByText("No habits yet", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "New habit", exact: true }).click();
+    let dialog = page.getByRole("dialog", { name: "New habit", exact: true });
+    await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Walk outside");
+    await dialog.getByRole("button", { name: "Save habit" }).click();
+    await expect(page.getByRole("button", { name: "Complete Walk outside" })).toBeVisible();
+    await page.getByRole("button", { name: "Complete Walk outside" }).click();
+    await expect(page.getByRole("button", { name: "Uncheck Walk outside" })).toBeEnabled();
+    await page.getByRole("button", { name: "New habit", exact: true }).click();
+    dialog = page.getByRole("dialog", { name: "New habit", exact: true });
+    await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("Read books");
+    await dialog.getByRole("button", { name: "Daily total", exact: true }).click();
+    await dialog.getByRole("textbox", { name: "Daily target" }).fill("10");
+    await dialog.getByRole("textbox", { name: "Unit (optional)" }).fill("pages");
+    await dialog.getByRole("button", { name: "Save habit" }).click();
+    await page.getByRole("button", { name: "Add 1 to Read books" }).click();
+    await expect(page.getByText("1 / 10 pages", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Set total for Read books" }).click();
+    dialog = page.getByRole("dialog", { name: "Total for Read books" });
+    await dialog.getByRole("textbox", { name: "Daily total (pages)" }).fill("10.5");
+    await dialog.getByRole("button", { name: "Save total" }).click();
+    await expect(page.getByText("2 of 2 habits complete")).toBeVisible();
+    await page.getByRole("button", { name: "Read books", exact: true }).click();
+    dialog = page.getByRole("dialog", { name: "Read books", exact: true });
+    await expect(dialog.getByText("Completed days")).toBeVisible();
+    await dialog.getByRole("button", { name: "Edit habit", exact: true }).click();
+    dialog = page.getByRole("dialog", { name: "Edit habit", exact: true });
+    await dialog.getByRole("textbox", { name: "Daily target" }).fill("20");
+    await expect(dialog.getByRole("textbox", { name: "Unit (optional)" })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Save habit" }).click();
+    await expect(page.getByText("10.5 / 20 pages", { exact: true })).toBeVisible();
+    const { today, yesterday } = await page.evaluate(() => {
+      const day = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const date = new Date(); const today = day(date); date.setDate(date.getDate() - 1);
+      return { today, yesterday: day(date) };
+    });
+    const historic = await client.collection("habits").create({ owner: user.id, name: "Drink water", kind: "number", unit: "glasses", startDay: yesterday });
+    await client.collection("habit_targets").create({ owner: user.id, habit: historic.id, day: yesterday, target: 2 });
+    await client.collection("habit_entries").create({ owner: user.id, habit: historic.id, day: yesterday, value: 1.5 });
+    await page.getByRole("button", { name: "Refresh habits" }).click();
+    await page.getByRole("button", { name: "Drink water", exact: true }).click();
+    await page.getByRole("dialog", { name: "Drink water", exact: true }).getByRole("button", { name: "Edit habit" }).click();
+    dialog = page.getByRole("dialog", { name: "Edit habit", exact: true });
+    await dialog.getByRole("textbox", { name: "Daily target" }).fill("3");
+    await dialog.getByRole("button", { name: "Save habit" }).click();
+    await page.getByLabel("Date", { exact: true }).fill(yesterday);
+    await expect(page.getByText("1.5 / 2 glasses", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Set total for Drink water" }).click();
+    dialog = page.getByRole("dialog", { name: "Total for Drink water" });
+    await dialog.getByRole("textbox", { name: "Daily total (glasses)" }).fill("2");
+    await dialog.getByRole("button", { name: "Save total" }).click();
+    await expect(page.getByText("1 of 1 habits complete")).toBeVisible();
+    await page.getByLabel("Date", { exact: true }).fill(today);
+    await expect(page.getByText("0 / 3 glasses", { exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("habits-today.png"), fullPage: true });
+    await page.getByRole("tab", { name: "Progress", exact: true }).click();
+    await expect(page.getByText("Best streak", { exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath("habits-progress.png"), fullPage: true });
+    await page.addScriptTag({ content: axe.source });
+    const violations = await page.evaluate(async () => (await (window as unknown as { axe: typeof import("axe-core") }).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map((violation) => ({ id: violation.id, targets: violation.nodes.map((node) => node.target) })));
+    expect(violations).toEqual([]);
+    for (const width of [320, 402, 1280]) {
+      await page.setViewportSize({ width, height: 874 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    const other = await browser.newContext({ viewport: { width: 402, height: 874 } });
+    try {
+      await other.addInitScript(seedAuth, { token: auth.token, record: auth.record });
+      await other.route("https://pb1.madebynz.xyz/**", (route) => route.abort());
+      const second = await other.newPage();
+      await second.goto("/#habits");
+      await expect(second.getByText("10.5 / 20 pages", { exact: true })).toBeVisible();
+      await second.getByRole("button", { name: "Add 1 to Read books" }).click();
+      await expect(second.getByText("11.5 / 20 pages", { exact: true })).toBeVisible();
+    } finally { await other.close(); }
+    await page.getByRole("button", { name: "Refresh habits" }).click();
+    await page.getByRole("tab", { name: "Today", exact: true }).click();
+    await expect(page.getByText("11.5 / 20 pages", { exact: true })).toBeVisible();
+    await context.route(`${endpoint}/**`, (route) => route.abort());
+    await page.evaluate(() => { localStorage.setItem("habit-test-offline", "true"); window.dispatchEvent(new Event("offline")); });
+    await page.reload();
+    await expect(page.getByText("11.5 / 20 pages", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add 1 to Read books" })).toBeDisabled();
+    await context.unroute(`${endpoint}/**`);
+    await page.evaluate(() => { localStorage.removeItem("habit-test-offline"); window.dispatchEvent(new Event("online")); });
+    await expect(page.getByRole("button", { name: "Add 1 to Read books" })).toBeEnabled();
+    await page.getByRole("button", { name: "Read books", exact: true }).click();
+    await page.getByRole("dialog", { name: "Read books", exact: true }).getByRole("button", { name: "Delete habit" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete habit" }).click();
+    await expect(page.getByRole("button", { name: "Set total for Read books" })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  } finally { await admin.collection("users").delete(user.id); }
+});

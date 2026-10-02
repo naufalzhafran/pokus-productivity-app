@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { FolderKanban, Inbox, Lightbulb, Timer, UserRound } from "lucide-react";
+import { FolderKanban, Inbox, Lightbulb, Timer, UserRound, CalendarCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AppPage } from "@/lib/routes";
@@ -17,18 +17,18 @@ export function AppShell({ page, session, remainingSeconds = session?.remainingS
   const headingRef = useRef<HTMLHeadingElement>(null);
   const timerStatus = session ? session.mode === "complete" ? "Complete" : session.isActive ? "Running" : "Paused" : null;
   const display = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")}`;
-  const title = page === "timer" ? "Pomodoro Timer" : page === "profile" ? "Profile" : page === "capture" ? "Capture" : page === "knowledge" ? "Knowledge" : "Projects";
+  const title = page === "timer" ? "Pomodoro Timer" : page === "profile" ? "Profile" : page === "capture" ? "Capture" : page === "knowledge" ? "Knowledge" : page === "habits" ? "Habits" : "Projects";
   useEffect(() => { headingRef.current?.focus({ preventScroll: true }); }, [page]);
   useEffect(() => {
     if (page === "timer" && session?.mode === "running") return;
     document.title = `${page === "timer" ? session?.mode === "complete" ? "Session complete" : "Set up timer" : title} | Pokus`;
   }, [page, session?.mode, title]);
-  const navigation = (mobile: boolean) => <nav aria-label="Primary navigation" className={cn("flex gap-1", mobile ? "mx-auto max-w-md" : "w-[33rem]")}>
-    {([{ page: "timer", label: "Timer", Icon: Timer }, { page: "projects", label: "Projects", Icon: FolderKanban }, { page: "capture", label: "Capture", Icon: Inbox }, { page: "knowledge", label: "Knowledge", Icon: Lightbulb }, { page: "profile", label: "Profile", Icon: UserRound }] as const).map(({ page: value, label, Icon }) => <a key={value} href={`#${value}`} onClick={() => { onNavigateIntent?.(value); onNavigate(value); }}
+  const navigation = (mobile: boolean) => <nav aria-label="Primary navigation" className={cn("flex gap-1", mobile ? "mx-auto max-w-lg" : "w-[39rem]")}>
+    {([{ page: "timer", label: "Timer", Icon: Timer }, { page: "projects", label: "Projects", Icon: FolderKanban }, { page: "habits", label: "Habits", Icon: CalendarCheck }, { page: "capture", label: "Capture", Icon: Inbox }, { page: "knowledge", label: "Knowledge", Icon: Lightbulb }, { page: "profile", label: "Profile", Icon: UserRound }] as const).map(({ page: value, label, Icon }) => <a key={value} href={`#${value}`} onClick={() => { onNavigateIntent?.(value); onNavigate(value); }}
       onMouseEnter={() => onNavigateIntent?.(value)} onFocus={() => onNavigateIntent?.(value)} onTouchStart={() => onNavigateIntent?.(value)}
       className={cn(buttonVariants({ variant: page === value ? "secondary" : "ghost" }), "min-h-12 flex-1", mobile && "h-11 min-h-11 min-w-0 flex-col gap-0.5 px-1 py-1 text-xs")}
       aria-current={page === value ? "page" : undefined} aria-label={value === "timer" && timerStatus ? `Timer, ${timerStatus.toLowerCase()}` : label}>
-      <Icon aria-hidden="true" /><span>{label}</span>
+      <Icon aria-hidden="true" /><span>{mobile && value === "knowledge" ? "Notes" : label}</span>
     </a>)}
   </nav>;
   return <div className="min-h-dvh bg-background text-foreground">

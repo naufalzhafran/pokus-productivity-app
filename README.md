@@ -6,7 +6,7 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 
 - Adjustable Pomodoro duration with a circular control
 - Quick presets for 15, 25, 45, and 60 minutes
-- Installable Timer-first PWA with Timer, Projects, Capture, and Profile hash routes
+- Installable Timer-first PWA with Timer, Projects, Habits, Capture, Knowledge, and Profile hash routes
 - Responsive sticky desktop navigation and safe-area-aware mobile navigation
 - Projects list with status, Due soon, and Archived filters, progress, and focused time per project
 - Project detail pages with the project's tasks, filters, and actions, plus a No project page for loose tasks
@@ -30,6 +30,10 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 - Profile page with account details, focus totals, and Pomodoro history
 - Capture inbox for links and thoughts with rich previews for YouTube videos, social posts, articles, and Google Drive files
 - Projects contain captures: add inbox captures to one or more projects, capture straight into a project, and browse them on its Captures tab
+- Centaur-style daily habits: check-ins, numeric totals, daily targets, quick increments, editable past entries, activity grids, and streaks
+- Account-owned habits synced across browsers, with cached offline browsing and online-only edits
+- Dated numeric targets preserve historical progress when targets change
+- Optional per-browser in-app daily reminders while Pokus is open
 
 ## Tech Stack
 
@@ -54,7 +58,8 @@ No environment variables are required.
 ## PocketBase setup
 
 The frontend connects to `https://pb1.madebynz.xyz` and expects the
-`projects`, `tasks`, `categories`, `captures`, `pomodoro_sessions`, and
+`projects`, `tasks`, `categories`, `captures`, `knowledge`, `habits`,
+`habit_entries`, `habit_targets`, `pomodoro_sessions`, and
 `pomodoro_completion_receipts` collections. Their fields,
 relations, indexes, and owner-only API rules are available in `pb_schema.json`.
 
@@ -87,6 +92,21 @@ Project due dates are stored as `YYYY-MM-DD` text so calendar days do not drift
 across time zones. Tasks inherit their project's date in Today, Upcoming, Overdue,
 and due-date sorting; unassigned tasks remain undated.
 
+Habits require the three habit collections in this schema and PocketBase batch
+requests enabled (Settings → Application, at least three requests per batch).
+Numeric habit creation saves the habit and its initial target in one transaction.
+Daily entries and target revisions have unique habit/day indexes; numeric quick
+increments use atomic field increments. Dates are Gregorian `YYYY-MM-DD` local
+calendar days, independent of focus sessions. The habit type and unit are fixed
+after creation, and target edits take effect today without rewriting earlier days.
+Deleting a habit cascades to its entries and targets.
+
+Web habits do not import or sync Centaur's existing local native habit database.
+Reminder preferences stay on each browser. Web reminders show inside the app while
+it is open; background/Lock Screen reminder scheduling remains a native feature.
+No live server schema is changed by this repository edit: import the schema before
+deploying the frontend.
+
 ## Available Scripts
 
 - `npm run dev` - Start development server
@@ -94,6 +114,8 @@ and due-date sorting; unassigned tasks remain undated.
 - `npm run test` - Run the Vitest suite
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
+- `npm run test:habits:pocketbase` - Test habits against an isolated local PocketBase
+- `npx playwright test e2e/habits.spec.ts` - Test habit flows in Chromium and iPhone WebKit
 
 ## Project Structure
 

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/features/AppShell";
 import { PwaUpdate } from "@/components/features/PwaUpdate";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { useHabitReminder } from "@/hooks/useHabitReminder";
 import { useAppPreferences } from "@/hooks/useAppPreferences";
 import { playCompletionSound, unlockCompletionSound, useFocusDevice } from "@/hooks/useFocusDevice";
 import type { TimerStopOptions } from "@/components/features/timer";
@@ -47,6 +48,8 @@ import type { Knowledge, KnowledgeInput } from "@/types/knowledge";
 import type { PomodoroSession, ProjectInput } from "@/types/task";
 
 const loadProfilePage = () => import("@/components/features/ProfilePage");
+const loadHabitsPage = () => import("@/components/features/HabitsPage");
+const HabitsPage = lazy(() => loadHabitsPage().then((module) => ({ default: module.HabitsPage })));
 const loadProjectsPage = () => import("@/components/features/ProjectsPage");
 const ProjectsPage = lazy(() => loadProjectsPage().then((module) => ({ default: module.ProjectsPage })));
 const loadProjectDetailPage = () => import("@/components/features/ProjectDetailPage");
@@ -100,6 +103,7 @@ export default function App() {
   const { online, canEdit } = useConnectivity();
   const preferences = useAppPreferences();
   const userId = pb.authStore.record?.id ?? "anonymous";
+  useHabitReminder(userId);
   const [viewState, setViewState] = useWorkspacePreferences(userId);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
     loadSelectedTaskId,
@@ -464,6 +468,7 @@ export default function App() {
   const handleNavigationIntent = useCallback((nextPage: AppPage) => {
     if (nextPage === "timer") void loadTimerPage();
     if (nextPage === "profile") void loadProfilePage();
+    if (nextPage === "habits") void loadHabitsPage();
     if (nextPage === "projects") { void loadProjectsPage(); void loadProjectDetailPage(); }
     if (nextPage === "capture") void loadCapturePage();
     if (nextPage === "knowledge") { void loadKnowledgePage(); void loadKnowledgeDetailPage(); }
@@ -612,6 +617,8 @@ export default function App() {
               knowledgeBySource={notesBySource} onDistill={distillCapture} onStartProject={startProjectFromCapture} />
           </Suspense>
         </div>
+      ) : page === "habits" ? (
+        <Suspense fallback={<Skeleton className="h-72 w-full" />}><HabitsPage key={userId} /></Suspense>
       ) : page === "knowledge" ? (
         <div className="screen-panel">
           <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>

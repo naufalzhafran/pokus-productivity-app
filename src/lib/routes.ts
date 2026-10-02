@@ -1,4 +1,4 @@
-export type AppPage = "timer" | "projects" | "capture" | "knowledge" | "profile";
+export type AppPage = "timer" | "projects" | "capture" | "knowledge" | "habits" | "profile";
 
 /** `#knowledge/review` opens the review queue; note ids are 15 characters, so they never collide. */
 export const KNOWLEDGE_REVIEW_ID = "review";
@@ -15,7 +15,7 @@ export function parseRoute(hash: string): AppRoute {
   const [page, id] = hash.replace(/^#/, "").split("/");
   if (page === "projects" || page === "tasks") return { page: "projects", projectId: page === "projects" && id ? decodeURIComponent(id) : null };
   if (page === "knowledge") return { page, projectId: null, knowledgeId: id ? decodeURIComponent(id) : null };
-  if (page === "capture" || page === "profile") return { page, projectId: null };
+  if (page === "capture" || page === "habits" || page === "profile") return { page, projectId: null };
   return { page: "timer", projectId: null };
 }
 

@@ -1,0 +1,78 @@
+/* global console, process */
+import { strict as assert } from 'node:assert';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { URL } from 'node:url';
+import PocketBase from 'pocketbase';
+import { createServer } from 'vite';
+
+const endpoint = process.env.POKUS_TEST_PB_URL ?? 'http://127.0.0.1:8099';
+if (!['localhost', '127.0.0.1'].includes(new URL(endpoint).hostname)) throw new Error('Use an isolated local PocketBase instance.');
+const admin = new PocketBase(endpoint);
+await admin.collection('_superusers').authWithPassword('pokus-test@example.com', 'Pokus-local-test-2026!');
+await admin.collections.import(JSON.parse(await readFile('pb_schema.json', 'utf8')), false);
+await admin.settings.update({ batch: { enabled: true, maxRequests: 3, timeout: 3, maxBodySize: 65536 } });
+const vite = await createServer({ configFile: false, optimizeDeps: { noDiscovery: true, include: [] }, resolve: { alias: { '@': resolve('src') } }, define: { 'import.meta.env.VITE_POCKETBASE_URL': JSON.stringify(endpoint) }, server: { middlewareMode: true } });
+let user;
+try {
+  const { pb } = await vite.ssrLoadModule('/src/lib/pocketbase.ts');
+  const records = await vite.ssrLoadModule('/src/lib/habit-records.ts');
+  const { habitDay, habitTarget } = await vite.ssrLoadModule('/src/lib/habits.ts');
+  user = await admin.collection('users').create({ email: `habits-${Date.now()}@example.com`, password: 'Habit-test-password!', passwordConfirm: 'Habit-test-password!' });
+  await pb.collection('users').authWithPassword(user.email, 'Habit-test-password!');
+  const habit = await records.saveNewHabit({ name: 'Read', kind: 'number', unit: 'pages', target: 10 });
+  assert.equal(habitTarget((await records.listHabits())[0], habitDay()), 10);
+  await records.saveHabitEntry(habit, habitDay(), 1, true);
+  await Promise.all([records.saveHabitEntry(habit, habitDay(), 1, true), records.saveHabitEntry(habit, habitDay(), 1, true)]);
+  let loaded = (await records.listHabits())[0];
+  assert.equal(loaded.entries[habitDay()], 3, 'concurrent increments must be atomic');
+  assert.equal((await pb.collection('habit_entries').getFullList()).length, 1);
+  await records.saveHabitEntry(habit, habitDay(), 4.5);
+  await records.saveHabitDetails(habit, 'Read books', 20);
+  await records.saveHabitDetails(habit, 'Read books', 15);
+  loaded = (await records.listHabits())[0];
+  assert.equal(loaded.entries[habitDay()], 4.5);
+  assert.equal(loaded.targets.length, 1);
+  assert.equal(habitTarget(loaded, habitDay()), 15);
+  await assert.rejects(pb.collection('habits').update(habit.id, { kind: 'check' }));
+  await assert.rejects(pb.collection('habit_targets').update((await pb.collection('habit_targets').getFullList())[0].id, { target: 0 }));
+  const check = await records.saveNewHabit({ name: 'Walk', kind: 'check', unit: '', target: 1 });
+  await records.saveHabitEntry(check, habitDay(), 1);
+  const checkEntry = (await pb.collection('habit_entries').getFullList({ filter: pb.filter('habit = {:id}', { id: check.id }) }))[0];
+  await assert.rejects(pb.collection('habit_entries').update(checkEntry.id, { value: 2 }));
+  await assert.rejects(pb.collection('habit_entries').update(checkEntry.id, { 'value+': 1 }));
+  const past = await pb.collection('habits').create({ owner: user.id, name: 'Historic target', kind: 'number', unit: 'pages', startDay: '2025-01-01' });
+  await pb.collection('habit_targets').create({ owner: user.id, habit: past.id, day: '2025-01-01', target: 5 });
+  let historical = (await records.listHabits()).find((item) => item.id === past.id);
+  await records.saveHabitEntry(historical, '2025-01-02', 5);
+  await records.saveHabitDetails(historical, 'Historic target', 15);
+  historical = (await records.listHabits()).find((item) => item.id === past.id);
+  assert.equal(habitTarget(historical, '2025-01-02'), 5);
+  assert.equal(habitTarget(historical, habitDay()), 15);
+  await records.removeHabit(past.id);
+  const fresh = await records.saveNewHabit({ name: 'Concurrent first entries', kind: 'number', unit: '', target: 2 });
+  await Promise.all([records.saveHabitEntry(fresh, habitDay(), 1, true), records.saveHabitEntry(fresh, habitDay(), 1, true)]);
+  assert.equal((await records.listHabits()).find((item) => item.id === fresh.id).entries[habitDay()], 2);
+  await records.removeHabit(fresh.id);
+  const broken = pb.createBatch();
+  const brokenId = 'brokenhabit0001';
+  broken.collection('habits').create({ id: brokenId, owner: user.id, name: 'Invalid batch', kind: 'number', unit: '', startDay: habitDay() });
+  broken.collection('habit_targets').create({ owner: user.id, habit: brokenId, day: habitDay(), target: 0 });
+  await assert.rejects(broken.send());
+  await assert.rejects(pb.collection('habits').getOne(brokenId));
+  const other = new PocketBase(endpoint);
+  const stranger = await admin.collection('users').create({ email: `habits-other-${Date.now()}@example.com`, password: 'Habit-test-password!', passwordConfirm: 'Habit-test-password!' });
+  try {
+    await other.collection('users').authWithPassword(stranger.email, 'Habit-test-password!');
+    assert.deepEqual(await other.collection('habits').getFullList(), []);
+    assert.deepEqual(await other.collection('habit_entries').getFullList(), []);
+    await assert.rejects(other.collection('habits').getOne(habit.id));
+    await assert.rejects(other.collection('habit_entries').create({ owner: stranger.id, habit: habit.id, day: habitDay(), value: 1 }));
+    const browser = new PocketBase(endpoint); browser.authStore.save(pb.authStore.token, pb.authStore.record);
+    assert.equal((await browser.collection('habits').getOne(habit.id)).name, 'Read books');
+    await records.removeHabit(habit.id);
+    assert.equal((await pb.collection('habit_targets').getFullList()).length, 0);
+    assert.equal((await pb.collection('habit_entries').getFullList()).length, 1);
+  } finally { await admin.collection('users').delete(stranger.id); }
+  console.log('PASS: creation batch, concurrent daily increments, decimals, dated target upsert, immutable metadata, account isolation, cross-browser reads, and cascading deletion.');
+} finally { if (user) await admin.collection('users').delete(user.id); await vite.close(); }
