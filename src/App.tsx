@@ -12,6 +12,8 @@ import { AppShell } from "@/components/features/AppShell";
 import { PwaUpdate } from "@/components/features/PwaUpdate";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useHabitReminder } from "@/hooks/useHabitReminder";
+import { useCaptureReminders } from "@/hooks/useCaptureReminders";
+import { useHabits } from "@/hooks/useHabits";
 import { useAppPreferences } from "@/hooks/useAppPreferences";
 import { playCompletionSound, unlockCompletionSound, useFocusDevice } from "@/hooks/useFocusDevice";
 import type { TimerStopOptions } from "@/components/features/timer";
@@ -49,6 +51,8 @@ import type { PomodoroSession, ProjectInput } from "@/types/task";
 
 const loadProfilePage = () => import("@/components/features/ProfilePage");
 const loadHabitsPage = () => import("@/components/features/HabitsPage");
+const loadCalendarPage = () => import("@/components/features/CalendarPage");
+const CalendarPage = lazy(() => loadCalendarPage().then((module) => ({ default: module.CalendarPage })));
 const HabitsPage = lazy(() => loadHabitsPage().then((module) => ({ default: module.HabitsPage })));
 const loadProjectsPage = () => import("@/components/features/ProjectsPage");
 const ProjectsPage = lazy(() => loadProjectsPage().then((module) => ({ default: module.ProjectsPage })));
@@ -166,6 +170,8 @@ export default function App() {
   const [completedProjectId, setCompletedProjectId] = useState<string | null>(null);
 
   const captures = useCaptures();
+  const habitStore = useHabits();
+  useCaptureReminders(userId, captures.captures, captures.isLoading);
   const { deleteCapture, createCapture, setCaptureProcessed } = captures;
   const reconcileKnowledgeCapture = knowledgeStore.reconcileDeletedCapture;
   const captureStore = useMemo<CaptureStore>(() => ({
@@ -469,6 +475,7 @@ export default function App() {
     if (nextPage === "timer") void loadTimerPage();
     if (nextPage === "profile") void loadProfilePage();
     if (nextPage === "habits") void loadHabitsPage();
+    if (nextPage === "calendar") void loadCalendarPage();
     if (nextPage === "projects") { void loadProjectsPage(); void loadProjectDetailPage(); }
     if (nextPage === "capture") void loadCapturePage();
     if (nextPage === "knowledge") { void loadKnowledgePage(); void loadKnowledgeDetailPage(); }
@@ -618,7 +625,12 @@ export default function App() {
           </Suspense>
         </div>
       ) : page === "habits" ? (
-        <Suspense fallback={<Skeleton className="h-72 w-full" />}><HabitsPage key={userId} /></Suspense>
+        <Suspense fallback={<Skeleton className="h-72 w-full" />}><HabitsPage key={userId} store={habitStore} /></Suspense>
+      ) : page === "calendar" ? (
+        <Suspense fallback={<Skeleton className="h-96 w-full" />}><CalendarPage key={userId} projects={projects} tasks={tasks} categories={categories} captureStore={captureStore} habitStore={habitStore}
+          readOnly={!canEdit} loading={areTasksLoading || areProjectsLoading || captures.isLoading} loadError={loadError}
+          selectedDay={route.calendarDay} captureId={route.captureId} onSelect={(calendarDay, captureId) => navigateTo({ page: "calendar", projectId: null, calendarDay, captureId })}
+          onTaskDone={handleStatusChange} onEditTask={editTask} onEditProject={handleUpdateProject} onCreateCategory={createCategory} /></Suspense>
       ) : page === "knowledge" ? (
         <div className="screen-panel">
           <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>

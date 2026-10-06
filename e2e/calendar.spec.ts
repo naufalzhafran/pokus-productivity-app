@@ -1,0 +1,103 @@
+import { test, expect } from "@playwright/test";
+import PocketBase from "pocketbase";
+import axe from "axe-core";
+
+test("calendar shares tasks, habits and reminders with source screens", async ({ page, context }, info) => {
+  const endpoint = "http://127.0.0.1:8099";
+  const admin = new PocketBase(endpoint);
+  await admin.collection("_superusers").authWithPassword("pokus-test@example.com", "Pokus-local-test-2026!");
+  const user = await admin.collection("users").create({ email: `calendar-${info.project.name}-${Date.now()}@example.com`, password: "Calendar-test-password!", passwordConfirm: "Calendar-test-password!", verified: true });
+  const client = new PocketBase(endpoint);
+  const auth = await client.collection("users").authWithPassword(user.email, "Calendar-test-password!");
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await context.route("https://pb1.madebynz.xyz/**", (route) => route.abort());
+  await context.addInitScript(({ token, record }) => {
+    localStorage.setItem("pocketbase_auth", JSON.stringify({ token, record }));
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => localStorage.getItem("calendar-test-offline") !== "true" });
+  }, { token: auth.token, record: auth.record });
+  try {
+    await page.goto("/#calendar");
+    const dates = await page.evaluate(() => {
+      const key = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const now = new Date(); const today = key(now); now.setDate(now.getDate() + 1); const tomorrow = key(now); now.setDate(now.getDate() - 2);
+      return { today, tomorrow, yesterday: key(now) };
+    });
+    const project = await client.collection("projects").create({ owner: user.id, title: "Calendar launch", status: "active", dueDate: dates.today });
+    const task = await client.collection("tasks").create({ owner: user.id, title: "Inherited deadline", project: project.id });
+    await client.collection("tasks").create({ owner: user.id, title: "Overdue work", dueDate: dates.yesterday });
+    const loose = await client.collection("tasks").create({ owner: user.id, title: "Plan a reading session" });
+    await client.collection("habits").create({ owner: user.id, name: "Walk outside", kind: "check", startDay: dates.today });
+    const capture = await client.collection("captures").create({ owner: user.id, kind: "note", title: "Read this reference", note: "Keep the source", isProcessed: true });
+    await page.getByRole("button", { name: "Refresh calendar" }).click();
+    await expect(page.getByRole("button", { name: "Complete Inherited deadline" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Overdue", exact: true })).toContainText("Overdue work");
+    await page.getByRole("button", { name: "Complete Inherited deadline" }).click();
+    await expect.poll(async () => (await client.collection("tasks").getOne(task.id)).isDone).toBe(true);
+    await page.getByRole("button", { name: "Complete Walk outside" }).click();
+    await page.getByRole("link", { name: "Habits", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Uncheck Walk outside" })).toBeVisible();
+    await page.getByRole("link", { name: "Calendar", exact: true }).last().click();
+    await page.getByRole("tab", { name: "Unscheduled", exact: true }).click();
+    await page.getByRole("button", { name: "Set date", exact: true }).click();
+    let dialog = page.getByRole("dialog", { name: "Edit task", exact: true });
+    await dialog.getByLabel("Task due date", { exact: true }).fill(dates.tomorrow);
+    await dialog.getByRole("button", { name: "Save changes" }).click();
+    await expect.poll(async () => (await client.collection("tasks").getOne(loose.id)).dueDate).toBe(dates.tomorrow);
+    await expect(page.getByText("No unscheduled tasks.")).toBeVisible();
+    await page.getByRole("link", { name: "Capture", exact: true }).last().click();
+    await page.getByRole("button", { name: "Processed", exact: true }).click();
+    await page.getByRole("button", { name: "Actions for Read this reference" }).click();
+    await page.getByRole("menuitem", { name: "Add reminder…", exact: true }).click();
+    dialog = page.getByRole("dialog", { name: "Reminder for Read this reference", exact: true });
+    await dialog.getByLabel("Remind me on").fill(`${dates.tomorrow}T10:30`);
+    await dialog.getByRole("button", { name: "Add reminder", exact: true }).click();
+    await page.goto(`/#calendar/${dates.tomorrow}`);
+    const selectedDate = page.getByRole("gridcell", { selected: true }).getByRole("button");
+    await selectedDate.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("gridcell", { selected: true }).getByRole("button")).toBeFocused();
+    await page.keyboard.press("ArrowLeft");
+    await expect(page.getByRole("gridcell", { selected: true }).getByRole("button")).toBeFocused();
+    await expect(page.getByRole("button", { name: "Complete Read this reference" })).toBeVisible();
+    const saved = await client.collection("captures").getOne(capture.id);
+    expect(saved.isProcessed).toBe(true);
+    expect(saved.reminderAt).toBeGreaterThan(Date.now());
+    await page.getByRole("button", { name: "Read this reference", exact: true }).click();
+    dialog = page.getByRole("dialog", { name: "Read this reference", exact: true });
+    await dialog.getByRole("button", { name: "Complete reminder", exact: true }).click();
+    await expect.poll(async () => (await client.collection("captures").getOne(capture.id)).reminderDone).toBe(true);
+    await page.getByText("Completed (1)", { exact: true }).click();
+    await page.getByRole("button", { name: "Reopen Read this reference" }).click();
+    await expect(page.getByRole("button", { name: "Complete Read this reference" })).toBeVisible();
+    await page.getByRole("button", { name: "Read this reference", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Remove reminder", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Complete Read this reference" })).toHaveCount(0);
+    expect((await client.collection("captures").getOne(capture.id)).isProcessed).toBe(true);
+    await expect(page.getByRole("button", { name: "Complete Walk outside" })).toBeDisabled();
+    await page.getByRole("button", { name: "Next month" }).click();
+    await page.getByRole("button", { name: "Previous month" }).click();
+    await page.getByRole("button", { name: "Today", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Overdue", exact: true })).toBeVisible();
+    await page.goto(`/#calendar/${dates.tomorrow}`);
+
+    for (const width of [320, 402, 1280]) {
+      await page.setViewportSize({ width, height: 874 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.screenshot({ path: info.outputPath("calendar-desktop.png"), fullPage: true });
+    await page.addScriptTag({ content: axe.source });
+    const violations = await page.evaluate(async () => (await (window as unknown as { axe: typeof import("axe-core") }).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map((violation) => ({ id: violation.id, targets: violation.nodes.map((node) => node.target) })));
+    expect(violations).toEqual([]);
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 402, height: 874 });
+    await page.screenshot({ path: info.outputPath("calendar-mobile-dark.png"), fullPage: true });
+    expect(await page.evaluate(async () => (await (window as unknown as { axe: typeof import("axe-core") }).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } })).violations.map((violation) => ({ id: violation.id, nodes: violation.nodes.map((node) => ({ target: node.target, summary: node.failureSummary })) })))).toEqual([]);
+    await context.route(`${endpoint}/**`, (route) => route.abort());
+    await page.evaluate(() => { localStorage.setItem("calendar-test-offline", "true"); window.dispatchEvent(new Event("offline")); });
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Complete Plan a reading session" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Complete Plan a reading session" })).toBeDisabled();
+    expect(errors).toEqual([]);
+  } finally { await admin.collection("users").delete(user.id); }
+});

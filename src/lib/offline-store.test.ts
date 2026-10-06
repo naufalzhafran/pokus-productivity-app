@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acknowledgeOperation, persistTransition, readCache, readTimer, writeCache } from "@/lib/offline-store";
+import { acknowledgeOperation, claimCaptureReminder, persistTransition, readCache, readTimer, writeCache } from "@/lib/offline-store";
 import type { PomodoroSession } from "@/types/task";
 
 const running = (id = "session00000001"): PomodoroSession => ({ id, taskId: "task00000000001", mode: "running", durationMinutes: 25, remainingSeconds: 1500, isActive: true, lastTick: 1000 });
@@ -47,5 +47,20 @@ describe("durable timer storage", () => {
     expect(await readCache("bob", "tasks")).toBeUndefined();
     expect((await readTimer("bob")).operations).toHaveLength(0);
     expect((await readTimer("alice")).operations).toHaveLength(1);
+  });
+});
+
+describe("durable reminder claims", () => {
+  it("allows only one concurrent claim for an account, capture, and timestamp", async () => {
+    const results = await Promise.all(Array.from({ length: 5 }, () => claimCaptureReminder("reminders-race", "capture", 1000)));
+    expect(results.filter(Boolean)).toHaveLength(1);
+    expect(await claimCaptureReminder("reminders-race", "capture", 1000)).toBe(false);
+  });
+
+  it("isolates accounts and permits a new timestamp after rescheduling", async () => {
+    expect(await claimCaptureReminder("reminders-alice", "capture", 1000)).toBe(true);
+    expect(await claimCaptureReminder("reminders-bob", "capture", 1000)).toBe(true);
+    expect(await claimCaptureReminder("reminders-alice", "capture", 2000)).toBe(true);
+    expect(await claimCaptureReminder("reminders-alice", "capture", 1000)).toBe(false);
   });
 });

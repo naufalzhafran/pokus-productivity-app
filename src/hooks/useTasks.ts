@@ -15,6 +15,7 @@ import {
   validateTaskTitle,
 } from "@/lib/workspace";
 import type { Task, TaskInput } from "@/types/task";
+import { validHabitDay } from "@/lib/habits";
 
 export function useTasks() {
   const { items: tasks, itemsRef: tasksRef, replace: replaceTasks, isLoading, loadError } = useCachedResource<Task>("tasks", listTasks);
@@ -25,6 +26,7 @@ export function useTasks() {
       const normalizedTitle = input.title.replace(/\s+/g, " ").trim();
       const validationError = validateTaskTitle(input.title);
       if (validationError) throw new Error(validationError);
+      if (input.dueDate && !validHabitDay(input.dueDate)) throw new Error("Enter a valid task date.");
 
       const task: Task = {
         id: createPocketBaseId(),
@@ -36,6 +38,7 @@ export function useTasks() {
         description: input.description,
         priority: input.priority,
         categoryId: input.categoryId,
+        dueDate: input.dueDate ?? null,
       };
 
       try {
@@ -118,9 +121,11 @@ export function useTasks() {
       if (!previousTask) return false;
       const validationError = validateTaskTitle(input.title, previousTask.title);
       if (validationError) throw new Error(validationError);
+      if (input.dueDate && !validHabitDay(input.dueDate)) throw new Error("Enter a valid task date.");
       const titleChanged = input.title !== previousTask.title;
       const normalizedTitle = titleChanged ? input.title.replace(/\s+/g, " ").trim() : previousTask.title;
-      const nextTask = { ...previousTask, ...input, title: normalizedTitle };
+      const dueDate = input.dueDate === undefined ? previousTask.dueDate ?? null : input.dueDate;
+      const nextTask = { ...previousTask, ...input, title: normalizedTitle, dueDate };
 
       replaceTasks(
         tasksRef.current.map((task) =>
@@ -140,6 +145,7 @@ export function useTasks() {
               description: input.description,
               priority: input.priority,
               category: input.categoryId ?? "",
+              dueDate: dueDate ?? "",
             },
             { requestKey: null },
           );

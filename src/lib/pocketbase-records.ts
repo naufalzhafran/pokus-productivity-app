@@ -10,6 +10,7 @@ import type {
 import { sanitizeLinkPreview } from "@/lib/link-preview";
 import type { Capture } from "@/types/capture";
 import type { Knowledge } from "@/types/knowledge";
+import { validReminderAt } from "@/lib/calendar";
 
 export const COLLECTIONS = {
   projects: "projects",
@@ -39,6 +40,7 @@ export interface TaskRecord extends RecordModel {
   description?: string;
   priority?: Task["priority"];
   category?: string;
+  dueDate?: string;
 }
 
 export interface CategoryRecord extends RecordModel {
@@ -56,6 +58,8 @@ export interface CaptureRecord extends RecordModel {
   author?: string;
   preview: unknown;
   isProcessed: boolean;
+  reminderAt?: number;
+  reminderDone?: boolean;
   created: string;
   updated: string;
 }
@@ -123,6 +127,7 @@ export function taskFromRecord(record: TaskRecord): Task {
     description: record.description || "",
     priority: record.priority || "none",
     categoryId: record.category || null,
+    dueDate: record.dueDate || null,
   };
 }
 
@@ -164,6 +169,7 @@ export function taskToRecord(task: Task) {
     description: task.description ?? "",
     priority: task.priority ?? "none",
     category: task.categoryId ?? "",
+    dueDate: task.dueDate ?? "",
   };
 }
 
@@ -223,6 +229,8 @@ export function captureFromRecord(record: CaptureRecord): Capture {
     author: record.author || "",
     preview: sanitizeLinkPreview(record.preview),
     isProcessed: record.isProcessed,
+    reminderAt: validReminderAt(record.reminderAt) ? record.reminderAt : null,
+    reminderDone: record.reminderDone === true,
     createdAt: Date.parse(record.created),
     updatedAt: Date.parse(record.updated),
   };
@@ -239,6 +247,8 @@ export function captureToRecord(capture: Capture) {
     author: capture.author ?? "",
     preview: capture.preview,
     isProcessed: capture.isProcessed,
+    reminderAt: capture.reminderAt ?? 0,
+    reminderDone: capture.reminderDone ?? false,
   };
 }
 

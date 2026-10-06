@@ -33,14 +33,14 @@ export function TaskDetail({
   const title = task.title.replace(/\s+/g, " ").trim().slice(0, 120);
   const priority = taskPriority(task);
   const today = localDateKey();
-  const dueDate = project?.dueDate;
+  const dueDate = task.dueDate || project?.dueDate;
   const dueText = dueDate
     ? dueDate === today
       ? "Today"
       : dueDate < today
         ? `Overdue · ${dueDate}`
         : dueDate
-    : "No project due date";
+    : "Unscheduled";
 
   return (
     <div className="flex flex-col gap-5" aria-busy={isPending}>
@@ -74,8 +74,8 @@ export function TaskDetail({
           <Folder />
           {project?.title ?? "No project"}
         </dd>
-        <dt className="text-muted-foreground">Project due</dt>
-        <dd>{dueDate ? <time dateTime={dueDate}>{dueText}</time> : dueText}</dd>
+        <dt className="text-muted-foreground">Due date</dt>
+        <dd>{dueDate ? <><time dateTime={dueDate}>{dueText}</time>{!task.dueDate ? <span className="block text-xs text-muted-foreground">From project</span> : null}</> : dueText}</dd>
         <dt className="text-muted-foreground">Focused</dt>
         <dd>{Math.floor(task.focusedSeconds / 60)} minutes</dd>
         <dt className="text-muted-foreground">Created</dt>

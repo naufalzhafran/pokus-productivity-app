@@ -13,7 +13,7 @@ import { HabitEditor } from "@/components/features/HabitEditor";
 import { HabitActivity } from "@/components/features/HabitActivity";
 import { HabitDayList } from "@/components/features/HabitDayList";
 import { HabitReminder } from "@/components/features/HabitReminder";
-import { useHabits } from "@/hooks/useHabits";
+import type { useHabits } from "@/hooks/useHabits";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { formatHabitDay, habitDay, habitFraction, habitStreaks, overallHabitProgress, validHabitDay } from "@/lib/habits";
 import type { Habit } from "@/types/habit";
@@ -23,8 +23,8 @@ function Streaks({ habits, today }: { habits: Habit[]; today: string }) {
   return <dl className="grid grid-cols-3 gap-3 py-4 text-center">{[["Current streak", stats.current], ["Best streak", stats.longest], ["Completed days", stats.completedDays]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground sm:text-sm">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{value}</dd></div>)}</dl>;
 }
 
-export function HabitsPage() {
-  const store = useHabits(); const { canEdit } = useConnectivity();
+export function HabitsPage({ store }: { store: ReturnType<typeof useHabits> }) {
+  const { canEdit } = useConnectivity();
   const [today, setToday] = useState(habitDay);
   const [day, setDay] = useState(today);
   const [year, setYear] = useState(today.slice(0, 4));

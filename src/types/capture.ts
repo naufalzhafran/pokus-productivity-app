@@ -22,6 +22,9 @@ export interface Capture {
   isProcessed: boolean;
   createdAt: number;
   updatedAt: number;
+  /** One reminder instant, in Unix milliseconds. */
+  reminderAt?: number | null;
+  reminderDone?: boolean;
 }
 
 export interface CaptureInput {

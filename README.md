@@ -6,7 +6,7 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 
 - Adjustable Pomodoro duration with a circular control
 - Quick presets for 15, 25, 45, and 60 minutes
-- Installable Timer-first PWA with Timer, Projects, Habits, Capture, Knowledge, and Profile hash routes
+- Installable Timer-first PWA with Timer, Projects, Calendar, Capture, Knowledge, and Profile navigation; Habits is accessible from Calendar
 - Responsive sticky desktop navigation and safe-area-aware mobile navigation
 - Projects list with status, Due soon, and Archived filters, progress, and focused time per project
 - Project detail pages with the project's tasks, filters, and actions, plus a No project page for loose tasks
@@ -34,6 +34,9 @@ A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 - Account-owned habits synced across browsers, with cached offline browsing and online-only edits
 - Dated numeric targets preserve historical progress when targets change
 - Optional per-browser in-app daily reminders while Pokus is open
+- Month calendar and daily agenda for project deadlines, tasks, habits, and capture reminders
+- Task due dates override project deadlines; undated work appears in Calendar’s Unscheduled list
+- One timed reminder per capture, with completion independent of capture processing
 
 ## Tech Stack
 
@@ -88,9 +91,25 @@ schema updates. PocketBase will update the existing collections without deleting
 their records or changing the Google OAuth configuration.
 
 Import the updated `pb_schema.json` before deploying the matching frontend.
-Project due dates are stored as `YYYY-MM-DD` text so calendar days do not drift
-across time zones. Tasks inherit their project's date in Today, Upcoming, Overdue,
-and due-date sorting; unassigned tasks remain undated.
+Project and task due dates are stored as `YYYY-MM-DD` text so calendar days do not
+drift across time zones. Tasks use their own date or inherit their project's
+deadline. Clearing an override restores inheritance; moving or deleting a project
+recomputes the task's effective date. Archived projects and their tasks are hidden
+from Calendar. Calendar opens at `#calendar`; a date and optional capture can be
+linked as `#calendar/YYYY-MM-DD/<capture-id>`. Existing `#habits` links still work.
+
+Captures use `reminderAt` (integer epoch milliseconds, zero when absent) and
+`reminderDone` (independent of `isProcessed`). Scheduling requires a future time;
+completion retains the dated entry, and rescheduling reopens it. Reminders display
+in the current device timezone. Web alerts appear only while the app is visible,
+with browser-wide, account-scoped deduplication and a catch-up notice on return.
+Native alerts are scheduled after the iPhone app syncs; changes made on the web,
+including cancellation, reach the phone after its next sync. Existing daily habit
+reminders remain independent.
+
+Import the updated schema before releasing either client. This change adds fields
+and indexes only; existing records decode safely without a backfill. Calendar
+does not add a collection, a push service, or external calendar synchronization.
 
 Habits require the three habit collections in this schema and PocketBase batch
 requests enabled (Settings → Application, at least three requests per batch).
@@ -115,7 +134,12 @@ deploying the frontend.
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 - `npm run test:habits:pocketbase` - Test habits against an isolated local PocketBase
+- `npm run test:calendar:pocketbase` - Test calendar schema, inherited dates, reminders, and account access against an isolated local PocketBase
+- `npx playwright test e2e/calendar.spec.ts` - Test calendar actions, responsive layouts, accessibility, and cached browsing in Chromium and iPhone WebKit
 - `npx playwright test e2e/habits.spec.ts` - Test habit flows in Chromium and iPhone WebKit
+
+See [Calendar verification](docs/calendar-verification.md) for test evidence and
+remaining manual release checks.
 
 ## Project Structure
 

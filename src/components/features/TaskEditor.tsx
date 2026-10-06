@@ -29,6 +29,7 @@ export function TaskEditor({ task, projects, categories = [], initialProjectId, 
   const [input, setInput] = useState<TaskInput>({
     title: task?.title ?? "", description: task?.description ?? "", projectId: task ? task.projectId : initialProjectId,
     priority: task?.priority ?? "none", categoryId: task?.categoryId ?? null,
+    dueDate: task?.dueDate ?? null,
   });
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");
@@ -61,6 +62,7 @@ export function TaskEditor({ task, projects, categories = [], initialProjectId, 
       </Field>
       <Field><FieldLabel>Task description</FieldLabel><Suspense fallback={<div className="h-48 animate-pulse rounded-2xl bg-muted" />}><RichTextEditor id="task-editor-description" label="Task description" placeholder="Add notes, links, or context…" value={input.description} onChange={(value) => set("description", value)} disabled={isSaving} /></Suspense></Field>
       <Field><FieldLabel htmlFor="task-editor-project">Project</FieldLabel><ProjectCombobox id="task-editor-project" projects={projects.filter((project) => !(project.isArchived ?? project.isDone) || project.id === task?.projectId)} value={input.projectId} onValueChange={(value) => set("projectId", value)} disabled={isSaving} /></Field>
+      <Field><FieldLabel htmlFor="task-editor-due">Task due date</FieldLabel><Input id="task-editor-due" type="date" value={input.dueDate ?? ""} onChange={(event) => set("dueDate", event.target.value || null)} disabled={isSaving} /><p className="text-sm text-muted-foreground">{input.dueDate ? "This date overrides the project deadline." : projects.find((project) => project.id === input.projectId)?.dueDate ? `From project: ${projects.find((project) => project.id === input.projectId)?.dueDate}. Leave empty to use the project deadline.` : "Leave empty to keep this task unscheduled."}</p></Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field><FieldLabel>Priority</FieldLabel><Select disabled={isSaving} items={priorityLabels} value={input.priority} onValueChange={(value) => set("priority", value as TaskPriority)}><SelectTrigger aria-label="Task priority"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{priorities.map((value) => <SelectItem key={value} value={value}>{priorityLabels[value]}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
         <Field><FieldLabel htmlFor="task-editor-category">Category</FieldLabel><CategoryCombobox id="task-editor-category" categories={categories} value={input.categoryId} onValueChange={(value) => set("categoryId", value)} disabled={isSaving} />{onCreateCategory ? <Button type="button" variant="ghost" size="sm" disabled={isSaving} aria-expanded={creatingCategory} onClick={() => setCreatingCategory((value) => !value)}><Plus data-icon="inline-start" />{creatingCategory ? "Cancel new category" : "New category"}</Button> : null}</Field>

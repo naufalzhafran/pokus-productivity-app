@@ -5,7 +5,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProjectEditor } from "@/components/features/ProjectEditor";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectTasks, type ProjectTasksProps } from "@/components/features/ProjectTasks";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { buildProjectStats, dueLabel, formatFocused, getProjectStatus, isProjectArchived, localDateKey, NO_PROJECT_ID, PROJECT_STATUS_LABELS } from "@/lib/workspace";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { ProjectInput } from "@/types/task";
 
 const RichTextContent = lazy(() => import("@/components/features/RichTextContent").then((module) => ({ default: module.RichTextContent })));
+const ProjectEditor = lazy(() => import("@/components/features/ProjectEditor").then((module) => ({ default: module.ProjectEditor })));
 
 type TaskProps = Omit<ProjectTasksProps, "project">;
 
@@ -121,7 +122,7 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
         </section>
       )}
       <ResponsiveOverlay open={editing} onOpenChange={setEditing} title="Edit project">
-        {editing && project ? <ProjectEditor project={project} openTaskCount={stats?.openCount ?? 0} onCancel={() => setEditing(false)} onSave={async (input) => { await onUpdateProject(project.id, input); setEditing(false); }} /> : null}
+        {editing && project ? <Suspense fallback={<Skeleton className="h-64 w-full" />}><ProjectEditor project={project} openTaskCount={stats?.openCount ?? 0} onCancel={() => setEditing(false)} onSave={async (input) => { await onUpdateProject(project.id, input); setEditing(false); }} /></Suspense> : null}
       </ResponsiveOverlay>
     </div>
   );

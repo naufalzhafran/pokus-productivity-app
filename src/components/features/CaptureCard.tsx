@@ -131,12 +131,14 @@ interface CaptureCardProps {
   onShowKnowledge?: () => void;
   onDistill?: () => void;
   onStartProject?: () => void;
+  onReminder?: () => void;
 }
 
-export function CaptureCard({ capture, readOnly, pending, loadingPreview, onToggleProcessed, onEdit, onRefreshPreview, onDelete, projects = [], onOrganize, onRemoveFromProject, knowledgeCount = 0, onShowKnowledge, onDistill, onStartProject }: CaptureCardProps) {
+export function CaptureCard({ capture, readOnly, pending, loadingPreview, onToggleProcessed, onEdit, onRefreshPreview, onDelete, projects = [], onOrganize, onRemoveFromProject, knowledgeCount = 0, onShowKnowledge, onDistill, onStartProject, onReminder }: CaptureCardProps) {
   const title = captureDisplayTitle(capture);
   return <article aria-busy={pending || loadingPreview} aria-label={title} className="flex min-w-0 flex-col overflow-hidden rounded-[min(var(--radius-4xl),24px)] border bg-card text-card-foreground">
     <CapturePreview capture={capture} loading={loadingPreview} />
+    {capture.reminderAt && onReminder ? <Button variant="ghost" className="mx-3 mb-3 h-auto min-h-11 justify-start whitespace-normal text-left" onClick={onReminder}>{capture.reminderDone ? "Reminder completed" : "Reminder"} · {new Date(capture.reminderAt).toLocaleString()}</Button> : null}
     {projects.length || knowledgeCount ? <ul aria-label="Connections" className="flex flex-wrap gap-1.5 px-4 pb-3">
       {projects.map((project) => <li key={project.id} className="min-w-0">
         <a href={projectHash(project.id)} className="flex max-w-full items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
@@ -164,6 +166,7 @@ export function CaptureCard({ capture, readOnly, pending, loadingPreview, onTogg
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label={`Actions for ${title}`} disabled={pending} />}><MoreHorizontal /></DropdownMenuTrigger>
         <DropdownMenuContent align="end"><DropdownMenuGroup>
+          {onReminder ? <DropdownMenuItem onClick={onReminder} disabled={readOnly}>{capture.reminderAt ? "Edit reminder…" : "Add reminder…"}</DropdownMenuItem> : null}
           {onDistill ? <DropdownMenuItem onClick={onDistill} disabled={readOnly}><Lightbulb />Distill into knowledge…</DropdownMenuItem> : null}
           {onOrganize ? <DropdownMenuItem onClick={onOrganize} disabled={readOnly}><FolderInput />Add to projects…</DropdownMenuItem> : null}
           {onStartProject ? <DropdownMenuItem onClick={onStartProject} disabled={readOnly}><FolderPlus />{capture.kind === "book" ? "Start reading project" : "Start project"}</DropdownMenuItem> : null}

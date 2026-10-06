@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CaptureCard } from "@/components/features/CaptureCard";
 import { CaptureOrganizer } from "@/components/features/CaptureOrganizer";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
+import { CaptureReminderEditor } from "@/components/features/CaptureReminderEditor";
 import type { CaptureStore } from "@/hooks/useCaptures";
 import { captureDisplayTitle } from "@/lib/capture";
 import { knowledgeHash } from "@/lib/routes";
@@ -37,6 +38,8 @@ export interface CaptureGridProps {
 export function CaptureGrid({ label, captures, store, projects, readOnly, onOrganize, currentProject, onRemoveFromProject, knowledgeBySource, onDistill, onStartProject, empty }: CaptureGridProps) {
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [editing, setEditing] = useState<Capture | null>(null);
+  const [reminderId, setReminderId] = useState<string | null>(null);
+  const reminderCapture = captures.find((capture) => capture.id === reminderId);
   const [organizing, setOrganizing] = useState<Capture | null>(null);
   const [showingKnowledge, setShowingKnowledge] = useState<Capture | null>(null);
   const shownNotes = showingKnowledge ? knowledgeBySource?.get(showingKnowledge.id) ?? [] : [];
@@ -79,10 +82,14 @@ export function CaptureGrid({ label, captures, store, projects, readOnly, onOrga
           onDistill={onDistill ? () => onDistill(capture) : undefined}
           onStartProject={onStartProject ? () => void mutate(capture.id, () => onStartProject(capture), "Project started.", "The project could not be created.") : undefined}
           onEdit={() => setEditing(capture)}
+          onReminder={() => setReminderId(capture.id)}
           onRefreshPreview={() => void refresh(capture)}
           onDelete={() => { if (window.confirm(`Delete ${captureDisplayTitle(capture)}? It will be removed from every project.`)) void mutate(capture.id, () => store.deleteCapture(capture.id), "Capture deleted.", "This capture could not be deleted."); }} />
       </li>)}
     </ul> : empty}
+    <ResponsiveOverlay open={Boolean(reminderCapture)} onOpenChange={(open) => { if (!open) setReminderId(null); }} title={reminderCapture ? `Reminder for ${captureDisplayTitle(reminderCapture)}` : "Capture reminder"}>
+      {reminderCapture ? <CaptureReminderEditor key={reminderCapture.id} capture={reminderCapture} store={store} readOnly={readOnly} onClose={() => setReminderId(null)} /> : null}
+    </ResponsiveOverlay>
     <ResponsiveOverlay open={Boolean(editing)} onOpenChange={(open) => { if (!open) setEditing(null); }} title="Edit capture">
       {editing ? <Suspense fallback={<Skeleton className="h-72 w-full" />}>
         <CaptureEditor capture={editing} onCancel={() => setEditing(null)} onSave={async (input) => { await store.updateCapture(editing.id, input); setEditing(null); toast.success("Capture updated."); }} />

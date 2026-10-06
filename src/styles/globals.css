@@ -138,7 +138,7 @@
     .app-main { padding-left: max(2rem, env(safe-area-inset-left)); padding-right: max(2rem, env(safe-area-inset-right)); }
   }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; }
   }
   @media (forced-colors: active) {
     :focus-visible, .setup-dial svg:focus-visible { outline: 3px solid Highlight !important; outline-offset: 3px; }

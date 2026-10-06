@@ -139,6 +139,29 @@
         "type": "json"
       },
       {
+        "help": "One capture reminder, Unix milliseconds; zero means no reminder",
+        "hidden": false,
+        "id": "numcapremind1",
+        "max": 253402300799000,
+        "min": 0,
+        "name": "reminderAt",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "help": "Completion of the reminder, independent of capture processing",
+        "hidden": false,
+        "id": "boolcaprem01",
+        "name": "reminderDone",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
         "hidden": false,
         "id": "autodate2990389176",
         "name": "created",
@@ -160,10 +183,11 @@
       }
     ],
     "indexes": [
-      "CREATE INDEX idx_captures_owner_processed ON captures (owner, isProcessed)"
+      "CREATE INDEX idx_captures_owner_processed ON captures (owner, isProcessed)",
+      "CREATE INDEX idx_captures_owner_reminder ON captures (owner, reminderDone, reminderAt)"
     ],
     "created": "2026-10-01 00:00:00.000Z",
-    "updated": "2026-10-01 00:00:00.000Z",
+    "updated": "2026-10-06 00:00:00.000Z",
     "system": false
   },
   {
@@ -310,10 +334,11 @@
       }
     ],
     "indexes": [
-      "CREATE INDEX idx_projects_owner ON projects (owner)"
+      "CREATE INDEX idx_projects_owner ON projects (owner)",
+      "CREATE INDEX idx_projects_owner_due ON projects (owner, dueDate)"
     ],
     "created": "2026-07-15 02:31:16.847Z",
-    "updated": "2026-10-01 00:00:00.000Z",
+    "updated": "2026-10-06 00:00:00.000Z",
     "system": false
   },
   {
@@ -452,6 +477,21 @@
         "type": "relation"
       },
       {
+        "autogeneratePattern": "",
+        "help": "Local-calendar task date in YYYY-MM-DD format; empty follows project dueDate",
+        "hidden": false,
+        "id": "txttaskdue001",
+        "max": 10,
+        "min": 0,
+        "name": "dueDate",
+        "pattern": "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
         "hidden": false,
         "id": "autodate2990389176",
         "name": "created",
@@ -474,10 +514,11 @@
     ],
     "indexes": [
       "CREATE INDEX idx_tasks_owner ON tasks (owner)",
-      "CREATE INDEX idx_tasks_project ON tasks (project)"
+      "CREATE INDEX idx_tasks_project ON tasks (project)",
+      "CREATE INDEX idx_tasks_owner_due ON tasks (owner, dueDate)"
     ],
     "created": "2026-07-15 02:31:16.849Z",
-    "updated": "2026-07-15 02:31:16.849Z",
+    "updated": "2026-10-06 00:00:00.000Z",
     "system": false
   },
   {

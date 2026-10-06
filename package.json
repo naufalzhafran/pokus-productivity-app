@@ -9,6 +9,7 @@
     "test:browser": "playwright test",
     "test:pocketbase": "node scripts/test-pocketbase.mjs",
     "test:habits:pocketbase": "node scripts/test-habits-pocketbase.mjs",
+    "test:calendar:pocketbase": "node scripts/test-calendar-pocketbase.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "preview": "vite preview",
     "lint": "eslint"

@@ -39,6 +39,16 @@ export async function readCache<T>(owner: string, key: string): Promise<T | unde
 export async function writeCache<T>(owner: string, key: string, value: T) {
   await (await db()).put("cache", value, `${owner}:${key}`);
 }
+
+/** IndexedDB serializes this claim across tabs before either tab shows a toast. */
+export async function claimCaptureReminder(owner: string, captureId: string, reminderAt: number): Promise<boolean> {
+  const key = `${owner}:capture-reminder:${captureId}:${reminderAt}`;
+  const tx = (await db()).transaction("cache", "readwrite");
+  const claimed = await tx.store.get(key);
+  if (!claimed) await tx.store.put(true, key);
+  await tx.done;
+  return !claimed;
+}
 export async function readTimer(owner: string) {
   return (await (await db()).get("timers", owner)) ?? emptySnapshot();
 }

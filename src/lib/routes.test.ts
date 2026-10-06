@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { knowledgeHash, KNOWLEDGE_REVIEW_ID, parseRoute, projectHash, routeHash } from "@/lib/routes";
+import { calendarHash, knowledgeHash, KNOWLEDGE_REVIEW_ID, parseRoute, projectHash, routeHash } from "@/lib/routes";
 
 describe("hash routes", () => {
   it("parses pages, project details, and legacy task links", () => {
@@ -15,6 +15,8 @@ describe("hash routes", () => {
   });
 
   it("builds hashes that round-trip", () => {
+    expect(parseRoute(calendarHash("2026-10-06", "capture00000001"))).toEqual({ page: "calendar", projectId: null, calendarDay: "2026-10-06", captureId: "capture00000001" });
+    expect(parseRoute("#calendar/2026-02-30/nope")).toEqual({ page: "calendar", projectId: null, calendarDay: null, captureId: null });
     expect(routeHash({ page: "profile", projectId: null })).toBe("#profile");
     expect(projectHash("abc123")).toBe("#projects/abc123");
     expect(parseRoute(projectHash("a/b"))).toEqual({ page: "projects", projectId: "a/b" });

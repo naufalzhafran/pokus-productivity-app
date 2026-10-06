@@ -8,6 +8,8 @@ export interface Task {
   description?: string;
   priority?: TaskPriority;
   categoryId?: string | null;
+  /** Local calendar date; otherwise this task follows its project's deadline. */
+  dueDate?: string | null;
 }
 
 export type TaskPriority = "none" | "low" | "medium" | "high" | "urgent";
@@ -22,6 +24,7 @@ export interface TaskInput {
   projectId: string | null;
   priority: TaskPriority;
   categoryId: string | null;
+  dueDate?: string | null;
 }
 
 export interface Project {
