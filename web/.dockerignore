@@ -1,0 +1,8 @@
+node_modules
+dist
+npm-debug.log*
+Dockerfile*
+README.md
+AGENTS.md
+e2e
+docs

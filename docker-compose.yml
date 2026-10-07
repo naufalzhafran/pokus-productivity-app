@@ -1,0 +1,31 @@
+name: pokus-productivity-app
+
+services:
+  pokus:
+    build:
+      context: web
+    image: pokus-productivity-app:latest
+    container_name: pokus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:80"
+
+  pocketbase:
+    build:
+      context: backend
+    image: pocketbase:0.40.4
+    container_name: pocketbase
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - pocketbase_data:/pb/pb_data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/api/health >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  pocketbase_data:
+    external: true
