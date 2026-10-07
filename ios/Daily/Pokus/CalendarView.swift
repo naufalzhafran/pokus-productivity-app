@@ -22,6 +22,8 @@ struct PokusCalendarView: View {
     @State private var loadedDay = ""
     @State private var save = SaveAction()
     @State private var entryToEdit: EntrySelection?
+    @State private var habitToView: UUID?
+    @State private var showingReminderInfo = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var selectedDay: DayKey { showsMonth ? pickedDay ?? today : today }
@@ -41,7 +43,12 @@ struct PokusCalendarView: View {
         GeometryReader { geometry in
             Group {
                 if model.account == nil { AccountNotice(model: model) }
-                else if !showsMonth { List { agenda }.listStyle(.insetGrouped).accessibilityIdentifier("calendarAgenda") }
+                else if !showsMonth {
+                    List { agenda }
+                        .listStyle(.insetGrouped)
+                        .contentMargins(.top, 0)
+                        .accessibilityIdentifier("calendarAgenda")
+                }
                 else if geometry.size.width >= 760 && !typeSize.isAccessibilitySize {
                     HStack(alignment: .top, spacing: 0) {
                         ScrollView { monthGrid.padding() }.frame(width: geometry.size.width * 0.46)
@@ -61,7 +68,10 @@ struct PokusCalendarView: View {
                 Menu {
                     if let openHabits { Button("Habits", systemImage: "checkmark.circle", action: openHabits) }
                     NavigationLink("Unscheduled", destination: CalendarUnscheduledView(model: model))
-                } label: { Label("Calendar options", systemImage: "ellipsis.circle") }
+                    if !showsMonth {
+                        Button("About reminder alerts", systemImage: "bell") { showingReminderInfo = true }
+                    }
+                } label: { Label(showsMonth ? "Calendar options" : "Today options", systemImage: showsMonth ? "ellipsis.circle" : "ellipsis") }
             }
         }
         .refreshable { await model.refresh(); retry += 1 }
@@ -86,6 +96,14 @@ struct PokusCalendarView: View {
         }
         .navigationDestination(isPresented: Binding(get: { selectedCapture != nil }, set: { if !$0 { selectedCapture = nil } })) {
             if let selectedCapture { CaptureDetailView(model: model, captureID: selectedCapture) }
+        }
+        .navigationDestination(item: $habitToView) { id in
+            HabitDetailView(store: store, habitID: id, today: today)
+        }
+        .alert("Reminder alerts", isPresented: $showingReminderInfo) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Reminder changes made on the web reach this iPhone after the app next syncs. Pull down on Today to sync now.")
         }
         .sheet(item: $entryToEdit) { selection in
             LoadedEntryEditor(store: store, habitID: selection.habitID, day: selection.day, today: today)
@@ -149,26 +167,90 @@ struct PokusCalendarView: View {
     }
 
     @ViewBuilder private var agenda: some View {
-        Section {
-            AccountNotice(model: model)
-            if let notice = model.captureReminderNotice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
-            Text("Web reminder changes reach iPhone alerts after this app next syncs.").font(.caption).foregroundStyle(.secondary)
+        if showsMonth {
+            Section {
+                AccountNotice(model: model)
+                if let notice = model.captureReminderNotice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
+                Text("Web reminder changes reach iPhone alerts after this app next syncs.").font(.caption).foregroundStyle(.secondary)
+            }
+        } else {
+            Section {
+                Text(today.formatted("EEEE, MMMM d"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+                AccountNotice(model: model)
+                if let notice = model.captureReminderNotice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
+            }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+            if window.value == nil && window.error == nil {
+                Section { ProgressView("Loading your day") }
+            }
+            if let error = window.error { Section { ReadError(message: error) { retry += 1 } } }
+            if day.value != nil && overdue.value == nil && overdue.error == nil {
+                Section { ProgressView("Checking overdue items") }
+            }
         }
         if selectedDay == today, let items = overdue.value, !items.isEmpty {
             Section("Overdue") { ForEach(items) { CalendarAgendaRow(model: model, item: $0, showsDate: true) } }
+                .textCase(showsMonth ? .uppercase : nil)
         }
         if selectedDay == today, let error = overdue.error { Section { ReadError(message: error) { retry += 1 } } }
-        Section(selectedDay.formatted("EEEE, MMMM d")) {
-            ForEach(remaining) { CalendarAgendaRow(model: model, item: $0) }
+        if showsMonth {
+            Section(selectedDay.formatted("EEEE, MMMM d")) {
+                ForEach(remaining) { CalendarAgendaRow(model: model, item: $0) }
+                if let index = day.value {
+                    habitRows(index.remaining, index: index)
+                    if window.value != nil && remaining.isEmpty && reminders.isEmpty && index.remaining.isEmpty {
+                        Text(completed.isEmpty && index.completed.isEmpty ? "Nothing scheduled for this day." : "All done for this day.").foregroundStyle(.secondary)
+                    }
+                } else if day.isLoading { ProgressView("Loading habits") }
+                if let error = day.error { ReadError(message: error) { retry += 1 } }
+            }
+        } else {
+            if !remaining.isEmpty {
+                Section("Scheduled") { ForEach(remaining) { CalendarAgendaRow(model: model, item: $0) } }
+                    .textCase(nil)
+            }
             if let index = day.value {
-                habitRows(index.remaining, index: index)
-                if window.value != nil && remaining.isEmpty && reminders.isEmpty && index.remaining.isEmpty {
-                    Text(completed.isEmpty && index.completed.isEmpty ? "Nothing scheduled for this day." : "All done for this day.").foregroundStyle(.secondary)
+                if !index.remaining.isEmpty {
+                    Section {
+                        habitRows(index.remaining, index: index)
+                    } header: {
+                        let layout = typeSize.isAccessibilitySize
+                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                            : AnyLayout(HStackLayout())
+                        layout {
+                            Text("Habits")
+                            if !typeSize.isAccessibilitySize { Spacer() }
+                            Text("\(index.completed.count) of \(index.ids.count) done")
+                                .fontWeight(.regular)
+                        }
+                    }
+                    .textCase(nil)
                 }
-            } else if day.isLoading { ProgressView("Loading habits") }
-            if let error = day.error { ReadError(message: error) { retry += 1 } }
+                if window.value != nil, overdue.value != nil,
+                   window.error == nil, day.error == nil, overdue.error == nil,
+                   remaining.isEmpty, reminders.isEmpty, index.remaining.isEmpty,
+                   overdue.value?.isEmpty == true {
+                    Section {
+                        Label(completed.isEmpty && index.completed.isEmpty ? "Nothing scheduled today" : "All done for today",
+                              systemImage: completed.isEmpty && index.completed.isEmpty ? "calendar" : "checkmark.circle")
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 8)
+                    }
+                }
+            } else if day.error == nil {
+                Section { ProgressView("Loading habits") }
+            }
+            if let error = day.error { Section { ReadError(message: error) { retry += 1 } } }
         }
-        if !reminders.isEmpty { Section("Reminders") { ForEach(reminders) { CalendarAgendaRow(model: model, item: $0) } } }
+        if !reminders.isEmpty {
+            Section("Reminders") { ForEach(reminders) { CalendarAgendaRow(model: model, item: $0) } }
+                .textCase(showsMonth ? .uppercase : nil)
+        }
         if !completed.isEmpty || day.value?.completed.isEmpty == false {
             Section {
                 DisclosureGroup("Completed (\(completed.count + (day.value?.completed.count ?? 0)))", isExpanded: $completedExpanded) {
@@ -182,12 +264,21 @@ struct PokusCalendarView: View {
 
     private func habitRows(_ ids: [String], index: HabitDayIndex) -> some View {
         HabitPagedRows(store: store, ids: ids, day: selectedDay, index: index) { habit in
-            HabitRow(habit: habit, day: selectedDay,
-                detail: { HabitDetailView(store: store, habitID: habit.id, today: today) },
-                toggle: { set(habit.isComplete(on: selectedDay) ? 0 : 1, habit: habit) },
-                increment: { set(habit.value(on: selectedDay) + 1, habit: habit) },
-                edit: { entryToEdit = EntrySelection(habitID: habit.id, day: selectedDay) },
-                canEdit: selectedDay <= today && store.canWrite && !save.isSaving)
+            if showsMonth {
+                HabitRow(habit: habit, day: selectedDay,
+                    detail: { HabitDetailView(store: store, habitID: habit.id, today: today) },
+                    toggle: { set(habit.isComplete(on: selectedDay) ? 0 : 1, habit: habit) },
+                    increment: { set(habit.value(on: selectedDay) + 1, habit: habit) },
+                    edit: { entryToEdit = EntrySelection(habitID: habit.id, day: selectedDay) },
+                    canEdit: selectedDay <= today && store.canWrite && !save.isSaving)
+            } else {
+                TodayHabitRow(habit: habit, day: today,
+                    toggle: { set(habit.isComplete(on: today) ? 0 : 1, habit: habit) },
+                    increment: { set(habit.value(on: today) + 1, habit: habit) },
+                    edit: { entryToEdit = EntrySelection(habitID: habit.id, day: today) },
+                    showHistory: { habitToView = habit.id },
+                    canEdit: store.canWrite && !save.isSaving)
+            }
         }
     }
     private func set(_ value: Double, habit: HabitHistory) {

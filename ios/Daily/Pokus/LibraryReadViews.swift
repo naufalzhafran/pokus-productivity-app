@@ -76,13 +76,32 @@ struct ProjectSummaryView: View {
     let model: PokusModel
     let id: String
     var includeFocus = false
+    var detailed = false
     @State private var summary = ReadState<(completed: Int, total: Int, seconds: Int)>()
     @State private var retry = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     var body: some View {
         Group {
             if let value = summary.value {
-                Text("\(value.completed) of \(value.total) tasks complete")
-                if includeFocus { Text(WorkspaceRules.focused(value.seconds)) }
+                if detailed {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            VStack(alignment: .leading, spacing: 6) { summaryLabels(value) }
+                        } else {
+                            ViewThatFits(in: .horizontal) {
+                                HStack(alignment: .firstTextBaseline, spacing: 12) { summaryLabels(value) }
+                                VStack(alignment: .leading, spacing: 6) { summaryLabels(value) }
+                            }
+                        }
+                        if value.total > 0 {
+                            ProgressView(value: Double(value.completed), total: Double(value.total))
+                                .tint(.accentColor).accessibilityHidden(true)
+                        }
+                    }
+                } else {
+                    Text("\(value.completed) of \(value.total) tasks complete")
+                    if includeFocus { Text(WorkspaceRules.focused(value.seconds)) }
+                }
             } else if summary.isLoading || summary.error == nil { ProgressView("Loading task summary") }
             if let error = summary.error {
                 if includeFocus { ReadError(message: error) { retry += 1 } }
@@ -90,6 +109,10 @@ struct ProjectSummaryView: View {
             }
         }.font(.subheadline).foregroundStyle(.secondary)
             .task(id: "\(model.queryIdentity)-\(id)-\(includeFocus)-\(retry)") { await summary.load { try await model.readAPI().projectSummary(id, includeFocus: includeFocus) } }
+    }
+    @ViewBuilder private func summaryLabels(_ value: (completed: Int, total: Int, seconds: Int)) -> some View {
+        Text("\(value.completed) of \(value.total) tasks complete")
+        if includeFocus { Label(WorkspaceRules.focused(value.seconds), systemImage: "clock") }
     }
 }
 

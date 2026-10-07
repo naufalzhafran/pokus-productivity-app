@@ -7,9 +7,6 @@ struct PokusTimerView: View {
     var isVisible = true
     @AppStorage("pokus.duration") private var duration = 25
     @State private var stopping = false
-    @State private var choosingTask = false
-    @State private var adjustingDuration = false
-    @State private var taskSearch = ""
     @State private var taskSave = SaveAction()
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
@@ -76,36 +73,6 @@ struct PokusTimerView: View {
                  ? "Elapsed time is credited only when you save it."
                  : "This session will be discarded without saving elapsed time.")
         }
-        .sheet(isPresented: $adjustingDuration) {
-            durationSettings
-        }
-        .sheet(isPresented: $choosingTask) {
-            NavigationStack {
-                List {
-                    Button { model.selectedTaskID = ""; choosingTask = false } label: {
-                        HStack {
-                            Text("No task").foregroundStyle(.primary)
-                            Spacer()
-                            if model.selectedTaskID.isEmpty { Image(systemName: "checkmark") }
-                        }.frame(minHeight: 44).contentShape(Rectangle())
-                    }.accessibilityAddTraits(model.selectedTaskID.isEmpty ? .isSelected : [])
-                    PagedRows(model: model, query: RecordQueries.tasks(sort: "newest", search: taskSearch, timer: true), search: taskSearch, emptyTitle: "No matching tasks", symbol: "checklist") { task in
-                        Button { model.workspaceState.value.tasks = [task]; model.selectedTaskID = task.id; choosingTask = false } label: {
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(task.title).foregroundStyle(.primary)
-                                    Text(task.projectTitle.isEmpty ? "No project" : task.projectTitle).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if model.selectedTaskID == task.id { Image(systemName: "checkmark") }
-                            }.frame(minHeight: 44).contentShape(Rectangle())
-                        }.accessibilityAddTraits(model.selectedTaskID == task.id ? .isSelected : [])
-                    }
-                }.id(taskSearch).navigationTitle("Choose a task").searchable(text: $taskSearch, prompt: "Search tasks and projects")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { choosingTask = false } } }
-            }
-        }
         .task(id: "\(model.queryIdentity)-\(model.session?.task ?? model.selectedTaskID)") {
             let id = model.session?.task ?? model.selectedTaskID, scope = model.scope
             guard !id.isEmpty else { model.workspaceState.value.tasks = []; return }
@@ -139,34 +106,18 @@ struct PokusTimerView: View {
     private func secondaryControls(compact: Bool) -> some View {
         VStack(spacing: 8) {
             if model.session == nil {
-                let layout = compact ? AnyLayout(HStackLayout(spacing: 16)) : AnyLayout(VStackLayout(spacing: 8))
-                layout {
-                Button { adjustingDuration = true } label: {
-                    if compact {
-                        Image(systemName: "clock").font(.system(size: 20)).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                    } else {
-                    HStack(spacing: 6) {
-                        Text("Adjust duration")
-                        Image(systemName: "chevron.down").font(.caption.weight(.medium))
-                    }.font(.subheadline).foregroundStyle(.secondary)
-                        .frame(minHeight: 44).contentShape(Rectangle())
-                    }
-                }.buttonStyle(.plain).accessibilityIdentifier("adjustFocusDuration")
-                    .accessibilityLabel("Adjust duration").accessibilityValue("\(duration) minutes")
-                Button { taskSearch = ""; choosingTask = true } label: {
-                    if compact {
-                        Image(systemName: selectedTask == nil ? "plus" : "list.bullet")
-                            .font(.system(size: 20)).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                    } else {
+                if !model.selectedTaskID.isEmpty {
                     HStack(spacing: 8) {
-                        Image(systemName: selectedTask == nil ? "plus" : "list.bullet").font(.subheadline)
-                        Text(selectedTask?.title ?? "Add a task (optional)")
-                            .lineLimit(1).truncationMode(.tail)
-                    }.font(.subheadline).foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
+                        Text(selectedTask?.title ?? "Selected task")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .lineLimit(compact ? 1 : 2)
+                        Button { model.selectedTaskID = "" } label: {
+                            Image(systemName: "xmark")
+                                .font(.subheadline)
+                                .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                        }.buttonStyle(.plain).foregroundStyle(.secondary)
+                            .accessibilityLabel("Clear selected task")
                     }
-                }.buttonStyle(.plain).accessibilityIdentifier("chooseFocusTask")
-                    .accessibilityLabel("Choose a focus task").accessibilityValue(selectedTask?.title ?? "No task")
                 }
             } else if model.session?.mode == .complete {
                 if let task = selectedTask, !task.isDone {
@@ -210,51 +161,16 @@ struct PokusTimerView: View {
                               progress: model.session == nil ? nil : Double(remaining) / Double(max(1, total)),
                               spokenValue: "\(remaining / 60) minutes, \(remaining % 60) seconds\(model.session?.isActive == false ? ", paused" : "")\(compact && model.session != nil ? selectedTask.map { ", task: \($0.title)" } ?? "" : "")\(compact && model.pendingCount > 0 ? ", \(model.pendingCount) session updates waiting to sync" : "")") {
                 VStack(spacing: diameter < 280 ? 8 : 16) {
-                    if diameter >= 240 && !compact {
-                        Text(model.session?.isActive == false ? "Paused" : "Focus")
+                    if model.session?.isActive == false && diameter >= 240 && !compact {
+                        Text("Paused")
                             .font(.body).foregroundStyle(.secondary)
                     }
                     Text(String(format: "%02d:%02d", remaining / 60, remaining % 60))
                         .font(.system(size: max(44, min(timerFontSize, diameter * 0.28)), weight: .light))
                         .monospacedDigit().lineLimit(1)
                         .frame(maxWidth: .infinity)
-                    if model.session == nil && diameter >= 240 && !compact {
-                        Text("Drag the ring to set time")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
                 }
             }
-    }
-
-    private var durationSettings: some View {
-        NavigationStack {
-            Form {
-                Section("Minutes") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: typeSize.isAccessibilitySize ? 2 : 4), spacing: 8) {
-                        ForEach([15, 25, 45, 60], id: \.self) { preset in
-                            Button { duration = preset } label: {
-                                Text("\(preset)")
-                                    .font(.body.weight(duration == preset ? .semibold : .regular))
-                                    .foregroundStyle(.primary)
-                                    .frame(maxWidth: .infinity, minHeight: 44)
-                                    .background(duration == preset ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 10))
-                                    .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(duration == preset ? Color.primary : .clear, lineWidth: 1) }
-                                    .contentShape(Rectangle())
-                            }.buttonStyle(.plain)
-                                .accessibilityLabel("\(preset) minutes")
-                                .accessibilityAddTraits(duration == preset ? .isSelected : [])
-                        }
-                    }
-                    Stepper(value: $duration, in: 1...60) {
-                        Text("\(duration) \(duration == 1 ? "minute" : "minutes")")
-                    }.accessibilityIdentifier("focusDuration")
-                }
-            }
-            .navigationTitle("Focus duration").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { adjustingDuration = false } } }
-            .disabled(model.focus.isSaving || !model.storageReady)
-        }
-        .presentationDetents(typeSize.isAccessibilitySize ? [.large] : [.medium, .large])
     }
 
     @ViewBuilder

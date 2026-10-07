@@ -7,6 +7,7 @@ struct CaptureEditorView: View {
     @Bindable var model: PokusModel
     var original: Capture? = nil
     var projectID: String? = nil
+    var showsCancelButton = true
     var onClose: (() -> Void)? = nil
     var onSaved: ((String) -> Void)? = nil
     @State private var showingDetails = false
@@ -125,8 +126,10 @@ struct CaptureEditorView: View {
                 .navigationTitle(original == nil ? "New capture" : "Edit capture")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { saveTask?.cancel(); closeRequested = true }.keyboardShortcut(.cancelAction).disabled(model.isSaving)
+                    if showsCancelButton {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { saveTask?.cancel(); closeRequested = true }.keyboardShortcut(.cancelAction).disabled(model.isSaving)
+                        }
                     }
                     ToolbarItem(placement: .confirmationAction) { Button(fetchingPreview ? "Saving…" : "Save", action: beginSave).disabled(!model.canEdit || fetchingPreview || !hasContent) }
                 }.protectDraft(isDirty: initialDraft.map { $0 != draft } ?? false, isSaving: model.isSaving, closeRequested: $closeRequested) { saveTask?.cancel(); close() }

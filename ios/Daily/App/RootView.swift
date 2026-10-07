@@ -40,7 +40,7 @@ struct RootView: View {
             }.id(pokus.scope?.generation).tabItem { Label("Today", systemImage: "sun.max") }.tag(2)
             Group {
                 if pokus.account != nil {
-                    CaptureEditorView(model: pokus, onClose: {
+                    CaptureEditorView(model: pokus, showsCancelButton: false, onClose: {
                         if selectedTab == 1 { selectedTab = captureReturnTab }
                         captureDraftID = UUID()
                     }, onSaved: { _ in captureConfirmation = true }).id("\(captureDraftID)-\(pokus.account?.id ?? "signedout")")

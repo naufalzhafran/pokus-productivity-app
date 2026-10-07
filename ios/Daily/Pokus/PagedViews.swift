@@ -13,7 +13,7 @@ struct PagedRows<T: Decodable & Identifiable & Sendable, Row: View>: View where 
     var emptyActionTitle: String? = nil
     var emptyAction: (() -> Void)? = nil
     var emptyActionDisabled = false
-    /// Shows the empty title as a quiet row, for sections that sit among other content.
+    /// Keeps an empty section compact, with optional guidance and a recovery action.
     var compactEmpty = false
     var excluding: Set<String> = []
     @ViewBuilder var row: (T) -> Row
@@ -33,7 +33,15 @@ struct PagedRows<T: Decodable & Identifiable & Sendable, Row: View>: View where 
             if let error = paging.initialError {
                 ReadError(message: error) { retry += 1 }
             } else if paging.loaded && paging.rows.isEmpty && compactEmpty {
-                Text(emptyTitle).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(emptyTitle)
+                        .font(emptyDescription.isEmpty ? .body : .headline)
+                        .foregroundStyle(emptyDescription.isEmpty ? .secondary : .primary)
+                    if !emptyDescription.isEmpty { Text(emptyDescription).font(.subheadline).foregroundStyle(.secondary) }
+                    if let emptyActionTitle, let emptyAction {
+                        Button(emptyActionTitle, action: emptyAction).disabled(emptyActionDisabled).frame(minHeight: 44)
+                    }
+                }.padding(.vertical, emptyDescription.isEmpty ? 0 : 8)
             } else if paging.loaded && paging.rows.isEmpty {
                 ContentUnavailableView {
                     Label(emptyTitle, systemImage: symbol)

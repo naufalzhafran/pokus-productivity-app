@@ -89,9 +89,10 @@ Their editors offer an explicit plain-text replacement, with a formatting warnin
 Project metadata edits omit capture links; dedicated filing actions use relation
 modifiers to preserve unrelated links.
 
-The bottom bar contains Pocus, Habits, Capture, Library, and Profile. Its center
-Capture tab opens a single multiline input for a link or thought; saving or
-cancelling returns to the previous tab. New captures detect link types automatically
+The bottom bar contains Pocus, Today, Capture, Library, and Profile. Its center
+Capture tab opens a single multiline input for a link or thought; saving returns
+to the previous tab. There is no Cancel button in this tab, and switching tabs
+preserves the draft. New captures detect link types automatically
 and keep accompanying text as the note. Saved captures retain the detailed editor
 for titles, types, links, authors, and notes. Projects are reached through Library.
 
@@ -136,6 +137,38 @@ connecting state. System typography scales with Dynamic Type; branding reference
 https://developers.google.com/identity/branding-guidelines.
 
 ## Automated verification
+
+### Simplified Pocus setup, October 7, 2026
+
+The idle timer shows the ring, centered countdown, and Start focus. Adjust duration,
+Add a task, Focus, and the visible drag instruction are removed, along with the two
+setup sheets. Ring dragging and VoiceOver duration adjustment remain available.
+Tasks selected through Library still show their title with a clear action before
+starting; the running and completed session actions retain their existing behavior.
+
+Design read: a calm native focus timer, Energy 1 / Rhythm 1 / Motion 1. The existing
+blue ring identifies duration and progress; system typography with fixed-width
+digits keeps the countdown stable. Removing setup rows lets the ring center in
+the available space above the bottom action. Semantic colors retain both appearances;
+the conditional clear icon removes a task and has a 44-point target.
+
+The generic iOS Simulator build and build-for-testing pass. A signed build and five
+targeted UI tests also pass on the connected iPhone 17 Pro running iOS 27.0, with
+zero failures or runtime warnings reported by XCTest. Live coverage includes ring
+dragging to 30 minutes, Start, Pause/Resume across tabs, centered Stop confirmation,
+Continue, Discard, portrait/landscape bounds without scrolling, both appearances,
+and the largest Dynamic Type size. The tests use the isolated in-memory backend,
+test account, and separate timer storage/preferences; production records are not used.
+Device Hub inspection and the original screenshot attachments confirm the removed
+labels are absent and the timer, actions, and tab bar fit without clipping. A fresh
+on-device recheck of the largest-text landscape screen also renders fully.
+
+The first device test build reported `Signing for "DailyUITests" requires a
+development team` (also for `DailyTests`). Retrying with the app's existing team
+as a command-line build setting succeeded; project signing settings were unchanged.
+Test compilation retains existing actor-isolation warnings in
+`PokusUITests.setUpWithError`. Manual VoiceOver and smaller-device checks remain
+unverified; no simulator runtime is installed.
 
 ### Design and performance fixes, October 2, 2026
 
