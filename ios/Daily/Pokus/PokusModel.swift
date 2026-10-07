@@ -104,7 +104,10 @@ final class PokusModel {
         return entries.values.sorted { $0.lastTick > $1.lastTick }
     }
     private var client: PocketBaseClient {
-        if testing { return PocketBaseClient(token: authentication?.token ?? "", transport: { [testBackend] in try await testBackend.respond($0) }) }
+        if testing {
+            return PocketBaseClient(baseURL: URL(string: "https://pokus-ui-tests.invalid")!,
+                token: authentication?.token ?? "", transport: { [testBackend] in try await testBackend.respond($0) })
+        }
         return makeClient(authentication?.token ?? "")
     }
     init(authentication: Authentication? = nil, store: PokusStore? = nil,
@@ -156,7 +159,7 @@ final class PokusModel {
                 .appendingPathComponent(testing ? "PokusUITests" : "Pokus", isDirectory: true)
             if testing { try? FileManager.default.removeItem(at: root) }
             store = try PokusStore(directory: root)
-            if !UserDefaults.standard.bool(forKey: "pokus.timerOnlyHTTPUpgrade") {
+            if !testing && !UserDefaults.standard.bool(forKey: "pokus.timerOnlyHTTPUpgrade") {
                 URLCache.shared.removeAllCachedResponses()
                 UserDefaults.standard.set(true, forKey: "pokus.timerOnlyHTTPUpgrade")
             }
