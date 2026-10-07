@@ -7,7 +7,7 @@ Tasks can have their own date or inherit the project's deadline; Unscheduled lis
 projects and tasks without a date. Capture reminders have an independent completion
 state and can be added, edited, removed, completed, and reopened from capture details.
 
-Import the updated shared `../pb_schema.json` at the repository root
+Import the updated shared `../backend/pb_schema.json`
 before releasing this client against a backend. Calendar requires task `dueDate` and
 capture `reminderAt`/`reminderDone` fields. No separate calendar collection is used.
 

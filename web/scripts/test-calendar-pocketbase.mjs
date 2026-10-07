@@ -9,7 +9,7 @@ const endpoint = process.env.POKUS_TEST_PB_URL ?? 'http://127.0.0.1:8099';
 if (!['127.0.0.1', 'localhost'].includes(new URL(endpoint).hostname)) throw new Error('Calendar tests require an isolated local PocketBase instance.');
 const admin = new PocketBase(endpoint);
 await admin.collection('_superusers').authWithPassword('pokus-test@example.com', 'Pokus-local-test-2026!');
-await admin.collections.import(JSON.parse(await readFile('pb_schema.json', 'utf8')), false);
+await admin.collections.import(JSON.parse(await readFile('../backend/pb_schema.json', 'utf8')), false);
 const projectSchema = await admin.collections.getOne('projects');
 assert(projectSchema.indexes.some((index) => index.includes('idx_projects_owner_due') && /owner.*dueDate/.test(index)), 'Project deadline queries must have an owner/dueDate index.');
 const stamp = Date.now();

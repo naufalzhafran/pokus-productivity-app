@@ -134,7 +134,7 @@ The new Calendar navigation follows the explicitly approved plan.
 
 ## Release and manual checks
 
-Import `pb_schema.json` before releasing either client. No migration files are
+Import `backend/pb_schema.json` before releasing either client. No migration files are
 used. Existing records default safely when the new fields are missing.
 
 Native local notifications were delivered into Notification Center on a physical

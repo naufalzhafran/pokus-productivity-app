@@ -103,7 +103,7 @@ the active query, and the accessible Load more/Retry footer handles continuation
 
 ## Google sign-in deployment
 
-1. Deploy `pb_hooks/ios_oauth.pb.js` from the web Pokus repository into the existing
+1. Deploy `backend/pb_hooks/ios_oauth.pb.js` from this repository into the existing
    PocketBase server's hooks directory. Restart/reload hooks as appropriate for
    that server. This adds `GET /api/pokus/ios-oauth`; it makes no schema changes.
 2. Add `https://pb1.madebynz.xyz/api/pokus/ios-oauth` as an authorized redirect URI
@@ -321,7 +321,7 @@ credit, duplicate completion, uncertain response recovery, deleted tasks, termin
 immutability, workspace decoding, capture filing, HTML preservation, Knowledge
 sources, review scheduling, relation cleanup, and the offline replica (queued creates,
 delta pulls, deletion reconcile, habit upserts, streak parity, and note conflict copies). The web callback has a standalone test:
-`node scripts/test-ios-oauth.mjs`.
+`node backend/scripts/test-ios-oauth.mjs` (from the repository root).
 
 ## Release gate
 
@@ -627,7 +627,7 @@ after the native app next syncs. Timer notifications open Timer, habit check-ins
 open Library/Habits, and capture notifications open the Calendar date and capture;
 pending routes survive authentication and reject mismatched owners.
 
-The updated companion web `pb_schema.json` must be imported before normal backend
+The updated `backend/pb_schema.json` must be imported before normal backend
 release. Production schema and data were not modified during this implementation.
 Physical tests use in-memory UI fixtures and no-op notification clients, except
 for a separate opt-in test that creates and cleans one uniquely named system

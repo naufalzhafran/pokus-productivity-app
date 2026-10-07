@@ -11,7 +11,7 @@ const endpoint = process.env.POKUS_TEST_PB_URL ?? 'http://127.0.0.1:8099';
 if (!['127.0.0.1', 'localhost'].includes(new URL(endpoint).hostname)) throw new Error('Integration tests require an isolated local PocketBase instance.');
 const admin = new PocketBase(endpoint);
 await admin.collection('_superusers').authWithPassword('pokus-test@example.com', 'Pokus-local-test-2026!');
-await admin.collections.import(JSON.parse(await readFile('pb_schema.json', 'utf8')), false);
+await admin.collections.import(JSON.parse(await readFile('../backend/pb_schema.json', 'utf8')), false);
 await admin.settings.update({ batch: { enabled: true, maxRequests: 3, timeout: 3, maxBodySize: 65536 } });
 const vite = await createServer({ configFile: false, optimizeDeps: { noDiscovery: true, include: [] }, resolve: { alias: { '@': resolve('src') } }, define: { 'import.meta.env.VITE_POCKETBASE_URL': JSON.stringify(endpoint) }, server: { middlewareMode: true } });
 try {

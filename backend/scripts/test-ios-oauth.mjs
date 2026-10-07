@@ -9,7 +9,7 @@ const context = vm.createContext({
   routerAdd(method, route, handler) { assert.equal(method, 'GET'); assert.equal(route, '/api/pokus/ios-oauth'); callback = handler; },
   BadRequestError: Error,
 });
-vm.runInContext(await readFile('pb_hooks/ios_oauth.pb.js', 'utf8'), context);
+vm.runInContext(await readFile(new URL('../pb_hooks/ios_oauth.pb.js', import.meta.url), 'utf8'), context);
 function run(params) {
   const headers = new Map();
   const response = callback({
