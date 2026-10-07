@@ -13,7 +13,7 @@ Run web commands from `web/`, Swift package commands from `ios/`, and everything
 ## Production Safety
 
 - The production backend is `https://pb1.madebynz.xyz`. Never write to it, import schema into it, or point tests or scripts at it.
-- Deploying is manual and out of scope: schema imports, copying `pb_hooks/` to the server, and hosting `web/dist` are done by the owner.
+- Deploying is out of scope. Do not run `deploy.sh` or `docker compose` against the server; the owner deploys, imports the schema, and installs `pb_hooks/`. Update `deploy/`, the Dockerfiles, and `docker-compose.yml` only when asked.
 - PocketBase integration tests (`web/scripts/test-*-pocketbase.mjs`, `ios/Scripts/PocketBaseIntegration`) require an isolated local PocketBase. Run them only when one is available; otherwise say they were skipped.
 
 ## PocketBase Schema
