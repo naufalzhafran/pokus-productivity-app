@@ -184,7 +184,8 @@
     ],
     "indexes": [
       "CREATE INDEX idx_captures_owner_processed ON captures (owner, isProcessed)",
-      "CREATE INDEX idx_captures_owner_reminder ON captures (owner, reminderDone, reminderAt)"
+      "CREATE INDEX idx_captures_owner_reminder ON captures (owner, reminderDone, reminderAt)",
+      "CREATE INDEX idx_captures_owner_updated ON captures (owner, updated)"
     ],
     "created": "2026-10-01 00:00:00.000Z",
     "updated": "2026-10-06 00:00:00.000Z",
@@ -335,7 +336,8 @@
     ],
     "indexes": [
       "CREATE INDEX idx_projects_owner ON projects (owner)",
-      "CREATE INDEX idx_projects_owner_due ON projects (owner, dueDate)"
+      "CREATE INDEX idx_projects_owner_due ON projects (owner, dueDate)",
+      "CREATE INDEX idx_projects_owner_updated ON projects (owner, updated)"
     ],
     "created": "2026-07-15 02:31:16.847Z",
     "updated": "2026-10-06 00:00:00.000Z",
@@ -515,7 +517,8 @@
     "indexes": [
       "CREATE INDEX idx_tasks_owner ON tasks (owner)",
       "CREATE INDEX idx_tasks_project ON tasks (project)",
-      "CREATE INDEX idx_tasks_owner_due ON tasks (owner, dueDate)"
+      "CREATE INDEX idx_tasks_owner_due ON tasks (owner, dueDate)",
+      "CREATE INDEX idx_tasks_owner_updated ON tasks (owner, updated)"
     ],
     "created": "2026-07-15 02:31:16.849Z",
     "updated": "2026-10-06 00:00:00.000Z",
@@ -620,7 +623,8 @@
     ],
     "indexes": [
       "CREATE INDEX idx_categories_owner ON categories (owner)",
-      "CREATE UNIQUE INDEX idx_categories_owner_name_nocase ON categories (owner, name COLLATE NOCASE)"
+      "CREATE UNIQUE INDEX idx_categories_owner_name_nocase ON categories (owner, name COLLATE NOCASE)",
+      "CREATE INDEX idx_categories_owner_updated ON categories (owner, updated)"
     ],
     "created": "2026-07-29 00:00:00.000Z",
     "updated": "2026-07-29 00:00:00.000Z",
@@ -766,7 +770,8 @@
       }
     ],
     "indexes": [
-      "CREATE INDEX idx_pomodoro_sessions_owner_mode ON pomodoro_sessions (owner, mode)"
+      "CREATE INDEX idx_pomodoro_sessions_owner_mode ON pomodoro_sessions (owner, mode)",
+      "CREATE INDEX idx_pomodoro_sessions_owner_updated ON pomodoro_sessions (owner, updated)"
     ],
     "created": "2026-07-15 02:31:16.850Z",
     "updated": "2026-07-15 02:31:16.850Z",
@@ -1205,7 +1210,8 @@
       }
     ],
     "indexes": [
-      "CREATE INDEX idx_habits_owner ON habits (owner)"
+      "CREATE INDEX idx_habits_owner ON habits (owner)",
+      "CREATE INDEX idx_habits_owner_updated ON habits (owner, updated)"
     ],
     "created": "2026-07-29 00:00:00.000Z",
     "updated": "2026-07-29 00:00:00.000Z",
@@ -1315,7 +1321,8 @@
     ],
     "indexes": [
       "CREATE INDEX idx_habit_entries_owner ON habit_entries (owner)",
-      "CREATE UNIQUE INDEX idx_habit_entries_day ON habit_entries (habit, day)"
+      "CREATE UNIQUE INDEX idx_habit_entries_day ON habit_entries (habit, day)",
+      "CREATE INDEX idx_habit_entries_owner_updated ON habit_entries (owner, updated)"
     ],
     "created": "2026-07-29 00:00:00.000Z",
     "updated": "2026-07-29 00:00:00.000Z",
@@ -1425,7 +1432,8 @@
     ],
     "indexes": [
       "CREATE INDEX idx_habit_targets_owner ON habit_targets (owner)",
-      "CREATE UNIQUE INDEX idx_habit_targets_day ON habit_targets (habit, day)"
+      "CREATE UNIQUE INDEX idx_habit_targets_day ON habit_targets (habit, day)",
+      "CREATE INDEX idx_habit_targets_owner_updated ON habit_targets (owner, updated)"
     ],
     "created": "2026-07-29 00:00:00.000Z",
     "updated": "2026-07-29 00:00:00.000Z",
