@@ -90,5 +90,19 @@ final class ProgressTests: XCTestCase {
         }
         XCTAssertNotNil(NumberText.parse(NumberText.editable(1.5)))
     }
-}
 
+    func testEditableNumbersRoundTripWithoutGroupingOrExponents() {
+        let values: [Double] = [0, 1, 1.5, 0.0000000000001, 0.123456789012345,
+                                Double.leastNonzeroMagnitude, Double.leastNormalMagnitude,
+                                Double.greatestFiniteMagnitude, 1e20, 1.0000000000000002]
+        for locale in [Locale(identifier: "en_US"), Locale(identifier: "id_ID")] {
+            for value in values {
+                let draft = NumberText.editable(value, locale: locale)
+                XCTAssertFalse(draft.contains("e"), draft)
+                XCTAssertEqual(NumberText.parse(draft, locale: locale), value, draft)
+            }
+        }
+        XCTAssertEqual(NumberText.editable(0), "0")
+        XCTAssertEqual(NumberText.editable(1.5, locale: Locale(identifier: "id_ID")), "1,5")
+    }
+}

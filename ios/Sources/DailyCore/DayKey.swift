@@ -39,12 +39,16 @@ public struct DayKey: Hashable, Comparable, Codable, Sendable, Identifiable {
     }
 
     public func formatted(_ template: String = "EEEE, MMMM d") -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Self.calendar
-        formatter.timeZone = Self.calendar.timeZone
-        formatter.locale = Locale(identifier: "en_US")
-        formatter.setLocalizedDateFormatFromTemplate(template)
-        return formatter.string(from: date)
+        let base = Date.FormatStyle(locale: Locale(identifier: "en_US"), calendar: Self.calendar,
+                                    timeZone: Self.calendar.timeZone)
+        let style: Date.FormatStyle
+        switch template {
+        case "MMM": style = base.month(.abbreviated)
+        case "MMMM d, yyyy": style = base.month(.wide).day().year()
+        case "EEEE, MMMM d, yyyy": style = base.weekday(.wide).month(.wide).day().year()
+        default: style = base.weekday(.wide).month(.wide).day()
+        }
+        return date.formatted(style)
     }
 
     public static func days(from start: Self, through end: Self) -> [Self] {
@@ -68,4 +72,3 @@ public struct DayKey: Hashable, Comparable, Codable, Sendable, Identifiable {
         return calendar
     }
 }
-

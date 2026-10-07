@@ -1,0 +1,289 @@
+import DailyCore
+import PokusCore
+import PokusNetworking
+import SwiftUI
+
+struct PokusCalendarView: View {
+    let model: PokusModel
+    let today: DayKey
+    /// Shows the month grid; otherwise only today's agenda.
+    var showsMonth = true
+    var openHabits: (() -> Void)?
+    @Binding var selectedCapture: String?
+    @State private var pickedDay: DayKey?
+    @State private var month = DayKey()
+    @State private var window = ReadState<CalendarWindow>()
+    @State private var overdue = ReadState<[CalendarItem]>()
+    @State private var day = ReadState<HabitDayIndex>()
+    @State private var completedExpanded = false
+    @State private var retry = 0
+    @State private var timeRevision = 0
+    @State private var loadedMonth = ""
+    @State private var loadedDay = ""
+    @State private var save = SaveAction()
+    @State private var entryToEdit: EntrySelection?
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var selectedDay: DayKey { showsMonth ? pickedDay ?? today : today }
+    private var first: DayKey { DayKey(rawValue: String(format: "%04d-%02d-01", month.year, month.month))! }
+    private var nextMonth: DayKey { first.adding(days: 32).firstOfCalendarMonth }
+    private var last: DayKey { nextMonth.adding(days: -1) }
+    private var days: [DayKey] { DayKey.days(from: first.adding(days: -first.weekdayIndex), through: last.adding(days: 6 - last.weekdayIndex)) }
+    private var windowStart: DayKey { showsMonth ? days[0] : today }
+    private var windowEnd: DayKey { showsMonth ? days[days.count - 1] : today }
+    private var items: [CalendarItem] { window.value?.items.filter { $0.day == selectedDay } ?? [] }
+    private var store: AccountHabitViewStore { AccountHabitViewStore(model: model, owner: model.account?.id ?? "") }
+    private var remaining: [CalendarItem] { items.filter { !$0.isComplete && $0.kind != .reminder } }
+    private var reminders: [CalendarItem] { items.filter { !$0.isComplete && $0.kind == .reminder } }
+    private var completed: [CalendarItem] { items.filter(\.isComplete) }
+
+    var body: some View {
+        GeometryReader { geometry in
+            Group {
+                if model.account == nil { AccountNotice(model: model) }
+                else if !showsMonth { List { agenda }.listStyle(.insetGrouped).accessibilityIdentifier("calendarAgenda") }
+                else if geometry.size.width >= 760 && !typeSize.isAccessibilitySize {
+                    HStack(alignment: .top, spacing: 0) {
+                        ScrollView { monthGrid.padding() }.frame(width: geometry.size.width * 0.46)
+                        List { agenda }.listStyle(.insetGrouped).accessibilityIdentifier("calendarAgenda")
+                    }
+                } else {
+                    List { Section { monthGrid }.listRowBackground(Color.clear); agenda }.listStyle(.insetGrouped).accessibilityIdentifier("calendarAgenda")
+                }
+            }.background(DailyTheme.background)
+        }
+        .navigationTitle(showsMonth ? "Calendar" : "Today")
+        .toolbar {
+            if showsMonth {
+                ToolbarItem(placement: .topBarLeading) { Button("Today") { pickedDay = nil; month = today }.accessibilityIdentifier("calendarToday") }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    if let openHabits { Button("Habits", systemImage: "checkmark.circle", action: openHabits) }
+                    NavigationLink("Unscheduled", destination: CalendarUnscheduledView(model: model))
+                } label: { Label("Calendar options", systemImage: "ellipsis.circle") }
+            }
+        }
+        .refreshable { await model.refresh(); retry += 1 }
+        .task(id: "\(model.queryIdentity)-\(windowStart)-\(windowEnd)-\(retry)-\(timeRevision)") {
+            guard model.account != nil else { return }
+            let identity = "\(model.scope?.generation.uuidString ?? "")-\(windowStart)-\(windowEnd)-\(TimeZone.autoupdatingCurrent.identifier)"
+            if loadedMonth != identity { window.clear(); loadedMonth = identity }
+            await window.load { try await model.readAPI().calendarWindow(from: windowStart, through: windowEnd) }
+        }
+        .task(id: "\(model.queryIdentity)-\(today)-\(selectedDay)-\(retry)-\(timeRevision)") {
+            guard model.account != nil else { return }
+            let identity = "\(model.scope?.generation.uuidString ?? "")-\(selectedDay)-\(TimeZone.autoupdatingCurrent.identifier)"
+            if loadedDay != identity { day.clear(); overdue.clear(); loadedDay = identity }
+            await day.load { try await store.dayIndex(selectedDay) }
+            if selectedDay == today { await overdue.load { try await model.readAPI().calendarOverdue(before: today) } }
+        }
+        .onAppear { month = selectedDay }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in timeRevision += 1 }
+        .onChange(of: selectedDay) { _, next in
+            if next.month != month.month || next.year != month.year { month = next }
+            completedExpanded = false
+        }
+        .navigationDestination(isPresented: Binding(get: { selectedCapture != nil }, set: { if !$0 { selectedCapture = nil } })) {
+            if let selectedCapture { CaptureDetailView(model: model, captureID: selectedCapture) }
+        }
+        .sheet(item: $entryToEdit) { selection in
+            LoadedEntryEditor(store: store, habitID: selection.habitID, day: selection.day, today: today)
+        }.saveAlert(save)
+    }
+
+    private var monthGrid: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Button("Previous month", systemImage: "chevron.left") { pickedDay = first.adding(days: -1).firstOfCalendarMonth; month = selectedDay }.labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                Spacer(minLength: 0)
+                Text(first.date.formatted(Date.FormatStyle(timeZone: TimeZone(secondsFromGMT: 0)!).month(.wide).year())).font(.headline)
+                Spacer(minLength: 0)
+                Button("Next month", systemImage: "chevron.right") { pickedDay = nextMonth; month = selectedDay }.labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+            }
+            VStack(spacing: 5) {
+                HStack(spacing: 0) {
+                    ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { _, title in
+                        Text(title).font(.caption).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity).accessibilityHidden(true)
+                    }
+                }
+                ForEach(Array(stride(from: 0, to: days.count, by: 7)), id: \.self) { offset in
+                    HStack(spacing: 0) {
+                        ForEach(Array(days[offset..<min(offset + 7, days.count)])) { date in
+                            dayButton(date)
+                        }
+                    }
+                }
+            }
+            if window.isLoading { ProgressView("Loading calendar").font(.footnote) }
+            if let error = window.error { ReadError(message: error) { retry += 1 } }
+            HStack(spacing: 12) {
+                Label("Projects", systemImage: "folder")
+                Label("Tasks", systemImage: "checklist")
+            }.font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Label("Habits", systemImage: "checkmark.circle")
+                Label("Reminders", systemImage: "bell")
+            }.font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func dayButton(_ date: DayKey) -> some View {
+        Button { pickedDay = date } label: {
+            VStack(spacing: 4) {
+                Text(String(Int(date.rawValue.suffix(2)) ?? 0)).fontWeight(date == today ? .bold : .regular)
+                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+                HStack(spacing: 2) {
+                    ForEach(markers(date), id: \.self) { symbol in Image(systemName: symbol).font(.system(size: 7)) }
+                }.frame(height: 9).accessibilityHidden(true)
+            }.frame(maxWidth: .infinity, minHeight: 44)
+                .background(date == selectedDay ? DailyTheme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 9))
+                .foregroundStyle(date == selectedDay ? Color.white : date.month == month.month ? Color.primary : Color.secondary)
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain)
+            .accessibilityLabel(date.formatted("EEEE, MMMM d, yyyy"))
+            .accessibilityValue(markerDescription(date))
+            .accessibilityAddTraits(date == selectedDay ? .isSelected : [])
+            .accessibilityIdentifier("calendarDay-\(date.rawValue)")
+    }
+
+    @ViewBuilder private var agenda: some View {
+        Section {
+            AccountNotice(model: model)
+            if let notice = model.captureReminderNotice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
+            Text("Web reminder changes reach iPhone alerts after this app next syncs.").font(.caption).foregroundStyle(.secondary)
+        }
+        if selectedDay == today, let items = overdue.value, !items.isEmpty {
+            Section("Overdue") { ForEach(items) { CalendarAgendaRow(model: model, item: $0, showsDate: true) } }
+        }
+        if selectedDay == today, let error = overdue.error { Section { ReadError(message: error) { retry += 1 } } }
+        Section(selectedDay.formatted("EEEE, MMMM d")) {
+            ForEach(remaining) { CalendarAgendaRow(model: model, item: $0) }
+            if let index = day.value {
+                habitRows(index.remaining, index: index)
+                if window.value != nil && remaining.isEmpty && reminders.isEmpty && index.remaining.isEmpty {
+                    Text(completed.isEmpty && index.completed.isEmpty ? "Nothing scheduled for this day." : "All done for this day.").foregroundStyle(.secondary)
+                }
+            } else if day.isLoading { ProgressView("Loading habits") }
+            if let error = day.error { ReadError(message: error) { retry += 1 } }
+        }
+        if !reminders.isEmpty { Section("Reminders") { ForEach(reminders) { CalendarAgendaRow(model: model, item: $0) } } }
+        if !completed.isEmpty || day.value?.completed.isEmpty == false {
+            Section {
+                DisclosureGroup("Completed (\(completed.count + (day.value?.completed.count ?? 0)))", isExpanded: $completedExpanded) {
+                    ForEach(completed) { CalendarAgendaRow(model: model, item: $0) }
+                    if let index = day.value { habitRows(index.completed, index: index) }
+                }
+            }
+        }
+        if showsMonth { Section { NavigationLink("Unscheduled projects and tasks") { CalendarUnscheduledView(model: model) } } }
+    }
+
+    private func habitRows(_ ids: [String], index: HabitDayIndex) -> some View {
+        HabitPagedRows(store: store, ids: ids, day: selectedDay, index: index) { habit in
+            HabitRow(habit: habit, day: selectedDay,
+                detail: { HabitDetailView(store: store, habitID: habit.id, today: today) },
+                toggle: { set(habit.isComplete(on: selectedDay) ? 0 : 1, habit: habit) },
+                increment: { set(habit.value(on: selectedDay) + 1, habit: habit) },
+                edit: { entryToEdit = EntrySelection(habitID: habit.id, day: selectedDay) },
+                canEdit: selectedDay <= today && store.canWrite && !save.isSaving)
+        }
+    }
+    private func set(_ value: Double, habit: HabitHistory) {
+        let date = selectedDay
+        save.performAsync { try await store.setValue(value, for: habit.id, on: date) }
+    }
+    private func markers(_ date: DayKey) -> [String] {
+        let items = window.value?.items.filter { $0.day == date } ?? []
+        return [(items.contains { $0.kind == .project }, "folder"), (items.contains { $0.kind == .task }, "checklist"),
+                (window.value?.habits.contains { $0.startDay <= date.rawValue } ?? false, "checkmark.circle"),
+                (items.contains { $0.kind == .reminder }, "bell")].filter(\.0).map(\.1)
+    }
+    private func markerDescription(_ date: DayKey) -> String {
+        let labels = ["folder": "Projects", "checklist": "Tasks", "checkmark.circle": "Habits", "bell": "Reminders"]
+        return markers(date).compactMap { labels[$0] }.joined(separator: ", ")
+    }
+}
+
+private extension DayKey {
+    var firstOfCalendarMonth: DayKey { DayKey(rawValue: String(format: "%04d-%02d-01", year, month))! }
+}
+
+private struct CalendarAgendaRow: View {
+    let model: PokusModel
+    let item: CalendarItem
+    var showsDate = false
+    @State private var save = SaveAction()
+    var body: some View {
+        HStack {
+            NavigationLink { destination } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title).foregroundStyle(.primary).strikethrough(item.isComplete)
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }.buttonStyle(.plain)
+            if item.kind != .project {
+                Button { toggle() } label: { Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle").font(.title2).frame(width: 44, height: 44) }
+                    .buttonStyle(.borderless).disabled(!model.canEdit || save.isSaving)
+                    .accessibilityLabel("\(item.isComplete ? "Reopen" : "Complete") \(item.title)")
+            }
+        }.saveAlert(save)
+    }
+    private var detail: String {
+        var labels = [item.kind == .project ? "Project deadline" : item.kind == .task ? "Task" : "Reminder"]
+        if !item.projectTitle.isEmpty { labels.append(item.projectTitle) }
+        if item.inheritsProjectDate { labels.append("From project") }
+        if showsDate, let day = item.day { labels.append(day.rawValue) }
+        if let time = item.reminderAt { labels.append(Date(timeIntervalSince1970: time / 1000).formatted(date: .omitted, time: .shortened)) }
+        return labels.joined(separator: " · ")
+    }
+    @ViewBuilder private var destination: some View {
+        switch item.kind {
+        case .project: ProjectTasksView(model: model, projectID: item.sourceID)
+        case .task: TaskDetailView(model: model, taskID: item.sourceID)
+        case .reminder: CaptureDetailView(model: model, captureID: item.sourceID)
+        }
+    }
+    private func toggle() {
+        save.performAsync {
+            if item.kind == .reminder { try await model.setCaptureReminderDone(id: item.sourceID, done: !item.isComplete) }
+            else if !(await model.write(collection: .tasks, id: item.sourceID, fields: ["isDone": .bool(!item.isComplete)])) {
+                throw PokusError.message(model.error ?? "Couldn't update this task.")
+            }
+        }
+    }
+}
+
+struct CalendarUnscheduledView: View {
+    let model: PokusModel
+    @State private var project: Project?
+    @State private var task: FocusTask?
+    var body: some View {
+        List {
+            AccountNotice(model: model)
+            Section("Projects") {
+                PagedRows(model: model, query: RecordQueries.calendarUnscheduledProjects(), emptyTitle: "All projects have a date", compactEmpty: true) { record in
+                    HStack {
+                        NavigationLink(record.title) { ProjectTasksView(model: model, projectID: record.id) }
+                        Button("Set date") { project = record }.buttonStyle(.borderless).disabled(!model.canEdit).frame(minHeight: 44)
+                    }
+                }
+            }
+            Section("Tasks") {
+                PagedRows(model: model, query: RecordQueries.calendarUnscheduledTasks(), emptyTitle: "All tasks have a date", compactEmpty: true) { record in
+                    HStack {
+                        NavigationLink(record.title) { TaskDetailView(model: model, taskID: record.id) }
+                        Button("Set date") { task = record }.buttonStyle(.borderless).disabled(!model.canEdit).frame(minHeight: 44)
+                    }
+                }
+            }
+        }.navigationTitle("Unscheduled").refreshable { await model.refresh() }
+            .sheet(item: $project) { record in
+                RemoteRecord<Project, ProjectEditorView>(model: model, collection: "projects", id: record.id) { ProjectEditorView(model: model, original: $0) }
+            }
+            .sheet(item: $task) { record in
+                RemoteRecord<FocusTask, TaskEditorView>(model: model, collection: "tasks", id: record.id) { TaskEditorView(model: model, original: $0, projectID: $0.project) }
+            }
+    }
+}

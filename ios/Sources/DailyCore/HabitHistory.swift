@@ -60,6 +60,7 @@ public struct Streaks: Equatable, Sendable {
     public let current: Int
     public let longest: Int
     public let completedDays: Int
+    public init(current: Int, longest: Int, completedDays: Int) { self.current = current; self.longest = longest; self.completedDays = completedDays }
 
     public init(completed: Set<DayKey>, today: DayKey) {
         let days = completed.filter { $0 <= today }.sorted()
@@ -87,6 +88,7 @@ public struct DayProgress: Equatable, Sendable {
     public let completed: Int
     public let total: Int
     public var fraction: Double { total == 0 ? 0 : Double(completed) / Double(total) }
+    public init(completed: Int, total: Int) { self.completed = completed; self.total = total }
 }
 
 public enum ProgressCalculator {
@@ -122,13 +124,30 @@ public enum NumberText {
         return value
     }
 
-    public static func editable(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.locale = .current
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        formatter.maximumFractionDigits = 12
-        return formatter.string(from: NSNumber(value: value)) ?? String(value)
+    public static func editable(_ value: Double, locale: Locale = .current) -> String {
+        guard value.isFinite, value >= 0 else { return String(value) }
+        if value == 0 { return "0" }
+        // Swift's shortest representation round-trips to the original Double.
+        // Expand its exponent so the decimal keyboard and strict parser can use it.
+        let parts = String(value).split(separator: "e")
+        var decimal = String(parts[0])
+        if parts.count == 2, let exponent = Int(parts[1]) {
+            let mantissa = decimal.split(separator: ".")
+            let digits = mantissa.joined()
+            let point = mantissa[0].count + exponent
+            if point <= 0 {
+                decimal = "0." + String(repeating: "0", count: -point) + digits
+            } else if point >= digits.count {
+                decimal = digits + String(repeating: "0", count: point - digits.count)
+            } else {
+                let index = digits.index(digits.startIndex, offsetBy: point)
+                decimal = String(digits[..<index]) + "." + String(digits[index...])
+            }
+        }
+        if decimal.contains(".") {
+            while decimal.last == "0" { decimal.removeLast() }
+            if decimal.last == "." { decimal.removeLast() }
+        }
+        return decimal.replacingOccurrences(of: ".", with: locale.decimalSeparator ?? ".")
     }
 }
-

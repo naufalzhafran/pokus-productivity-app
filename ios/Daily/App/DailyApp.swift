@@ -10,21 +10,8 @@ struct DailyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if let store = bootstrap.store {
-                    RootView(store: store)
-                } else {
-                    ContentUnavailableView {
-                        Label("Couldn't open Daily", systemImage: "externaldrive.badge.exclamationmark")
-                    } description: {
-                        Text(bootstrap.errorMessage ?? "Your habits couldn't be loaded. Your saved data has not been changed.")
-                    } actions: {
-                        Button("Try again") { bootstrap.load() }
-                            .buttonStyle(.borderedProminent)
-                    }
-                }
-            }
-            .tint(DailyTheme.green)
+            RootView(store: bootstrap.store, pokus: bootstrap.pokus, habitError: bootstrap.errorMessage, retryHabits: bootstrap.load)
+                .defaultAppStorage(ProcessInfo.processInfo.arguments.contains("-ui-testing") ? UserDefaults(suiteName: "DailyUITests")! : .standard)
         }
     }
 }
@@ -34,12 +21,20 @@ struct DailyApp: App {
 final class AppBootstrap {
     var store: HabitStore?
     var errorMessage: String?
+    /// App-level so a background refresh can sync without any window.
+    let pokus = PokusModel()
 
-    init() { load() }
+    init() {
+        BackgroundRefresh.model = pokus
+        load()
+    }
 
     func load() {
         do {
             let arguments = ProcessInfo.processInfo.arguments
+            guard arguments.contains("-preview-data") || (arguments.contains("-ui-testing") && arguments.contains("-ui-testing-local-habits")) else {
+                store = nil; errorMessage = nil; return
+            }
             let inMemory = arguments.contains("-ui-testing") || arguments.contains("-preview-data")
             let store = try HabitStore(container: HabitStore.makeContainer(inMemory: inMemory))
             if arguments.contains("-preview-data") || arguments.contains("-ui-testing-history") {
@@ -74,25 +69,32 @@ final class AppBootstrap {
 
 extension Notification.Name {
     static let openDailyToday = Notification.Name("openDailyToday")
+    static let openPokusTimer = Notification.Name("openPokusTimer")
+    static let openPokusCalendar = Notification.Name("openPokusCalendar")
 }
 
 final class NotificationDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        BackgroundRefresh.register()
         return true
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .openDailyToday, object: nil)
-            completionHandler()
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        guard let route = NotificationLaunchRoute.parse(userInfo: response.notification.request.content.userInfo,
+            identifier: response.notification.request.identifier) else { return }
+        await MainActor.run {
+            NotificationLaunchRoute.pending = route
+            switch route {
+            case .timer: NotificationCenter.default.post(name: .openPokusTimer, object: nil)
+            case .habits: NotificationCenter.default.post(name: .openDailyToday, object: nil)
+            case .capture: NotificationCenter.default.post(name: .openPokusCalendar, object: nil)
+            }
         }
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
     }
 }
-

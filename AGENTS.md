@@ -4,6 +4,14 @@
 
 Pokus is a single-page Pomodoro timer built with React 19, TypeScript, Vite, and Tailwind CSS.
 
+The repository holds two clients that share one PocketBase backend:
+
+- Web app: the repository root (`src/`, `e2e/`, `scripts/`).
+- iOS app: `ios/` (SwiftUI, Xcode project `ios/Daily.xcodeproj`, Swift packages in `ios/Sources`). See `ios/README.md`.
+- Shared backend: `pb_schema.json` and `pb_hooks/` at the root.
+
+When a schema change affects records both clients read or write, update both clients in the same change.
+
 ## Development
 
 - Install dependencies with `npm install`.
@@ -28,4 +36,4 @@ Pokus is a single-page Pomodoro timer built with React 19, TypeScript, Vite, and
 
 ## Before Finishing
 
-Run `npm run lint` and `npm run build`. Do not commit generated files from `dist` or local environment files.
+Run `npm run lint` and `npm run build`. When `ios/` changes, also build the iOS app (`xcodebuild -project ios/Daily.xcodeproj -scheme Daily -destination 'generic/platform=iOS Simulator' build`). Do not commit generated files from `dist` or local environment files.

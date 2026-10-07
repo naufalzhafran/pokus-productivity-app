@@ -4,11 +4,12 @@ import Observation
 import SwiftData
 
 public enum HabitStoreError: LocalizedError {
-    case invalidName, invalidTarget, invalidValue, invalidDate, missingHabit, invalidData
+    case invalidName, invalidUnit, invalidTarget, invalidValue, invalidDate, missingHabit, invalidData
 
     public var errorDescription: String? {
         switch self {
-        case .invalidName: return "Give your habit a name."
+        case .invalidName: return "Use a habit name of 1–120 characters."
+        case .invalidUnit: return "Use a unit of up to 40 characters."
         case .invalidTarget: return "Enter a daily target greater than zero."
         case .invalidValue: return "Enter a number of zero or more."
         case .invalidDate: return "Choose a date between this habit's creation and today."
@@ -22,6 +23,7 @@ public enum HabitStoreError: LocalizedError {
 @Observable
 public final class HabitStore {
     public private(set) var histories: [HabitHistory] = []
+    public private(set) var revision = 0
     public let container: ModelContainer
     @ObservationIgnored private let context: ModelContext
     @ObservationIgnored private let saveChanges: (ModelContext) throws -> Void
@@ -50,7 +52,8 @@ public final class HabitStore {
     public func create(name: String, kind: HabitKind, unit: String = "", target: Double = 1,
                        today: DayKey = DayKey()) throws {
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanName.isEmpty else { throw HabitStoreError.invalidName }
+        guard !cleanName.isEmpty, cleanName.count <= 120 else { throw HabitStoreError.invalidName }
+        guard kind == .check || unit.trimmingCharacters(in: .whitespacesAndNewlines).count <= 40 else { throw HabitStoreError.invalidUnit }
         guard target.isFinite, target > 0 else { throw HabitStoreError.invalidTarget }
         try transact {
             let habit = Habit(name: cleanName, kindRaw: kind.rawValue,
@@ -63,15 +66,20 @@ public final class HabitStore {
         }
     }
 
-    public func edit(id: UUID, name: String, target: Double, today: DayKey = DayKey()) throws {
-        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanName.isEmpty else { throw HabitStoreError.invalidName }
-        guard target.isFinite, target > 0 else { throw HabitStoreError.invalidTarget }
+    public func edit(id: UUID, name: String?, target: Double?, today: DayKey = DayKey()) throws {
+        let cleanName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let cleanName {
+            guard !cleanName.isEmpty, cleanName.count <= 120 else { throw HabitStoreError.invalidName }
+        }
+        if let target {
+            guard target.isFinite, target > 0 else { throw HabitStoreError.invalidTarget }
+        }
         guard let history = history(id: id), today >= history.startDay else { throw HabitStoreError.invalidDate }
+        guard cleanName != nil || (history.kind == .number && target != nil) else { return }
         try transact {
             let habit = try model(id: id)
-            habit.name = cleanName
-            if habit.kindRaw == HabitKind.number.rawValue, target != history.target(on: today) {
+            if let cleanName { habit.name = cleanName }
+            if habit.kindRaw == HabitKind.number.rawValue, let target, target != history.target(on: today) {
                 let key = "\(id.uuidString):\(today.rawValue)"
                 let request = FetchDescriptor<TargetRevision>(predicate: #Predicate { $0.key == key })
                 if let revision = try context.fetch(request).first {
@@ -126,6 +134,7 @@ public final class HabitStore {
             let next = try fetchHistories()
             try saveChanges(context)
             histories = next
+            revision += 1
         } catch {
             context.rollback()
             throw error

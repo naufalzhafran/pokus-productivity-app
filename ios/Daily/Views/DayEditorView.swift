@@ -1,17 +1,21 @@
 import DailyCore
 import DailyPersistence
+import PokusCore
 import SwiftUI
 
 struct DayEditorView: View {
-    let store: HabitStore
+    let store: any HabitViewStore
     let today: DayKey
     var habitID: UUID?
     @State private var day: DayKey
     @Environment(\.dismiss) private var dismiss
     @State private var entryToEdit: EntrySelection?
     @State private var save = SaveAction()
+    @State private var indexState = ReadState<HabitDayIndex>()
+    @State private var earliest: DayKey?
+    @State private var retry = 0
 
-    init(store: HabitStore, day: DayKey, today: DayKey, habitID: UUID? = nil) {
+    init(store: any HabitViewStore, day: DayKey, today: DayKey, habitID: UUID? = nil) {
         self.store = store
         self.today = today
         self.habitID = habitID
@@ -19,12 +23,9 @@ struct DayEditorView: View {
     }
 
     private var firstDay: DayKey {
-        store.histories.filter { habitID == nil || $0.id == habitID }.map(\.startDay).min() ?? today
+        earliest ?? today
     }
 
-    private var habits: [HabitHistory] {
-        store.histories.filter { $0.startDay <= day && (habitID == nil || $0.id == habitID) }
-    }
 
     var body: some View {
         NavigationStack {
@@ -39,17 +40,21 @@ struct DayEditorView: View {
                     .accessibilityIdentifier("historyDatePicker")
                 }
                 Section {
-                    ForEach(habits) { habit in
+                    if let index = indexState.value {
+                        let ids = index.ids.filter { habitID == nil || HabitWire.identity($0) == habitID || UUID(uuidString: $0) == habitID }
+                        HabitPagedRows(store: store, ids: ids, day: day, index: index) { habit in
                         if habit.kind == .check {
                             Toggle(isOn: Binding(
-                                get: { store.history(id: habit.id)?.isComplete(on: day) ?? false },
+                                get: { habit.isComplete(on: day) },
                                 set: { completed in
-                                    save.perform { try store.setValue(completed ? 1 : 0, for: habit.id, on: day) }
+                                    let selectedDay = day
+                                    save.performAsync { try await store.setValue(completed ? 1 : 0, for: habit.id, on: selectedDay) }
                                 }
                             )) {
                                 Text(habit.name)
                             }
                             .accessibilityIdentifier("history-\(habit.name)")
+                            .disabled(!store.canWrite || save.isSaving)
                             .padding(.vertical, 6)
                         } else {
                             Button {
@@ -63,14 +68,16 @@ struct DayEditorView: View {
                                     }
                                     Spacer()
                                     Image(systemName: habit.isComplete(on: day) ? "checkmark.circle.fill" : "pencil.circle")
-                                        .font(.title2).foregroundStyle(DailyTheme.green)
+                                        .font(.title2).foregroundStyle(DailyTheme.accent)
                                 }
                                 .padding(.vertical, 6)
                             }
                             .accessibilityLabel("\(habit.name), \(NumberText.display(habit.value(on: day))) of \(NumberText.display(habit.target(on: day))) \(habit.unit). Edit total")
                             .accessibilityIdentifier("history-\(habit.name)")
                         }
-                    }
+                        }
+                    } else if let error = indexState.error { ReadError(message: error) { retry += 1 } }
+                    else { ProgressView("Loading daily entries") }
                 } header: {
                     Text(day.formatted("EEEE, MMMM d, yyyy"))
                 } footer: {
@@ -81,9 +88,15 @@ struct DayEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(item: $entryToEdit) { selection in
-                EntryEditorView(store: store, habitID: selection.habitID, day: selection.day, today: today)
+                LoadedEntryEditor(store: store, habitID: selection.habitID, day: selection.day, today: today)
             }
             .saveAlert(save)
+            .task(id: "\(store.readIdentity)-\(day)-\(retry)") {
+                indexState.clear()
+                await indexState.load { try await store.dayIndex(day) }
+                if let index = indexState.value { earliest = min(earliest ?? index.earliest, index.earliest) }
+                if let habitID, let detail = try? await store.detail(id: habitID, on: day) { earliest = detail.startDay }
+            }
         }
     }
 }

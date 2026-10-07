@@ -2,6 +2,9 @@
 
 A single-page Pomodoro timer built with React 19, Vite, and Tailwind CSS.
 
+This repository also holds the native iPhone app in [`ios/`](ios/README.md). Both
+clients share the PocketBase schema in `pb_schema.json` and the hooks in `pb_hooks/`.
+
 ## Features
 
 - Adjustable Pomodoro duration with a circular control

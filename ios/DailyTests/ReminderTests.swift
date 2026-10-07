@@ -95,5 +95,19 @@ final class ReminderTests: XCTestCase {
         XCTAssertFalse(manager.enabled)
         XCTAssertEqual(client.cancellations, 1)
     }
+    @MainActor
+    func testSignOutCancelsReminderWithoutErasingPreference() async {
+        let client = FakeReminderClient(); client.status = .authorized
+        let (manager, defaults, suite) = makeManager(client)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        await manager.setEnabled(true)
+        await manager.setAccountAvailable(false)
+        XCTAssertEqual(client.cancellations, 1)
+        XCTAssertTrue(manager.enabled)
+        XCTAssertTrue(defaults.bool(forKey: "reminder.enabled"))
+        await manager.setEnabled(true)
+        XCTAssertEqual(client.scheduled.count, 1)
+        await manager.setAccountAvailable(true)
+        XCTAssertEqual(client.scheduled.count, 2)
+    }
 }
-

@@ -1,4 +1,5 @@
 import DailyCore
+import PokusCore
 import SwiftUI
 
 struct ActivityGrid: View {
@@ -6,25 +7,31 @@ struct ActivityGrid: View {
     let today: DayKey
     let individual: Bool
     let onSelect: (DayKey) -> Void
+    var activity: HabitActivityYear? = nil
+    var selectedYear: Int? = nil
+    var onYearChange: ((Int) -> Void)? = nil
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var year: Int
     private let cellSize: CGFloat = 16
     private let cellGap: CGFloat = 4
 
-    init(habits: [HabitHistory], today: DayKey, individual: Bool = false, onSelect: @escaping (DayKey) -> Void) {
+    init(habits: [HabitHistory], today: DayKey, individual: Bool = false, activity: HabitActivityYear? = nil,
+         selectedYear: Int? = nil, onYearChange: ((Int) -> Void)? = nil, onSelect: @escaping (DayKey) -> Void) {
         self.habits = habits
         self.today = today
         self.individual = individual
         self.onSelect = onSelect
-        _year = State(initialValue: today.year)
+        self.activity = activity; self.selectedYear = selectedYear; self.onYearChange = onYearChange
+        _year = State(initialValue: selectedYear ?? today.year)
     }
 
-    private var firstDay: DayKey { habits.map(\.startDay).min() ?? today }
+    private var firstDay: DayKey { activity?.earliest ?? habits.map(\.startDay).min() ?? today }
     private var weeks: [[DayKey]] { DayKey.yearGrid(year) }
     private var dark: Bool { colorScheme == .dark }
 
     var body: some View {
+        let weeks = weeks
         let headerLayout = typeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
             : AnyLayout(HStackLayout())
@@ -112,7 +119,7 @@ struct ActivityGrid: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(individual ? "Darker green means closer to your daily target." : "Darker green means a greater share of habits completed.")
+                .accessibilityLabel(individual ? "Darker color means closer to your daily target." : "Darker color means a greater share of habits completed.")
 
                 Button {
                     onSelect(today)
@@ -129,13 +136,15 @@ struct ActivityGrid: View {
         .onChange(of: habits.map(\.startDay).min()) { _, _ in
             year = min(today.year, max(year, firstDay.year))
         }
+        .onChange(of: year) { _, year in onYearChange?(year) }
+        .onChange(of: selectedYear) { _, selected in if let selected { year = selected } }
     }
 
     @ViewBuilder
     private func cell(_ day: DayKey) -> some View {
         let isInYear = day.year == year
         let enabled = isInYear && day >= firstDay && day <= today
-        let fraction = individual ? (habits.first?.fraction(on: day) ?? 0) : ProgressCalculator.progress(on: day, habits: habits).fraction
+        let fraction = individual ? (habits.first?.fraction(on: day) ?? 0) : (activity?.progress[day] ?? ProgressCalculator.progress(on: day, habits: habits)).fraction
         Button {
             onSelect(day)
         } label: {
@@ -166,7 +175,7 @@ struct ActivityGrid: View {
             if habit.kind == .check { return habit.isComplete(on: day) ? "Complete" : "Not complete" }
             return "\(NumberText.display(habit.value(on: day))) of \(NumberText.display(habit.target(on: day))) \(habit.unit), \(habit.isComplete(on: day) ? "complete" : "not complete")"
         }
-        let progress = ProgressCalculator.progress(on: day, habits: habits)
+        let progress = activity?.progress[day] ?? ProgressCalculator.progress(on: day, habits: habits)
         return "\(progress.completed) of \(progress.total) habits completed"
     }
 

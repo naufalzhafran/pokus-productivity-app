@@ -44,6 +44,14 @@ final class SystemReminderClient: ReminderClient {
 }
 
 @MainActor
+private final class UITestReminderClient: ReminderClient {
+    func authorizationStatus() async -> UNAuthorizationStatus { .authorized }
+    func requestPermission() async throws -> Bool { true }
+    func schedule(hour: Int, minute: Int) async throws {}
+    func cancel() {}
+}
+
+@MainActor
 @Observable
 final class ReminderManager {
     private(set) var enabled: Bool
@@ -52,12 +60,13 @@ final class ReminderManager {
     private(set) var authorization: UNAuthorizationStatus = .notDetermined
     private(set) var isUpdating = false
     var errorMessage: String?
+    private var accountAvailable = true
     @ObservationIgnored private let client: any ReminderClient
     @ObservationIgnored private let defaults: UserDefaults
 
     init(client: (any ReminderClient)? = nil, defaults: UserDefaults? = nil) {
-        self.client = client ?? SystemReminderClient()
         let isTest = ProcessInfo.processInfo.arguments.contains("-ui-testing")
+        self.client = client ?? (isTest ? UITestReminderClient() : SystemReminderClient())
         let preferences = defaults ?? (isTest ? UserDefaults(suiteName: "DailyUITests")! : .standard)
         if isTest && defaults == nil { preferences.removePersistentDomain(forName: "DailyUITests") }
         self.defaults = preferences
@@ -73,6 +82,17 @@ final class ReminderManager {
     }
 
     var permissionDenied: Bool { authorization == .denied }
+    func setAccountAvailable(_ available: Bool) async {
+        accountAvailable = available
+        if !available { client.cancel() }
+        else if enabled {
+            do {
+                try await client.schedule(hour: hour, minute: minute)
+                if !accountAvailable { client.cancel() }
+            }
+            catch { errorMessage = "The reminder couldn't be scheduled. \(error.localizedDescription)" }
+        }
+    }
 
     func refreshAuthorization() async {
         authorization = await client.authorizationStatus()
@@ -84,7 +104,7 @@ final class ReminderManager {
     }
 
     func setEnabled(_ requested: Bool) async {
-        guard !isUpdating else { return }
+        guard !isUpdating, accountAvailable else { return }
         isUpdating = true
         errorMessage = nil
         defer { isUpdating = false }
@@ -120,7 +140,7 @@ final class ReminderManager {
         errorMessage = nil
         defer { isUpdating = false }
         do {
-            if enabled { try await client.schedule(hour: nextHour, minute: nextMinute) }
+            if enabled && accountAvailable { try await client.schedule(hour: nextHour, minute: nextMinute) }
             hour = nextHour
             minute = nextMinute
             defaults.set(hour, forKey: "reminder.hour")
@@ -130,4 +150,3 @@ final class ReminderManager {
         }
     }
 }
-

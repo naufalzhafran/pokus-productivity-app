@@ -77,6 +77,49 @@ final class HabitStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testPartialEditsPreserveUntouchedFieldsAndHistoricalTargets() throws {
+        var saves = 0
+        let container = try HabitStore.makeContainer(inMemory: true)
+        let store = try HabitStore(container: container, saveChanges: { context in
+            saves += 1
+            try context.save()
+        })
+        let yesterday = today.adding(days: -1)
+        try store.create(name: "Read", kind: .number, unit: "pages", target: 10, today: yesterday)
+        let id = try XCTUnwrap(store.histories.first?.id)
+        try store.edit(id: id, name: nil, target: 20, today: today)
+        try store.edit(id: id, name: "Read books", target: nil, today: today)
+        let renamed = try XCTUnwrap(store.history(id: id))
+        XCTAssertEqual(renamed.name, "Read books")
+        XCTAssertEqual(renamed.target(on: today), 20)
+        XCTAssertEqual(renamed.target(on: yesterday), 10)
+        XCTAssertEqual(renamed.unit, "pages")
+        XCTAssertEqual(renamed.kind, .number)
+        try store.edit(id: id, name: nil, target: 30, today: today)
+        XCTAssertEqual(store.history(id: id)?.name, "Read books")
+        XCTAssertEqual(store.history(id: id)?.target(on: today), 30)
+        let before = saves
+        try store.edit(id: id, name: nil, target: nil, today: today)
+        XCTAssertEqual(saves, before)
+        XCTAssertEqual(try ModelContext(container).fetchCount(FetchDescriptor<TargetRevision>()), 2)
+    }
+
+    @MainActor
+    func testHabitTextLimitsAreValidatedBeforeSaving() throws {
+        let store = try HabitStore(container: HabitStore.makeContainer(inMemory: true))
+        XCTAssertThrowsError(try store.create(name: String(repeating: "a", count: 121), kind: .check))
+        XCTAssertThrowsError(try store.create(name: "Read", kind: .number, unit: String(repeating: "a", count: 41)))
+        XCTAssertTrue(store.histories.isEmpty)
+        try store.create(name: String(repeating: "a", count: 120), kind: .number,
+                         unit: String(repeating: "u", count: 40), today: today)
+        let id = try XCTUnwrap(store.histories.first?.id)
+        XCTAssertThrowsError(try store.edit(id: id, name: " ", target: nil, today: today))
+        XCTAssertThrowsError(try store.edit(id: id, name: String(repeating: "a", count: 121), target: nil, today: today))
+        XCTAssertThrowsError(try store.edit(id: id, name: nil, target: 0, today: today))
+        XCTAssertEqual(store.history(id: id)?.name.count, 120)
+    }
+
+    @MainActor
     func testFailedSaveRollsBackAndRetryDoesNotDuplicate() throws {
         enum Failure: Error { case diskFull }
         var shouldFail = true

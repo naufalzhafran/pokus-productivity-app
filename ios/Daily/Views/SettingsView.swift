@@ -21,7 +21,7 @@ struct SettingsView: View {
 
                 if reminders.permissionDenied {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Notifications are turned off for Daily. Enable them in Settings, then turn on your reminder here.")
+                        Text("Notifications are turned off for Pokus. Enable them in Settings, then turn on your reminder here.")
                             .font(.footnote).foregroundStyle(.secondary)
                         Button("Open notification settings") {
                             if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
@@ -45,12 +45,12 @@ struct SettingsView: View {
             } header: {
                 Text("Your habits, your space")
             } footer: {
-                Text("Daily has no account or cloud sync. Habit history is stored in the app on this device.")
+                Text("Habit history stays on this iPhone and is independent of your Pokus account.")
             }
 
             Section {
                 HStack {
-                    Text("Daily").font(.system(.headline, design: .rounded))
+                    Text("Pokus").font(.system(.headline, design: .rounded))
                     Spacer()
                     Text("1.0").foregroundStyle(.secondary)
                 }
@@ -58,7 +58,6 @@ struct SettingsView: View {
                 Text("A little, every day.")
             }
         }
-        .navigationTitle("Settings")
+        .navigationTitle("Habit reminders")
     }
 }
-
