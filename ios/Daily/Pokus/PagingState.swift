@@ -17,11 +17,14 @@ final class PagingState<T: Decodable & Identifiable & Sendable> where T.ID == St
     @ObservationIgnored private var identity: String?
     @ObservationIgnored private var contentIdentity: String?
     @ObservationIgnored private var requestTask: Task<BrowseBatch<T>, Error>?
+    @ObservationIgnored private var replacementRows: [T] = []
+    @ObservationIgnored private var replacementCount = 25
     func isCurrent(_ key: String) -> Bool { identity == key && loaded }
     func reset(api: PocketBaseClient, query: RecordQuery<T>, identity: String = "", contentIdentity: String? = nil, debounce: Bool = false) async {
         let retainedRows = contentIdentity != nil && self.contentIdentity == contentIdentity ? rows : []
         clear(); self.identity = identity; self.contentIdentity = contentIdentity
         rows = retainedRows; reader = RecordReader(api: api, query: query)
+        replacementCount = max(25, retainedRows.count)
         let token = generation
         if debounce {
             isLoading = true
@@ -35,6 +38,7 @@ final class PagingState<T: Decodable & Identifiable & Sendable> where T.ID == St
     func clear() {
         requestTask?.cancel(); requestTask = nil
         generation = UUID(); reader = nil; rows = []; loaded = false; hasMore = false
+        replacementRows = []; replacementCount = 25
         identity = nil; contentIdentity = nil
         initialError = nil; appendError = nil; isLoading = false; isLoadingMore = false
     }
@@ -42,19 +46,30 @@ final class PagingState<T: Decodable & Identifiable & Sendable> where T.ID == St
         guard let reader, !isLoading, !isLoadingMore, !loaded || hasMore,
             !(automatic && (initialError != nil || appendError != nil)) else { return }
         let token = generation
-        let request = Task { try await reader.next() }
-        requestTask = request
         if loaded { isLoadingMore = true; appendError = nil } else { isLoading = true; initialError = nil }
         defer { if token == generation { isLoading = false; isLoadingMore = false; requestTask = nil } }
         do {
-            let batch = try await withTaskCancellationHandler { try await request.value } onCancel: { request.cancel() }
-            try Task.checkCancellation()
-            guard token == generation else { return }
-            if !loaded { rows = [] }
-            var ids = Set(rows.map(\.id))
-            rows += batch.items.filter { ids.insert($0.id).inserted }
-            hasMore = batch.hasMore; loaded = true
-            await reader.accept()
+            while true {
+                let request = Task { try await reader.next() }
+                requestTask = request
+                let batch = try await withTaskCancellationHandler { try await request.value } onCancel: { request.cancel() }
+                try Task.checkCancellation()
+                guard token == generation else { return }
+                var nextRows = loaded ? rows : replacementRows
+                var ids = Set(nextRows.map(\.id))
+                nextRows += batch.items.filter { ids.insert($0.id).inserted }
+                if loaded || nextRows.count >= replacementCount || !batch.hasMore {
+                    rows = nextRows; replacementRows = []
+                    hasMore = batch.hasMore; loaded = true
+                    await reader.accept()
+                    return
+                }
+                // Keep the visible window intact until all previously loaded pages are refreshed.
+                replacementRows = nextRows
+                await reader.accept()
+                try Task.checkCancellation()
+                guard token == generation else { return }
+            }
         } catch {
             guard token == generation, !Task.isCancelled else { return }
             if loaded { appendError = error.localizedDescription } else { initialError = error.localizedDescription }

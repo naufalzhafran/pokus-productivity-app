@@ -2,6 +2,7 @@ import SwiftUI
 
 struct GoogleSignInButton: View {
     let isConnecting: Bool
+    var isEnabled = true
     let action: () -> Void
     @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .body) private var labelSize = 17
@@ -36,7 +37,9 @@ struct GoogleSignInButton: View {
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .disabled(isConnecting)
+        .disabled(isConnecting || !isEnabled)
+        .opacity(isEnabled || isConnecting ? 1 : 0.5)
+        .accessibilityHint(isEnabled ? "" : "Connect to the internet to sign in.")
         .accessibilityIdentifier("googleSignIn")
     }
 }

@@ -7,33 +7,47 @@ struct CaptureReminderEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var date: Date
     @State private var save = SaveAction()
+    @State private var closeRequested = false
+    @State private var initialDate: Date
 
     init(model: PokusModel, capture: Capture) {
         self.model = model; self.capture = capture
-        _date = State(initialValue: capture.reminderAt > Date().timeIntervalSince1970 * 1000
-            ? Date(timeIntervalSince1970: capture.reminderAt / 1000) : Date().addingTimeInterval(3600))
+        let selectedDate = capture.reminderAt > Date().timeIntervalSince1970 * 1000
+            ? Date(timeIntervalSince1970: capture.reminderAt / 1000) : Date().addingTimeInterval(3600)
+        _initialDate = State(initialValue: selectedDate)
+        _date = State(initialValue: selectedDate)
     }
     var body: some View {
         NavigationStack {
             Form {
-                Section { Text(capture.label); DatePicker("Remind me", selection: $date, in: Date()...) }
+                Section { Text(capture.label).font(.headline) }
                 Section {
+                    DatePicker("Date", selection: $date, in: Calendar.current.startOfDay(for: .now)..., displayedComponents: .date)
+                        .accessibilityIdentifier("captureReminderDate")
+                    DatePicker("Time", selection: $date, displayedComponents: .hourAndMinute)
+                        .accessibilityIdentifier("captureReminderTime")
+                    if date <= .now { EditorError(message: "Choose a future date and time.") }
+                } header: {
+                    Text("Remind me")
+                } footer: {
                     Text("Reminders use this device's timezone. Changes made on the web reach iPhone alerts the next time this app syncs.")
-                        .font(.footnote).foregroundStyle(.secondary)
                 }
-            }.navigationTitle(capture.reminderAt > 0 ? "Edit reminder" : "Add reminder")
+            }.disabled(save.isSaving)
+                .navigationTitle(capture.reminderAt > 0 ? "Edit reminder" : "Add reminder")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(save.isSaving) }
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { closeRequested = true }.disabled(save.isSaving) }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            save.performAsync { try await model.setCaptureReminder(id: capture.id, date: date) } onSuccess: {
+                        Button(save.isSaving ? "Saving…" : "Save") {
+                            let submittedDate = date
+                            save.performAsync { try await model.setCaptureReminder(id: capture.id, date: submittedDate) } onSuccess: {
                                 Task { await model.requestCaptureReminderAlerts?() }
                                 dismiss()
                             }
-                        }.disabled(!model.canEdit || save.isSaving)
+                        }.disabled(!model.canEdit || save.isSaving || date <= .now)
                     }
                 }.saveAlert(save)
+                .protectDraft(isDirty: date != initialDate, isSaving: save.isSaving, closeRequested: $closeRequested) { dismiss() }
         }
     }
 }

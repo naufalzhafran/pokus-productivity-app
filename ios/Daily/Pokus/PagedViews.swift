@@ -126,11 +126,20 @@ struct RecordSelectionLink: View {
     let title: String
     @Binding var selection: String
     var none = "None"
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         NavigationLink {
             RecordSelector(model: model, kind: kind, title: title, selection: $selection, none: none)
         } label: {
-            HStack { Text(title); Spacer(); SelectedRecordLabel(model: model, kind: kind, id: selection, none: none).foregroundStyle(.secondary) }
+            let layout = typeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                : AnyLayout(HStackLayout(spacing: 12))
+            layout {
+                Text(title).layoutPriority(1)
+                SelectedRecordLabel(model: model, kind: kind, id: selection, none: none)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: typeSize.isAccessibilitySize ? .leading : .trailing)
+            }
         }
     }
 }
@@ -139,11 +148,14 @@ struct SelectedRecordLabel: View {
     let kind: SelectionKind
     let id: String
     var none = "None"
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var state = ReadState<String>()
     @State private var loadedContentIdentity: String?
     private var contentIdentity: String { "\(model.scope?.generation.uuidString ?? "signedout")-\(kind)-\(id)" }
     var body: some View {
-        Text(id.isEmpty ? none : state.value ?? "Selected record").lineLimit(1)
+        Text(id.isEmpty ? none : state.value ?? "Selected record")
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+            .fixedSize(horizontal: false, vertical: true)
             .task(id: "\(model.queryIdentity)-\(contentIdentity)") {
                 if loadedContentIdentity != contentIdentity { state.clear(); loadedContentIdentity = contentIdentity }
                 guard !id.isEmpty else { return }
@@ -180,7 +192,8 @@ struct RecordSelector: View {
             case .capture:
                 PagedRows(model: model, query: RecordQueries.captures(search: search), search: search) { choice($0.id, $0.label) }
             }
-        }.id(search).navigationTitle(title).searchable(text: $search).refreshable { await model.refresh() }
+        }.id(search).navigationTitle(title).searchable(text: $search)
+            .scrollDismissesKeyboard(.interactively).refreshable { await model.refresh() }
     }
     private func choice(_ id: String, _ label: String) -> some View {
         Button { selection = id; dismiss() } label: {

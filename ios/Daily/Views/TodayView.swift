@@ -7,6 +7,7 @@ struct HabitsView: View {
     let today: DayKey
     @Binding var showingProgress: Bool
     @State private var showingAdd = false
+    @State private var habitToView: UUID?
     @State private var dayState = ReadState<HabitDayIndex>()
     @State private var retry = 0
 
@@ -25,7 +26,7 @@ struct HabitsView: View {
                 ProgressViewScreen(store: store, today: today)
             } else if let index = dayState.value {
                 if index.ids.isEmpty { EmptyHabitsView(canAdd: store.canWrite) { showingAdd = true } }
-                else { TodayView(store: store, today: today, index: index) }
+                else { TodayView(store: store, today: today, index: index, showHistory: { habitToView = $0 }) }
             } else if let error = dayState.error {
                 ReadError(message: error) { retry += 1 }.padding()
             } else { ProgressView("Loading habits").frame(maxWidth: .infinity, maxHeight: .infinity) }
@@ -36,7 +37,7 @@ struct HabitsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DailyTheme.background)
         .navigationTitle("Habits")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if dayState.value?.ids.isEmpty == false || showingProgress {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -47,6 +48,9 @@ struct HabitsView: View {
             }
         }
         .sheet(isPresented: $showingAdd) { HabitEditorView(store: store, today: today) }
+        .navigationDestination(item: $habitToView) { id in
+            HabitDetailView(store: store, habitID: id, today: today)
+        }
         .task(id: "\(store.readIdentity)-\(today)-\(retry)") {
             await dayState.load { try await store.dayIndex(today) }
         }
@@ -57,6 +61,7 @@ struct TodayView: View {
     let store: any HabitViewStore
     let today: DayKey
     let index: HabitDayIndex
+    let showHistory: (UUID) -> Void
     @State private var entryToEdit: EntrySelection?
     @State private var save = SaveAction()
 
@@ -71,7 +76,7 @@ struct TodayView: View {
                     Section {
                         TodaySummary(progress: progress, today: today)
                             .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 8, trailing: 0))
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 12, trailing: 0))
                             .listRowSeparator(.hidden)
                     }
                     if !index.remaining.isEmpty {
@@ -90,8 +95,10 @@ struct TodayView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .listSectionSpacing(20)
                 .contentMargins(.top, 0)
                 .scrollContentBackground(.hidden)
+                .accessibilityIdentifier("habitsTodayList")
             }
         }
         .background(DailyTheme.background)
@@ -111,11 +118,11 @@ struct TodayView: View {
 
     private func habitRows(_ ids: [String]) -> some View {
         HabitPagedRows(store: store, ids: ids, day: today, index: index) { habit in
-            HabitRow(habit: habit, day: today,
-                     detail: { HabitDetailView(store: store, habitID: habit.id, today: today) },
+            TodayHabitRow(habit: habit, day: today,
                      toggle: { set(habit.isComplete(on: today) ? 0 : 1, habit: habit) },
                      increment: { set(habit.value(on: today) + 1, habit: habit) },
                      edit: { entryToEdit = EntrySelection(habitID: habit.id, day: today) },
+                     showHistory: { showHistory(habit.id) },
                      canEdit: store.canWrite && !save.isSaving)
         }
     }
@@ -132,7 +139,7 @@ private struct TodaySummary: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(today.formatted("EEEE, MMMM d"))
                 .font(.subheadline).foregroundStyle(.secondary)
             Text(progress.completed == progress.total ? "All done for today" : "\(progress.completed) of \(progress.total) complete")
@@ -140,12 +147,12 @@ private struct TodaySummary: View {
                 .fixedSize(horizontal: false, vertical: true)
             ProgressView(value: progress.fraction)
                 .tint(DailyTheme.accent)
+                .padding(.horizontal, 4)
                 .accessibilityHidden(true)
-            Text(progress.completed == progress.total ? "All your habits are complete." : "\(progress.total - progress.completed) \(progress.total - progress.completed == 1 ? "habit" : "habits") remaining")
-                .font(.subheadline).foregroundStyle(.secondary)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: progress)
         .accessibilityElement(children: .combine)
+        .accessibilityValue("\(progress.total - progress.completed) \(progress.total - progress.completed == 1 ? "habit" : "habits") remaining")
     }
 }
 

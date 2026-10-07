@@ -123,6 +123,7 @@ struct HabitActivityView: View {
     var habitID: UUID? = nil
     var onSelect: (DayKey) -> Void
     @State private var year: Int
+    @State private var month: DayKey
     @State private var state = ReadState<HabitActivityYear>()
     @State private var retry = 0
     @State private var loadedContentIdentity: String?
@@ -130,12 +131,14 @@ struct HabitActivityView: View {
     init(store: any HabitViewStore, today: DayKey, habitID: UUID? = nil, onSelect: @escaping (DayKey) -> Void) {
         self.store = store; self.today = today; self.habitID = habitID; self.onSelect = onSelect
         _year = State(initialValue: today.year)
+        _month = State(initialValue: HabitCalendarMonth(containing: today).firstDay)
     }
     var body: some View {
         Group {
             if loadedContentIdentity == contentIdentity, let activity = state.value {
                 ActivityGrid(habits: activity.individual.map { [$0] } ?? [], today: today, individual: habitID != nil,
-                    activity: activity, selectedYear: year, onYearChange: { year = $0 }, onSelect: onSelect)
+                    activity: activity, selectedYear: year, onYearChange: { year = $0 },
+                    selectedMonth: month, onMonthChange: { month = $0 }, onSelect: onSelect)
             } else if state.error == nil || loadedContentIdentity != contentIdentity {
                 ProgressView("Loading \(String(year)) activity").frame(maxWidth: .infinity, minHeight: 180)
             }
@@ -143,6 +146,11 @@ struct HabitActivityView: View {
         }.task(id: "\(store.readIdentity)-\(today)-\(year)-\(habitID?.uuidString ?? "all")-\(retry)") {
             if loadedContentIdentity != contentIdentity { state.clear(); loadedContentIdentity = contentIdentity }
             await state.load { try await store.activity(year: year, today: today, habitID: habitID) }
-        }.onChange(of: today.year) { _, next in year = next }
+        }.onChange(of: today) { old, next in
+            if month == HabitCalendarMonth(containing: old).firstDay {
+                month = HabitCalendarMonth(containing: next).firstDay
+                year = next.year
+            }
+        }
     }
 }

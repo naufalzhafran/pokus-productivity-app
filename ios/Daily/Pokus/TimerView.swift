@@ -56,8 +56,11 @@ struct PokusTimerView: View {
                 }
                 .disabled(model.focus.isSaving || !model.storageReady)
             } else {
-                AccountNotice(model: model).padding(24)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ScrollView {
+                    AccountNotice(model: model).padding(24)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: geometry.size.height)
+                }.accessibilityIdentifier("signedOutFocus")
             }
         }
         .background(Color(uiColor: .systemBackground))
@@ -92,9 +95,11 @@ struct PokusTimerView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "checkmark.circle")
                             .font(.system(size: min(56, geometry.size.height / 3))).foregroundStyle(DailyTheme.accent)
+                            .accessibilityHidden(true)
                         Text(compact ? "Complete" : "Session complete").font(compact ? .headline : .title2)
                         Text(WorkspaceRules.focused(session.creditedSeconds)).foregroundStyle(.secondary)
                     }
+                    .accessibilityElement(children: .combine)
                 } else {
                     countdown(diameter: diameter, compact: compact)
                         .frame(width: diameter, height: diameter)
@@ -119,22 +124,46 @@ struct PokusTimerView: View {
                             .accessibilityLabel("Clear selected task")
                     }
                 }
-            } else if model.session?.mode == .complete {
-                if let task = selectedTask, !task.isDone {
-                    Button {
-                        taskSave.performAsync {
-                            guard await model.write(collection: .tasks, id: task.id, fields: ["isDone": .bool(true)]) else { throw PokusError.message(model.error ?? "Couldn't complete this task.") }
-                        }
-                    } label: {
-                        if compact {
-                            Image(systemName: "checkmark").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                        } else { Text("Mark task complete").frame(minHeight: 44) }
-                    }.accessibilityLabel("Mark task complete")
-                        .disabled(!model.canEdit || taskSave.isSaving).buttonStyle(.bordered).controlSize(.large)
+            } else if let session = model.session {
+                if !session.task.isEmpty {
+                    Text(selectedTask?.title ?? "Linked task")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center).lineLimit(compact ? 1 : 2)
+                        .accessibilityIdentifier("focusTaskTitle")
                 }
-            } else if let task = selectedTask, !compact {
-                Text(task.title).font(.body).foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center).lineLimit(2)
+                if session.mode == .complete, let task = selectedTask {
+                    if task.isDone {
+                        Group {
+                            if compact {
+                                Image(systemName: "checkmark.circle").font(.title2)
+                            } else {
+                                Label("Task complete", systemImage: "checkmark.circle").font(.subheadline)
+                            }
+                        }
+                        .foregroundStyle(.secondary)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Task complete")
+                        .accessibilityIdentifier("focusTaskCompleted")
+                    } else {
+                        Button {
+                            taskSave.performAsync {
+                                guard await model.write(collection: .tasks, id: task.id, fields: ["isDone": .bool(true)]) else { throw PokusError.message(model.error ?? "Couldn't complete this task.") }
+                            }
+                        } label: {
+                            Group {
+                                if taskSave.isSaving {
+                                    if compact { ProgressView() }
+                                    else { ProgressView("Completing task") }
+                                } else if compact {
+                                    Image(systemName: "checkmark")
+                                } else { Text("Mark task complete") }
+                            }
+                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                        }
+                        .accessibilityLabel(taskSave.isSaving ? "Completing task" : "Mark task complete")
+                        .disabled(!model.canEdit || taskSave.isSaving).buttonStyle(.bordered).controlSize(.large)
+                    }
+                }
             }
             if model.focus.isSaving { ProgressView("Saving session") }
             if model.pendingCount > 0 && !compact {
@@ -159,7 +188,7 @@ struct PokusTimerView: View {
             let total = (model.session?.durationMinutes ?? duration) * 60
             return FocusDurationDial(minutes: $duration,
                               progress: model.session == nil ? nil : Double(remaining) / Double(max(1, total)),
-                              spokenValue: "\(remaining / 60) minutes, \(remaining % 60) seconds\(model.session?.isActive == false ? ", paused" : "")\(compact && model.session != nil ? selectedTask.map { ", task: \($0.title)" } ?? "" : "")\(compact && model.pendingCount > 0 ? ", \(model.pendingCount) session updates waiting to sync" : "")") {
+                              spokenValue: "\(remaining / 60) minutes, \(remaining % 60) seconds\(model.session?.isActive == false ? ", paused" : "")\(compact && model.pendingCount > 0 ? ", \(model.pendingCount) session updates waiting to sync" : "")") {
                 VStack(spacing: diameter < 280 ? 8 : 16) {
                     if model.session?.isActive == false && diameter >= 240 && !compact {
                         Text("Paused")
@@ -168,6 +197,7 @@ struct PokusTimerView: View {
                     Text(String(format: "%02d:%02d", remaining / 60, remaining % 60))
                         .font(.system(size: max(44, min(timerFontSize, diameter * 0.28)), weight: .light))
                         .monospacedDigit().lineLimit(1)
+                        .minimumScaleFactor(0.5)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -211,9 +241,11 @@ struct AccountNotice: View {
             ContentUnavailableView {
                 Label("Your focus, saved", systemImage: "timer")
             } description: {
-                Text("Sign in to sync your habits, tasks, library, and focus history across devices.")
+                Text(model.isOnline
+                     ? "Sign in to sync your workspace across devices."
+                     : "Connect to the internet to sign in and sync your workspace.")
             } actions: {
-                GoogleSignInButton(isConnecting: model.isSigningIn) { Task { await model.signIn() } }
+                GoogleSignInButton(isConnecting: model.isSigningIn, isEnabled: model.isOnline) { Task { await model.signIn() } }
                     .frame(maxWidth: 340)
             }
         } else if !model.isOnline {

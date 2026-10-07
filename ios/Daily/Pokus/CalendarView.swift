@@ -236,10 +236,23 @@ struct PokusCalendarView: View {
                    remaining.isEmpty, reminders.isEmpty, index.remaining.isEmpty,
                    overdue.value?.isEmpty == true {
                     Section {
-                        Label(completed.isEmpty && index.completed.isEmpty ? "Nothing scheduled today" : "All done for today",
-                              systemImage: completed.isEmpty && index.completed.isEmpty ? "calendar" : "checkmark.circle")
-                            .foregroundStyle(.secondary)
-                            .padding(.vertical, 8)
+                        if completed.isEmpty && index.completed.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Nothing scheduled today", systemImage: "calendar")
+                                    .font(.headline)
+                                Text("Dated tasks, project deadlines, habits, and reminders appear here.")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                            }.padding(.vertical, 8)
+                            NavigationLink("View unscheduled items") { CalendarUnscheduledView(model: model) }
+                                .accessibilityIdentifier("todayUnscheduled")
+                            if let openHabits {
+                                Button("Browse habits", action: openHabits).frame(minHeight: 44)
+                                    .accessibilityIdentifier("todayBrowseHabits")
+                            }
+                        } else {
+                            Label("All done for today", systemImage: "checkmark.circle")
+                                .foregroundStyle(.secondary).padding(.vertical, 8)
+                        }
                     }
                 }
             } else if day.error == nil {
@@ -306,18 +319,34 @@ private struct CalendarAgendaRow: View {
     let item: CalendarItem
     var showsDate = false
     @State private var save = SaveAction()
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
-        HStack {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 12))
+        layout {
             NavigationLink { destination } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.title).foregroundStyle(.primary).strikethrough(item.isComplete)
-                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }.buttonStyle(.plain)
             if item.kind != .project {
-                Button { toggle() } label: { Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle").font(.title2).frame(width: 44, height: 44) }
+                Button { toggle() } label: {
+                    if save.isSaving {
+                        ProgressView().frame(width: 44, height: 44)
+                    } else if typeSize.isAccessibilitySize {
+                        Label(item.isComplete ? "Reopen" : "Complete", systemImage: item.isComplete ? "checkmark.circle.fill" : "circle")
+                            .frame(minHeight: 44)
+                    } else {
+                        Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle").font(.title2).frame(width: 44, height: 44)
+                    }
+                }
                     .buttonStyle(.borderless).disabled(!model.canEdit || save.isSaving)
                     .accessibilityLabel("\(item.isComplete ? "Reopen" : "Complete") \(item.title)")
+                    .accessibilityValue(save.isSaving ? "Saving" : item.isComplete ? "Completed" : "Not completed")
             }
         }.saveAlert(save)
     }
@@ -325,7 +354,7 @@ private struct CalendarAgendaRow: View {
         var labels = [item.kind == .project ? "Project deadline" : item.kind == .task ? "Task" : "Reminder"]
         if !item.projectTitle.isEmpty { labels.append(item.projectTitle) }
         if item.inheritsProjectDate { labels.append("From project") }
-        if showsDate, let day = item.day { labels.append(day.rawValue) }
+        if showsDate, let day = item.day { labels.append(day.formatted("MMM d, yyyy")) }
         if let time = item.reminderAt { labels.append(Date(timeIntervalSince1970: time / 1000).formatted(date: .omitted, time: .shortened)) }
         return labels.joined(separator: " · ")
     }
@@ -350,22 +379,32 @@ struct CalendarUnscheduledView: View {
     let model: PokusModel
     @State private var project: Project?
     @State private var task: FocusTask?
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private var rowLayout: AnyLayout {
+        typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(spacing: 12))
+    }
     var body: some View {
         List {
             AccountNotice(model: model)
             Section("Projects") {
                 PagedRows(model: model, query: RecordQueries.calendarUnscheduledProjects(), emptyTitle: "All projects have a date", compactEmpty: true) { record in
-                    HStack {
+                    rowLayout {
                         NavigationLink(record.title) { ProjectTasksView(model: model, projectID: record.id) }
+                            .fixedSize(horizontal: false, vertical: true)
                         Button("Set date") { project = record }.buttonStyle(.borderless).disabled(!model.canEdit).frame(minHeight: 44)
+                            .accessibilityHint("Choose a date for \(record.title).")
                     }
                 }
             }
             Section("Tasks") {
                 PagedRows(model: model, query: RecordQueries.calendarUnscheduledTasks(), emptyTitle: "All tasks have a date", compactEmpty: true) { record in
-                    HStack {
+                    rowLayout {
                         NavigationLink(record.title) { TaskDetailView(model: model, taskID: record.id) }
+                            .fixedSize(horizontal: false, vertical: true)
                         Button("Set date") { task = record }.buttonStyle(.borderless).disabled(!model.canEdit).frame(minHeight: 44)
+                            .accessibilityHint("Choose a date for \(record.title).")
                     }
                 }
             }

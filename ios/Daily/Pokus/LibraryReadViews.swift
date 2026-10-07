@@ -111,8 +111,8 @@ struct ProjectSummaryView: View {
             .task(id: "\(model.queryIdentity)-\(id)-\(includeFocus)-\(retry)") { await summary.load { try await model.readAPI().projectSummary(id, includeFocus: includeFocus) } }
     }
     @ViewBuilder private func summaryLabels(_ value: (completed: Int, total: Int, seconds: Int)) -> some View {
-        Text("\(value.completed) of \(value.total) tasks complete")
-        if includeFocus { Label(WorkspaceRules.focused(value.seconds), systemImage: "clock") }
+        Text("\(value.completed) of \(value.total) tasks complete").fixedSize(horizontal: false, vertical: true)
+        if includeFocus { Label(WorkspaceRules.focused(value.seconds), systemImage: "clock").fixedSize(horizontal: false, vertical: true) }
     }
 }
 
@@ -122,10 +122,7 @@ struct ProjectResourcesView: View {
     @State private var counts = ReadState<(captures: Int, notes: Int)>()
     @State private var retry = 0
     var body: some View {
-        NavigationLink { CapturesView(model: model, projectID: projectID) } label: { resource("Captures", count: counts.value?.captures) }.accessibilityIdentifier("projectCaptures")
-        NavigationLink { KnowledgeListView(model: model, projectID: projectID) } label: { resource("Notes", count: counts.value?.notes) }.accessibilityIdentifier("projectNotes")
-        if let error = counts.error { ReadError(message: error) { retry += 1 } }
-        Color.clear.frame(height: 0).accessibilityHidden(true)
+        NavigationLink { KnowledgeListView(model: model, projectID: projectID) } label: { resource("Notes", symbol: "note.text", count: counts.value?.notes) }.accessibilityIdentifier("projectNotes")
             .task(id: "\(model.queryIdentity)-\(projectID)-\(retry)") {
                 await counts.load {
                     let api = try model.readAPI(), id = RecordFilters.literal(projectID)
@@ -134,8 +131,16 @@ struct ProjectResourcesView: View {
                     return try await (captures, notes)
                 }
             }
+        NavigationLink { CapturesView(model: model, projectID: projectID) } label: { resource("Captures", symbol: "tray", count: counts.value?.captures) }.accessibilityIdentifier("projectCaptures")
+        if let error = counts.error { ReadError(message: error) { retry += 1 } }
     }
-    private func resource(_ title: String, count: Int?) -> some View {
-        HStack { Text(title); Spacer(); Text(count.map { "\($0)" } ?? "Loading…").foregroundStyle(.secondary) }
+    private func resource(_ title: String, symbol: String, count: Int?) -> some View {
+        HStack {
+            Label(title, systemImage: symbol)
+            Spacer(minLength: 12)
+            if let count { Text("\(count)").foregroundStyle(.secondary) }
+            else if counts.error != nil { Text("—").foregroundStyle(.secondary).accessibilityLabel("Count unavailable") }
+            else { ProgressView().accessibilityLabel("Loading count") }
+        }.frame(minHeight: 44)
     }
 }

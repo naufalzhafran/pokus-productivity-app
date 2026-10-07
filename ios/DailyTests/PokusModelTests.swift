@@ -81,6 +81,7 @@ private actor ModelServer {
     private var loseNextBatchResponse = false
     private var didBlock = false
     private var failedReadPath: String?
+    private var failedReadPage: Int?
     private let records = UITestPocketBase()
     private(set) var writes = 0
     private(set) var requests = 0
@@ -89,12 +90,15 @@ private actor ModelServer {
     init(path: String = "never", method: String = "GET") { blockedPath = path; blockedMethod = method }
     func failHabitSave() { failNextBatch = true }
     func loseHabitSaveResponse() { loseNextBatchResponse = true }
-    func failRead(_ path: String) { failedReadPath = path }
+    func failRead(_ path: String, page: Int? = nil) { failedReadPath = path; failedReadPage = page }
     func respond(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests += 1
         paths.append((request.httpMethod ?? "GET") + " " + request.url!.path)
-        if request.httpMethod == "GET", let path = failedReadPath, request.url!.path.contains(path) {
+        let page = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "page" }?.value
+        if request.httpMethod == "GET", let path = failedReadPath, request.url!.path.contains(path),
+           failedReadPage == nil || page == failedReadPage.map(String.init) {
             failedReadPath = nil
+            failedReadPage = nil
             throw URLError(.networkConnectionLost)
         }
         if request.httpMethod != "GET" { writes += 1 }
@@ -757,6 +761,119 @@ private actor ModelServer {
             await gate.resume(); await refresh.value
             XCTAssertTrue(paging.isCurrent("revision2"))
         }
+    }
+
+    func testTaskRefreshPreservesLoadedDepthUntilAllPagesArrive() async throws {
+        let server = ModelServer()
+        let api = PocketBaseClient(transport: { try await server.respond($0) })
+        for index in 0..<90 {
+            try await api.mutate("tasks", body: ["id": .string(String(format: "depth%010d", index)),
+                "title": .string("Task \(index)"), "isDone": .bool(false)])
+        }
+        let query = RecordQueries.tasks(status: "open", sort: "oldest")
+        let paging = PagingState<FocusTask>()
+        await paging.reset(api: api, query: query, identity: "revision1", contentIdentity: "ownerA-open-tasks")
+        await paging.more(); await paging.more()
+        let originalIDs = paging.rows.map(\.id)
+        XCTAssertEqual(originalIDs.count, 75)
+        let completedID = originalIDs[60]
+        try await api.mutate("tasks", id: completedID, body: ["isDone": .bool(true)])
+        let gate = RequestGate()
+        let delayed = PocketBaseClient(transport: { request in
+            let response = try await server.respond(request)
+            let page = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "page" }?.value
+            if page == "3" { await gate.hold() }
+            return response
+        })
+        let refresh = Task {
+            await paging.reset(api: delayed, query: query, identity: "revision2", contentIdentity: "ownerA-open-tasks")
+        }
+        await gate.waitForRequest()
+        XCTAssertEqual(paging.rows.map(\.id), originalIDs)
+        XCTAssertTrue(paging.isLoading)
+        XCTAssertFalse(paging.loaded)
+        await gate.resume(); await refresh.value
+        XCTAssertEqual(paging.rows.count, 75)
+        XCTAssertEqual(Array(paging.rows.prefix(74).map(\.id)), originalIDs.filter { $0 != completedID })
+        XCTAssertTrue(paging.isCurrent("revision2"))
+        XCTAssertTrue(paging.hasMore)
+        await paging.more()
+        XCTAssertEqual(paging.rows.count, 89)
+        XCTAssertEqual(Set(paging.rows.map(\.id)).count, 89)
+        XCTAssertFalse(paging.rows.contains { $0.id == completedID })
+        XCTAssertFalse(paging.hasMore)
+        await paging.reset(api: api, query: query, identity: "revision3", contentIdentity: "ownerA-open-tasks")
+        XCTAssertEqual(paging.rows.count, 89)
+        XCTAssertFalse(paging.hasMore)
+    }
+
+    func testLaterRefreshPageFailureRetainsWindowAndRetriesWithoutSkippingRows() async throws {
+        let server = ModelServer()
+        let api = PocketBaseClient(transport: { try await server.respond($0) })
+        for index in 0..<80 {
+            try await api.mutate("tasks", body: ["id": .string(String(format: "retry%010d", index)),
+                "title": .string("Task \(index)"), "isDone": .bool(false)])
+        }
+        let query = RecordQueries.tasks(status: "open", sort: "oldest")
+        let paging = PagingState<FocusTask>()
+        await paging.reset(api: api, query: query, identity: "revision1", contentIdentity: "ownerA-open-tasks")
+        await paging.more(); await paging.more()
+        let originalIDs = paging.rows.map(\.id)
+        let completedID = originalIDs[60]
+        try await api.mutate("tasks", id: completedID, body: ["isDone": .bool(true)])
+        await server.failRead("tasks/records", page: 2)
+        await paging.reset(api: api, query: query, identity: "revision2", contentIdentity: "ownerA-open-tasks")
+        XCTAssertEqual(paging.rows.map(\.id), originalIDs)
+        XCTAssertNotNil(paging.initialError)
+        XCTAssertFalse(paging.isLoading)
+        XCTAssertFalse(paging.loaded)
+        let requests = await server.requests
+        await paging.more(automatic: true)
+        let requestsAfterAutomaticRetry = await server.requests
+        XCTAssertEqual(requestsAfterAutomaticRetry, requests)
+        await paging.more()
+        XCTAssertEqual(paging.rows.count, 75)
+        XCTAssertEqual(Array(paging.rows.prefix(74).map(\.id)), originalIDs.filter { $0 != completedID })
+        XCTAssertNil(paging.initialError)
+        XCTAssertTrue(paging.isCurrent("revision2"))
+        await paging.more()
+        XCTAssertEqual(paging.rows.count, 79)
+        XCTAssertEqual(Set(paging.rows.map(\.id)).count, 79)
+        XCTAssertFalse(paging.hasMore)
+    }
+
+    func testChangedTaskQueryResetsDepthAndRejectsLateMultiPageRefresh() async throws {
+        let server = ModelServer()
+        let api = PocketBaseClient(transport: { try await server.respond($0) })
+        for index in 0..<80 {
+            try await api.mutate("tasks", body: ["id": .string(String(format: "query%010d", index)),
+                "title": .string("Task \(index)"), "isDone": .bool(false)])
+        }
+        let query = RecordQueries.tasks(status: "open", sort: "oldest")
+        let paging = PagingState<FocusTask>()
+        await paging.reset(api: api, query: query, identity: "revision1", contentIdentity: "ownerA-open-tasks")
+        await paging.more(); await paging.more()
+        let originalIDs = paging.rows.map(\.id)
+        let gate = RequestGate()
+        let delayed = PocketBaseClient(transport: { request in
+            let response = try await server.respond(request)
+            let page = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "page" }?.value
+            if page == "2" { await gate.hold() }
+            return response
+        })
+        let obsolete = Task {
+            await paging.reset(api: delayed, query: query, identity: "revision2", contentIdentity: "ownerA-open-tasks")
+        }
+        await gate.waitForRequest()
+        XCTAssertEqual(paging.rows.map(\.id), originalIDs)
+        await paging.reset(api: api, query: RecordQueries.tasks(status: "all", sort: "oldest"),
+                           identity: "all-tasks", contentIdentity: "ownerA-all-tasks")
+        XCTAssertEqual(paging.rows.map(\.id), Array(originalIDs.prefix(25)))
+        await gate.resume(); await obsolete.value
+        XCTAssertEqual(paging.rows.map(\.id), Array(originalIDs.prefix(25)))
+        XCTAssertTrue(paging.isCurrent("all-tasks"))
+        await paging.more()
+        XCTAssertEqual(paging.rows.map(\.id), Array(originalIDs.prefix(50)))
     }
 
     func testLateRetainedRefreshCannotReplaceNewerRows() async throws {

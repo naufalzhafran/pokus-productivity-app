@@ -3,12 +3,15 @@ import XCTest
 @MainActor final class DailyUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
-    private func launch(history: Bool = false) -> XCUIApplication {
+    private func launch(history: Bool = false, accessibilityText: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-ui-testing-local-habits"] + (history ? ["-ui-testing-history"] : [])
+        if accessibilityText { app.launchArguments.append("-ui-testing-accessibility") }
         app.launch()
         app.tabBars.buttons["Library"].tap()
-        app.buttons["libraryHabits"].tap()
+        let habits = app.buttons["libraryHabits"]
+        reveal(habits, in: app)
+        habits.tap()
         XCTAssertTrue(app.navigationBars["Habits"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.segmentedControls.buttons["Today"].exists)
         return app
@@ -44,7 +47,7 @@ import XCTest
         XCTAssertTrue(app.staticTexts["All done for today"].waitForExistence(timeout: 5))
         XCTAssertEqual(check.label, "Mark Walk incomplete")
         check.tap()
-        XCTAssertTrue(app.staticTexts["1 habit remaining"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["0 of 1 complete"].waitForExistence(timeout: 5))
         XCTAssertEqual(check.label, "Mark Walk complete")
     }
 
@@ -55,7 +58,8 @@ import XCTest
         name.tap(); name.typeText("Walk")
         app.buttons["saveHabit"].tap()
         XCTAssertTrue(app.buttons["check-Walk"].waitForExistence(timeout: 5))
-        app.buttons["Walk, view progress"].tap()
+        app.buttons["check-Walk"].press(forDuration: 1)
+        app.buttons["View history"].tap()
         app.buttons["Habit options"].tap()
         app.buttons["Edit habit"].tap()
         XCTAssertTrue(app.navigationBars["Edit habit"].waitForExistence(timeout: 5))
@@ -82,12 +86,27 @@ import XCTest
         app.textFields["habitUnit"].tap()
         app.textFields["habitUnit"].typeText("pages")
         app.buttons["saveHabit"].tap()
-        app.buttons["entry-Read"].tap()
+        let entry = app.buttons["entry-Read"]
+        let increment = app.buttons["Add one to Read"]
+        XCTAssertTrue(increment.waitForExistence(timeout: 5))
+        increment.tap()
+        XCTAssertTrue(entry.waitForExistence(timeout: 5))
+        let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1 of 20 pages'"), object: entry)
+        XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
+        XCTAssertFalse(app.navigationBars["Daily total"].exists)
+        entry.tap()
         let total = app.textFields["dailyTotal"]
         total.tap()
         total.typeText(XCUIKeyboardKey.delete.rawValue + "20")
         app.buttons["saveEntry"].tap()
-        XCTAssertTrue(app.staticTexts["All your habits are complete."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["All done for today"].waitForExistence(timeout: 5))
+        let completed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '20 of 20 pages, completed'"), object: entry)
+        XCTAssertEqual(XCTWaiter.wait(for: [completed], timeout: 5), .completed)
+        XCTAssertFalse(increment.exists)
+        entry.tap()
+        XCTAssertTrue(total.waitForExistence(timeout: 5))
+        XCTAssertEqual(total.value as? String, "20")
+        app.buttons["Cancel"].tap()
         app.segmentedControls.buttons["Progress"].tap()
         XCTAssertTrue(app.navigationBars["Habits"].exists)
         XCTAssertTrue(app.buttons["addHabit"].exists)
@@ -103,9 +122,15 @@ import XCTest
         calendar.timeZone = .current
         let yesterday = calendar.date(byAdding: .day, value: -1, to: .now)!
         let components = calendar.dateComponents([.year, .month, .day], from: yesterday)
+        if components.month != calendar.component(.month, from: .now) {
+            app.buttons["Previous month"].tap()
+        }
         let date = String(format: "%04d-%02d-%02d", components.year!, components.month!, components.day!)
         let square = app.buttons["day-\(date)"]
         XCTAssertTrue(square.waitForExistence(timeout: 5))
+        reveal(square, in: app)
+        XCTAssertGreaterThanOrEqual(square.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(square.frame.height, 44)
         capture("Overall progress")
         square.tap()
         capture("After choosing a square")
@@ -125,7 +150,9 @@ import XCTest
     func testDateChooserAndIndividualProgress() {
         let app = launch(history: true)
         app.segmentedControls.buttons["Progress"].tap()
-        app.buttons["chooseHistoryDate"].tap()
+        let chooseDate = app.buttons["chooseHistoryDate"]
+        reveal(chooseDate, in: app)
+        chooseDate.tap()
         XCTAssertTrue(app.datePickers["historyDatePicker"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.switches["history-Move your body"].exists)
         app.buttons["Done"].tap()
@@ -133,9 +160,37 @@ import XCTest
         app.buttons["detail-Read a little"].tap()
         XCTAssertTrue(app.navigationBars["Read a little"].waitForExistence(timeout: 5))
         capture("Individual progress")
-        app.buttons["chooseHistoryDate"].tap()
+        reveal(chooseDate, in: app)
+        chooseDate.tap()
         XCTAssertTrue(app.buttons["history-Read a little"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.switches["history-Move your body"].exists)
+    }
+
+    func testMonthNavigationKeepsCurrentMonthBounded() {
+        let app = launch(history: true)
+        app.segmentedControls.buttons["Progress"].tap()
+        let month = app.staticTexts["activityMonth"]
+        XCTAssertTrue(month.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["addHabit"].isHittable)
+        XCTAssertTrue(app.navigationBars.buttons["BackButton"].isHittable)
+        let initialMonth = month.label
+        let previous = app.buttons["Previous month"]
+        let next = app.buttons["Next month"]
+        XCTAssertTrue(previous.isEnabled)
+        XCTAssertFalse(next.isEnabled)
+        previous.tap()
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", initialMonth), object: month)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+        XCTAssertTrue(next.isEnabled)
+        next.tap()
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", initialMonth), object: month)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 5), .completed)
+        XCTAssertFalse(next.isEnabled)
+        app.buttons["addHabit"].tap()
+        XCTAssertTrue(app.navigationBars["New habit"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["New habit"].waitForNonExistence(timeout: 5))
+        capture("Habits progress overview")
     }
 
     func testLayoutsAndSettings() {
@@ -168,7 +223,48 @@ import XCTest
         capture("Settings layout")
     }
 
+    func testHabitLoggingAndHistoryAtAccessibilityTextSize() {
+        let app = launch(history: true, accessibilityText: true)
+        for appearance in ["Light", "Dark"] {
+            app.tabBars.buttons["Profile"].tap()
+            let picker = app.descendants(matching: .any).matching(identifier: "appearancePicker").firstMatch
+            reveal(picker, in: app)
+            picker.tap()
+            app.buttons[appearance].tap()
+            app.tabBars.buttons["Library"].tap()
+
+            let entry = app.buttons["entry-Read a little"]
+            reveal(entry, in: app)
+            XCTAssertGreaterThanOrEqual(entry.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(entry.frame.height, 44)
+            XCTAssertLessThanOrEqual(entry.frame.maxX, app.frame.maxX)
+            entry.tap()
+            XCTAssertTrue(app.textFields["dailyTotal"].waitForExistence(timeout: 5))
+            app.buttons["Cancel"].tap()
+
+            app.segmentedControls.buttons["Progress"].tap()
+            let chooseDate = app.buttons["chooseHistoryDate"]
+            reveal(chooseDate, in: app)
+            XCTAssertGreaterThanOrEqual(chooseDate.frame.height, 44)
+            capture("\(appearance) Habits at accessibility text size")
+            chooseDate.tap()
+            XCTAssertTrue(app.datePickers["historyDatePicker"].waitForExistence(timeout: 5))
+            app.buttons["Done"].tap()
+            app.segmentedControls.buttons["Today"].tap()
+        }
+    }
+
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<10 {
+            if element.exists && element.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.isHittable)
+    }
+
     private func capture(_ name: String) {
+        // Let native toolbar transitions finish before recording the layout.
+        Thread.sleep(forTimeInterval: 0.5)
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways

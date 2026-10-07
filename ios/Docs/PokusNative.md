@@ -138,6 +138,107 @@ https://developers.google.com/identity/branding-guidelines.
 
 ## Automated verification
 
+### Native UI/UX assessment, October 7, 2026
+
+This pass assessed the app's native screens and shared controls in source and on
+the connected iPhone 17 Pro running iOS 27.0: focus,
+sign-in, Today, Calendar, Library, projects/tasks, captures, notes/review, habits,
+reminders, Profile, and the Live Activity. Existing habit calendar and project
+list work in the checkout was preserved. The app keeps its five tabs, simplified
+idle focus screen, native colors, and offline-first record behavior.
+
+| Area | Finding | Improvement |
+| --- | --- | --- |
+| Focus and sign-in | Linked task context disappeared in compact sessions; completion lacked feedback; offline sign-in appeared available. | Keep task context through completion, show saving and actual completed state, fit small countdowns, provide dial selection feedback, and explain offline sign-in. Compact completion uses an icon with a full spoken label. |
+| Today and Calendar | Empty Today offered no next step; agenda metadata used ISO dates; action rows competed with long titles at larger text sizes. | Add working routes to unscheduled items and habits, format dates for reading, stack actions at accessibility sizes, and show saving state. |
+| Library and selectors | Counts added a third line to every destination; capture filter segments and selected record names were cramped. | Compact destination counts with full spoken summaries, use a menu for capture stages at accessibility sizes, wrap selected names, and dismiss search keyboards while scrolling. |
+| Projects and tasks | Empty required titles could be submitted; deletion sat beside everyday task actions; inherited deadlines were unclear. | Disable empty-title saves, keep completion near status, separate deletion, show readable inherited deadlines, and make the Focus button's full surface tappable. |
+| Captures and notes | Rich text did not explicitly follow the SwiftUI text-size environment; opting into plain text had no escape; some actions were small. | Scale rich text and editors, wrap metadata, enlarge action targets, and restore original content/formatting with confirmation before discarding text edits. |
+| Review and capture reminders | Review instructions competed with the note; reminder date and time shared a cramped row; reminder drafts could be dismissed during saving. | Put review instructions in a disclosure, adapt response actions, separate Date and Time, protect changed drafts, and capture the submitted time for retry. |
+| Habits and reminder settings | Keyboard Done actions were inconsistent; daily entry refreshes replaced visible content; settings described legacy account-independent habit storage. | Dismiss keyboards consistently, retain same-day entries during refresh, protect in-flight entry saves, show an empty-day explanation, and simplify reminder settings with accurate device/account behavior. |
+| Profile and app recovery | Maintenance details buried everyday settings; long errors were truncated and signed-out errors offered an ineffective Refresh action. | Keep the simplified Profile with Data & sync, offer full error details, and choose Reload saved data, Sign in again, or Refresh according to current state. |
+| Live Activity | Existing timer/paused presentation and return-to-timer link fit its limited purpose. | Retained the existing implementation; lock-screen and Dynamic Island rendering still require device review. |
+
+Design decisions: system semantic colors retain light/dark adaptation; semantic
+text styles and wrapping retain user text-size preferences; grouped native rows
+separate everyday actions from maintenance and deletion; 44-point action areas
+improve touchability; disclosure is limited to secondary explanations and optional
+details. Existing timer rings and habit activity retain the app's identity.
+Energy 1, Rhythm 2, Motion 1 remain the app-wide direction. No decorative motion
+or new visual assets were introduced.
+
+Device inspection found additional issues that source review alone missed:
+
+- App notices attached directly to the tab view were present in the accessibility
+  tree but hidden behind its content. A dedicated row above the tabs now makes
+  recovery and capture confirmation visible. Recovery, Details, and Dismiss have
+  actual 44-point targets and distinct accessibility elements.
+- Populated multiline fields lost their accessible prompt. Explicit labels now
+  identify capture, note, summary, and task fields after text is entered.
+- The floating keyboard Done control covered long note text. A full-width
+  semantic background now separates the keyboard-dismissal row from the editor.
+- Historical numeric totals inherited a dim button tint in dark mode. Explicit
+  semantic text colors restore readable names and totals while keeping accent icons.
+- Signed-out Focus needed scrolling at maximum text size, especially with an
+  error notice visible. Its sign-in content now scrolls and uses shorter copy.
+
+Validation: 34 distinct UI tests passed on the connected phone after corrections
+and targeted reruns. This includes 21 existing tests and 13 new usability tests.
+Coverage includes Profile destinations and sign-out cancellation, both appearances,
+maximum Dynamic Type, portrait/landscape focus and projects, Today/habit actions,
+history correction, calendar scheduling, capture/note editing and restoration,
+review, reminders, search retention, offline reopening, draft recovery, and safe
+task deletion. Device screenshots were inspected as well as XCTest results.
+All 124 package tests passed (98 Swift Testing and 26 XCTest), and the required
+generic iOS Simulator build passed.
+
+Tests use the isolated in-memory transport, test account, separate cache/storage
+and preferences, and no-op notification clients. Google authentication, actual
+notification delivery, Live Activity rendering, manual VoiceOver navigation, and
+smaller phones were not exercised. No production integration tests ran, and no
+simulator runtime was available. The existing development team was passed only
+as a command-line build setting; project signing settings were unchanged.
+
+Before/after copies of the device container confirm personal record content,
+pending changes, timer data, the legacy store, and all 17 saved preference files
+were preserved. Eight cache row files were re-encoded with identical JSON content;
+the replica's pull/reconcile timestamps and session-window boundary advanced.
+No cache rollback was needed. `data-verification.json` records this comparison.
+The main app process was closed when testing finished.
+
+Resolved failures and their original output:
+
+| Check | Output | Resolution |
+| --- | --- | --- |
+| Initial app build | `CaptureReminderEditor.swift:24:24: error: missing argument label 'content:' in call` | Use the section header/footer initializer. |
+| Reminder and large-text Library lookups | `XCTAssertTrue failed` | Tap the nested native switch, accept the compact picker element, and scroll before looking for a lazy row. |
+| Error recovery lookup/reachability | `XCTAssertTrue failed` | Preserve child accessibility identifiers and render notices above the tab content. |
+| Button geometry assertion | `43.999999999999986 is less than 44.0` | Allow 0.01-point floating-point conversion tolerance. |
+| Habit editing route | `Failed to tap "Read, view progress" Button: No matches found` | Use the current View history context menu. |
+| Populated capture title | `Failed to tap "Title (optional)" TextField: No matches found` | Add explicit accessible field labels. |
+| Capture tab navigation with keyboard open | `XCTAssertTrue failed` | Dismiss the keyboard with Done before selecting the covered tab. |
+| Capture title replacement | `XCTAssertTrue failed`; `Neither element nor any descendant has keyboard focus` | Use native Select All instead of assuming a multiline field's caret starts at its end. |
+| Screenshot attachment compilation | `cannot call value of non-function type 'XCUIElement'` | Qualify `self.add` because the test already names its Add reminder element `add`. |
+
+Results, logs, screenshots, and the per-test outcome index are retained locally in
+`/tmp/pokus-device-ux.ZArXMQ/`. The final build log is
+`simulator-build-complete.log`; package output is `package-tests.log`. The results
+span `usability.xcresult`, `regressions.xcresult`, `final-checks-rerun.xcresult`,
+`device-verification.xcresult`, `capture-edit.xcresult`, and `signin-layout.xcresult`.
+Earlier bundles retain the failures; the later targeted runs verify their fixes.
+
+Design gate for the assessed native UI:
+
+- Hard gate PASS: working destinations, confirmations and recovery were exercised;
+  device review checked large-text geometry and both appearances. The observed
+  overlap, contrast, field-label, and hidden-notice defects were corrected.
+- Purpose gate PASS: semantic colors, grouped rows, wrapping type, secondary
+  disclosures, and 44-point targets each serve the reasons documented above.
+- Liveliness PASS: Energy 1 / Rhythm 2 / Motion 1; the focus ring and habit activity
+  retain product identity, with system blue reserved for actions.
+- Craftsmanship PASS: existing and new UI tests verify the changed flows, package
+  tests and builds pass, and the untested system-level behavior is stated explicitly.
+
 ### Simplified Pocus setup, October 7, 2026
 
 The idle timer shows the ring, centered countdown, and Start focus. Adjust duration,

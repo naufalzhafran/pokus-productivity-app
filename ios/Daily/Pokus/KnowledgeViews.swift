@@ -4,6 +4,7 @@ import SwiftUI
 
 struct KnowledgeListView: View {
     @Bindable var model: PokusModel
+    @Environment(\.dynamicTypeSize) private var typeSize
     var projectID: String? = nil
     @State private var search = ""
     @State private var filter = NoteFilter()
@@ -25,7 +26,7 @@ struct KnowledgeListView: View {
                 NavigationLink { KnowledgeDetailView(model: model, noteID: note.id) } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         Text(note.title).font(.headline)
-                        if !note.summary.isEmpty { Text(note.summary).font(.subheadline).foregroundStyle(.secondary).lineLimit(2) }
+                        if !note.summary.isEmpty { Text(note.summary).font(.subheadline).foregroundStyle(.secondary).lineLimit(typeSize.isAccessibilitySize ? 4 : 2) }
                         if note.isDue() { Label("Due for review", systemImage: "arrow.clockwise").font(.caption).foregroundStyle(.secondary) }
                         else if note.status == .evergreen && note.nextReviewAt > 0 { Text("Review \(LibraryDates.review(note.nextReviewAt))").font(.caption).foregroundStyle(.secondary) }
                     }.padding(.vertical, 6)
@@ -136,6 +137,7 @@ struct KnowledgeDetailView: View {
 
 struct KnowledgeReviewView: View {
     @Bindable var model: PokusModel
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var session: LibraryReviewSession?
     @State private var queue = ReadState<[String]>()
     @State private var record = ReadState<Knowledge?>()
@@ -166,7 +168,12 @@ struct KnowledgeReviewView: View {
                         NavigationLink("Open note and sources") { KnowledgeDetailView(model: model, noteID: note.id) }
                     }
                 }
-                Section { Text("Remembered notes return after 3, 7, 21, then 60 days. Review sooner starts again at one day.").font(.footnote).foregroundStyle(.secondary) }
+                Section {
+                    DisclosureGroup("How review works") {
+                        Text("Remembered notes return after 3, 7, 21, then 60 days. Review sooner starts again at one day.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
             } else if session != nil && currentID != nil {
                 if let error = record.error { ReadError(message: error) { readRetry += 1 } }
                 else { ProgressView("Loading note") }
@@ -192,9 +199,12 @@ struct KnowledgeReviewView: View {
                     VStack(spacing: 8) {
                         if save.isSaving { ProgressView("Saving review") }
                         if revealedID == note.id {
-                            ViewThatFits(in: .horizontal) { HStack(spacing: 12) { responseButtons(note) }; VStack(spacing: 12) { responseButtons(note) } }
+                            let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+                            layout { responseButtons(note) }
                         } else {
-                            Button("Reveal note") { revealedID = note.id }.buttonStyle(.borderedProminent).frame(maxWidth: .infinity, minHeight: 44).accessibilityIdentifier("revealReviewNote")
+                            Button { revealedID = note.id } label: {
+                                Text("Reveal note").frame(maxWidth: .infinity, minHeight: 44)
+                            }.buttonStyle(.borderedProminent).accessibilityIdentifier("revealReviewNote")
                         }
                     }.padding().background(.bar)
                 }
@@ -219,8 +229,12 @@ struct KnowledgeReviewView: View {
             }.saveAlert(save)
     }
     @ViewBuilder private func responseButtons(_ note: Knowledge) -> some View {
-        Button("Review sooner") { review(note, remembered: false) }.buttonStyle(.bordered).frame(maxWidth: .infinity, minHeight: 44).disabled(!model.canEdit || save.isSaving || record.isLoading)
-        Button("Remembered") { review(note, remembered: true) }.buttonStyle(.borderedProminent).frame(maxWidth: .infinity, minHeight: 44).disabled(!model.canEdit || save.isSaving || record.isLoading)
+        Button { review(note, remembered: false) } label: {
+            Text("Review sooner").frame(maxWidth: .infinity, minHeight: 44)
+        }.buttonStyle(.bordered).disabled(!model.canEdit || save.isSaving || record.isLoading)
+        Button { review(note, remembered: true) } label: {
+            Text("Remembered").frame(maxWidth: .infinity, minHeight: 44)
+        }.buttonStyle(.borderedProminent).disabled(!model.canEdit || save.isSaving || record.isLoading)
     }
     private func review(_ note: Knowledge, remembered: Bool) {
         let next = LibraryRules.review(step: note.reviewStep, remembered: remembered)

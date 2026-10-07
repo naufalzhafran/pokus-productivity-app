@@ -20,6 +20,7 @@ struct FocusDurationDial<Content: View>: View {
                 @unknown default: break
                 }
             }
+            .sensoryFeedback(.selection, trigger: minutes)
         } else {
             dial
         }

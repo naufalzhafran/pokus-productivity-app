@@ -13,11 +13,15 @@ struct SettingsView: View {
                 ))
                 .disabled(reminders.isUpdating || reminders.permissionDenied)
                 .accessibilityIdentifier("dailyReminder")
-                DatePicker("Time", selection: Binding(
-                    get: { reminders.selectedTime },
-                    set: { date in Task { await reminders.setTime(date) } }
-                ), displayedComponents: .hourAndMinute)
-                .disabled(reminders.isUpdating)
+                if reminders.enabled {
+                    DatePicker("Time", selection: Binding(
+                        get: { reminders.selectedTime },
+                        set: { date in Task { await reminders.setTime(date) } }
+                    ), displayedComponents: .hourAndMinute)
+                    .disabled(reminders.isUpdating)
+                    .accessibilityIdentifier("habitReminderTime")
+                }
+                if reminders.isUpdating { ProgressView("Updating reminder") }
 
                 if reminders.permissionDenied {
                     VStack(alignment: .leading, spacing: 12) {
@@ -34,30 +38,17 @@ struct SettingsView: View {
                     Text(error).font(.footnote).foregroundStyle(.red)
                 }
             } header: {
-                Text("A gentle nudge")
+                Text("Schedule")
             } footer: {
-                Text("One reminder at your chosen local time, every day. It works offline and arrives even if you've already completed your habits.")
+                Text("One reminder at your chosen local time, every day, even if you've already completed your habits.")
             }
-
             Section {
-                Label("Saved on this iPhone", systemImage: "iphone")
-                Label("Works entirely offline", systemImage: "wifi.slash")
-            } header: {
-                Text("Your habits, your space")
+                Label("On this iPhone", systemImage: "iphone")
             } footer: {
-                Text("Habit history stays on this iPhone and is independent of your Pokus account.")
-            }
-
-            Section {
-                HStack {
-                    Text("Pokus").font(.system(.headline, design: .rounded))
-                    Spacer()
-                    Text("1.0").foregroundStyle(.secondary)
-                }
-            } footer: {
-                Text("A little, every day.")
+                Text("This reminder works offline. Set reminders separately on each device. Signing out pauses reminders until you sign in again.")
             }
         }
         .navigationTitle("Habit reminders")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

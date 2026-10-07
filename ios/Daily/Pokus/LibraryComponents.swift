@@ -44,13 +44,14 @@ struct LibrarySaveNotice: View {
 }
 
 enum LibraryDates {
-    static func due(_ key: String) -> String {
+    static func due(_ key: String, completed: Bool = false) -> String {
         let parts = key.split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return key }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .autoupdatingCurrent
         guard let date = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12)) else { return key }
         let formatted = date.formatted(date: .abbreviated, time: .omitted)
+        if completed { return formatted }
         return key < WorkspaceRules.dayKey() ? "Overdue · \(formatted)" : key == WorkspaceRules.dayKey() ? "Due today" : "Due \(formatted)"
     }
     static func review(_ timestamp: Double) -> String {

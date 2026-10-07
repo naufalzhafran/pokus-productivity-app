@@ -18,6 +18,7 @@ struct CaptureEditorView: View {
     @State private var note = ""
     @State private var captureText = ""
     @State private var editingBody = false
+    @State private var restoringBody = false
     @State private var validation: String?
     @State private var initialized = false
     @State private var fetchingPreview = false
@@ -47,6 +48,7 @@ struct CaptureEditorView: View {
         return filled(captureText) || (showingDetails && (filled(title) || filled(url)))
     }
     @ScaledMetric(relativeTo: .body) private var captureHeight = 180
+    @ScaledMetric(relativeTo: .body) private var noteHeight = 140
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
@@ -82,13 +84,18 @@ struct CaptureEditorView: View {
                             ForEach(CaptureKind.allCases, id: \.self) { Label($0.label, systemImage: $0.icon).tag(CaptureKind?.some($0)) }
                         }.accessibilityIdentifier("captureType")
                         if showingDetails {
-                            TextField(kind == .book ? "Book title" : "Title (optional)", text: $title)
-                                .focused($focusedField, equals: .title).submitLabel(.next).onSubmit { focusedField = .url }
+                            TextField(kind == .book ? "Book title" : "Title (optional)", text: $title, axis: .vertical)
+                                .accessibilityLabel(kind == .book ? "Book title" : "Title (optional)")
+                                .focused($focusedField, equals: .title).submitLabel(.next)
+                                .submitsOnReturn($title) { focusedField = .url }
                             TextField(kind == .book || kind == .note ? "Link (optional)" : "Link", text: $url)
                                 .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                                 .focused($focusedField, equals: .url).submitLabel(kind == .book ? .next : .done)
                                 .onSubmit { focusedField = kind == .book ? .author : nil }
-                            if kind == .book { TextField("Author (optional)", text: $author).focused($focusedField, equals: .author).submitLabel(.done) }
+                            if kind == .book {
+                                TextField("Author (optional)", text: $author).focused($focusedField, equals: .author)
+                                    .submitLabel(.done).onSubmit { focusedField = nil }
+                            }
                         }
                     } footer: {
                         Text(showingDetails ? "Your chosen type and link take priority over automatic detection. Your captured text is kept as the note."
@@ -97,27 +104,35 @@ struct CaptureEditorView: View {
                 } else {
                     Section("Capture") {
                         Picker("Type", selection: $kind) { ForEach(CaptureKind.allCases, id: \.self) { Text($0.label).tag($0) } }.accessibilityIdentifier("captureType")
-                        TextField("Title (optional)", text: $title)
-                            .focused($focusedField, equals: .title).submitLabel(.next).onSubmit { focusedField = .url }
+                        TextField("Title (optional)", text: $title, axis: .vertical)
+                            .accessibilityLabel("Title (optional)")
+                            .focused($focusedField, equals: .title).submitLabel(.next)
+                            .submitsOnReturn($title) { focusedField = .url }
                         EditorError(message: validation)
-                        TextField("Link", text: $url).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                        TextField(kind == .book || kind == .note ? "Link (optional)" : "Link", text: $url).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                             .focused($focusedField, equals: .url).submitLabel(kind == .book || editingBody ? .next : .done)
                             .onSubmit { focusedField = kind == .book ? .author : editingBody ? .note : nil }
                         if kind == .book {
-                            TextField("Author", text: $author)
+                            TextField("Author (optional)", text: $author)
                                 .focused($focusedField, equals: .author).submitLabel(editingBody ? .next : .done)
                                 .onSubmit { focusedField = editingBody ? .note : nil }
                         }
                     }
                     Section("Note") {
                         if let original, !editingBody {
-                            RichDescription(html: original.note)
-                            Button("Edit as plain text") { editingBody = true }
+                            if original.note.isEmpty { Text("No note added").foregroundStyle(.secondary) }
+                            else { RichDescription(html: original.note) }
+                            Button("Edit as plain text") { editingBody = true; focusedField = .note }
+                                .frame(minHeight: 44)
                         } else {
-                            TextEditor(text: $note).frame(minHeight: 140).focused($focusedField, equals: .note)
+                            TextEditor(text: $note).frame(minHeight: noteHeight).focused($focusedField, equals: .note)
                                 .editorPrompt("Add a note", isShowing: note.isEmpty)
                                 .accessibilityLabel("Capture note")
                             Text("Saving replaces the note's existing formatting with plain paragraphs.").font(.footnote).foregroundStyle(.secondary)
+                            Button("Restore original note") {
+                                if note == WorkspaceRules.plainText(original?.note ?? "") { restoreBody() }
+                                else { restoringBody = true }
+                            }.frame(minHeight: 44)
                         }
                     }
                 }
@@ -133,6 +148,10 @@ struct CaptureEditorView: View {
                     }
                     ToolbarItem(placement: .confirmationAction) { Button(fetchingPreview ? "Saving…" : "Save", action: beginSave).disabled(!model.canEdit || fetchingPreview || !hasContent) }
                 }.protectDraft(isDirty: initialDraft.map { $0 != draft } ?? false, isSaving: model.isSaving, closeRequested: $closeRequested) { saveTask?.cancel(); close() }
+                .alert("Restore the original note?", isPresented: $restoringBody) {
+                    Button("Keep editing", role: .cancel) { }
+                    Button("Restore original", role: .destructive) { restoreBody() }
+                } message: { Text("Your text edits will be discarded. The original note and its formatting will be kept.") }
                 .onAppear {
                     guard !initialized else { return }; initialized = true
                     if let original { kind = original.kind; title = original.title; url = original.url ?? ""; author = original.author ?? ""; note = WorkspaceRules.plainText(original.note) }
@@ -149,6 +168,11 @@ struct CaptureEditorView: View {
     }
     private func close() {
         if let onClose { onClose() } else { dismiss() }
+    }
+    private func restoreBody() {
+        note = WorkspaceRules.plainText(original?.note ?? "")
+        editingBody = false
+        focusedField = nil
     }
     private func beginSave() {
         guard !fetchingPreview else { return }
@@ -178,16 +202,17 @@ struct CaptureEditorView: View {
 /// Shows, while typing, what the capture will be saved as.
 private struct CaptureDetectionBadge: View {
     let text: String
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         let parsed = LibraryRules.parseCaptureText(text)
         let host = parsed.url?.host().map { $0.hasPrefix("www.") ? String($0.dropFirst(4)) : $0 }
         let summary = [parsed.kind.label, host].compactMap { $0 }.joined(separator: " · ")
-        HStack(spacing: 6) {
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(spacing: 6))
+        layout {
             Text("Saves as")
             Label(summary, systemImage: parsed.kind.icon)
-                .font(.caption.weight(.semibold)).foregroundStyle(parsed.kind.tint).lineLimit(1)
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(parsed.kind.tint.opacity(0.14), in: Capsule())
+                .font(.caption.weight(.semibold)).foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .ignore).accessibilityLabel("Saves as \(summary)")
         .accessibilityIdentifier("captureDetection")

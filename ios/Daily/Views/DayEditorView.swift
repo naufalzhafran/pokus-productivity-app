@@ -14,6 +14,8 @@ struct DayEditorView: View {
     @State private var indexState = ReadState<HabitDayIndex>()
     @State private var earliest: DayKey?
     @State private var retry = 0
+    @State private var loadedContentIdentity: String?
+    private var contentIdentity: String { "\(store.cacheScopeIdentity)-\(day)" }
 
     init(store: any HabitViewStore, day: DayKey, today: DayKey, habitID: UUID? = nil) {
         self.store = store
@@ -38,10 +40,12 @@ struct DayEditorView: View {
                     .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
                     .environment(\.calendar, Calendar(identifier: .gregorian))
                     .accessibilityIdentifier("historyDatePicker")
+                    .disabled(save.isSaving)
                 }
                 Section {
-                    if let index = indexState.value {
+                    if loadedContentIdentity == contentIdentity, let index = indexState.value {
                         let ids = index.ids.filter { habitID == nil || HabitWire.identity($0) == habitID || UUID(uuidString: $0) == habitID }
+                        if ids.isEmpty { Text("No habits to log on this day.").foregroundStyle(.secondary) }
                         HabitPagedRows(store: store, ids: ids, day: day, index: index) { habit in
                         if habit.kind == .check {
                             Toggle(isOn: Binding(
@@ -62,9 +66,9 @@ struct DayEditorView: View {
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 5) {
-                                        Text(habit.name).foregroundStyle(.primary)
+                                        Text(habit.name).foregroundStyle(Color.primary)
                                         Text("\(NumberText.display(habit.value(on: day))) / \(NumberText.display(habit.target(on: day))) \(habit.unit)")
-                                            .font(.subheadline).foregroundStyle(.secondary)
+                                            .font(.subheadline).foregroundStyle(Color.secondary)
                                     }
                                     Spacer()
                                     Image(systemName: habit.isComplete(on: day) ? "checkmark.circle.fill" : "pencil.circle")
@@ -74,9 +78,11 @@ struct DayEditorView: View {
                             }
                             .accessibilityLabel("\(habit.name), \(NumberText.display(habit.value(on: day))) of \(NumberText.display(habit.target(on: day))) \(habit.unit). Edit total")
                             .accessibilityIdentifier("history-\(habit.name)")
+                            .disabled(!store.canWrite || save.isSaving)
                         }
                         }
-                    } else if let error = indexState.error { ReadError(message: error) { retry += 1 } }
+                        if let error = indexState.error { ReadError(message: error) { retry += 1 } }
+                    } else if loadedContentIdentity == contentIdentity, let error = indexState.error { ReadError(message: error) { retry += 1 } }
                     else { ProgressView("Loading daily entries") }
                 } header: {
                     Text(day.formatted("EEEE, MMMM d, yyyy"))
@@ -86,13 +92,17 @@ struct DayEditorView: View {
             }
             .navigationTitle(day == today ? "Today's entries" : "Daily entries")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.disabled(save.isSaving) } }
+            .interactiveDismissDisabled(save.isSaving)
             .sheet(item: $entryToEdit) { selection in
                 LoadedEntryEditor(store: store, habitID: selection.habitID, day: selection.day, today: today)
             }
             .saveAlert(save)
             .task(id: "\(store.readIdentity)-\(day)-\(retry)") {
-                indexState.clear()
+                if loadedContentIdentity != contentIdentity {
+                    indexState.clear()
+                    loadedContentIdentity = contentIdentity
+                }
                 await indexState.load { try await store.dayIndex(day) }
                 if let index = indexState.value { earliest = min(earliest ?? index.earliest, index.earliest) }
                 if let habitID, let detail = try? await store.detail(id: habitID, on: day) { earliest = detail.startDay }

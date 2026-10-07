@@ -47,39 +47,54 @@ struct TodayHabitRow: View {
                     : AnyLayout(HStackLayout(spacing: 20))
                 layout {
                     Button(action: edit) {
-                        VStack(alignment: .leading, spacing: 7) {
-                            name
-                            Text(total)
-                                .font(.subheadline)
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                            ProgressView(value: habit.fraction(on: day))
-                                .tint(DailyTheme.accent)
-                                .padding(.top, 3)
-                                .accessibilityHidden(true)
+                        HStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 7) {
+                                name
+                                Text(total)
+                                    .font(.subheadline)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if !isComplete {
+                                    ProgressView(value: habit.fraction(on: day))
+                                        .tint(DailyTheme.accent)
+                                        .padding(.top, 3)
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            if isComplete {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundStyle(DailyTheme.accent)
+                                    .frame(width: 48, height: 48)
+                                    .accessibilityHidden(true)
+                            }
                         }
                         .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Edit \(habit.name) total")
-                    .accessibilityValue(total)
+                    .accessibilityValue(isComplete ? "\(total), completed" : total)
                     .accessibilityHint("Enter the amount you have completed today.")
                     .accessibilityIdentifier("entry-\(habit.name)")
                     .disabled(!canEdit)
 
-                    Button(action: increment) {
-                        Text("+1")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                            .frame(minWidth: 52, minHeight: 48)
-                            .padding(.horizontal, 2)
-                            .background(Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 14))
-                            .contentShape(RoundedRectangle(cornerRadius: 14))
+                    if !isComplete {
+                        Button(action: increment) {
+                            Text("+1")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                                .frame(minWidth: 52, minHeight: 48)
+                                .padding(.horizontal, 2)
+                                .background(Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 14))
+                                .contentShape(RoundedRectangle(cornerRadius: 14))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Add one to \(habit.name)")
+                        .disabled(!canEdit)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Add one to \(habit.name)")
-                    .disabled(!canEdit)
                 }
             }
         }

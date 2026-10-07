@@ -100,7 +100,8 @@ struct CaptureRow: View {
                 if let summary = display.summary { Text(CaptureRow.singleLine(summary)).font(.subheadline).foregroundStyle(.secondary).lineLimit(2 + extraLines) }
                 HStack(spacing: 6) {
                     if capture.isProcessed { Image(systemName: CaptureStage.processed.symbol).foregroundStyle(CaptureStage.processed.tint) }
-                    Text(display.details.joined(separator: " · ")).lineLimit(1)
+                    Text(display.details.joined(separator: " · "))
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
                 }.font(.caption).foregroundStyle(.secondary).padding(.top, 2)
             }
         }.padding(.vertical, 4)
@@ -153,12 +154,12 @@ struct CaptureHeader: View {
             if display.isNamed, let description = display.description { Text(description).foregroundStyle(.secondary).textSelection(.enabled) }
             VStack(spacing: 10) {
                 if let link = display.link {
-                    Link(destination: link) { Label("Open original", systemImage: "safari").frame(maxWidth: .infinity, minHeight: 32) }
+                    Link(destination: link) { Label("Open original", systemImage: "safari").frame(maxWidth: .infinity, minHeight: 44) }
                         .buttonStyle(.borderedProminent).accessibilityHint(display.host ?? "")
                 }
                 Button(action: toggleProcessed) {
                     Label(capture.isProcessed ? "Mark unprocessed" : "Mark processed",
-                          systemImage: capture.isProcessed ? "arrow.uturn.backward.circle" : "checkmark.circle").frame(maxWidth: .infinity, minHeight: 32)
+                          systemImage: capture.isProcessed ? "arrow.uturn.backward.circle" : "checkmark.circle").frame(maxWidth: .infinity, minHeight: 44)
                 }.buttonStyle(.bordered).tint(capture.isProcessed ? nil : CaptureStage.processed.tint).disabled(!canEdit)
             }.padding(.top, 4)
         }.padding(.vertical, 8)

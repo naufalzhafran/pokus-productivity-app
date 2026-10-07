@@ -21,6 +21,7 @@ struct KnowledgeEditorView: View {
     @State private var linkedProjects: Set<String> = []
     @State private var sources: Set<String> = []
     @State private var editingBody = false
+    @State private var restoringBody = false
     @State private var initialized = false
     @State private var validation: String?
     @State private var initialDraft: [String]?
@@ -29,6 +30,7 @@ struct KnowledgeEditorView: View {
     private enum Field { case title, body, summary, locator }
     @FocusState private var focusedField: Field?
     @State private var invalidField: Field?
+    @ScaledMetric(relativeTo: .body) private var bodyHeight = 180
     private var draft: [String] {
         [title.trimmingCharacters(in: .whitespacesAndNewlines), summary, locator, origin, category, status.rawValue,
          linkedProjects.sorted().joined(separator: ","), sources.sorted().joined(separator: ","),
@@ -41,17 +43,29 @@ struct KnowledgeEditorView: View {
                 AccountNotice(model: model)
                 Section("Note") {
                     TextField("Title", text: $title, axis: .vertical).focused($focusedField, equals: .title)
+                        .accessibilityLabel("Title")
                         .submitLabel(.next)
+                        .accessibilityHint("Required")
                         .submitsOnReturn($title) { focusedField = original == nil || editingBody ? .body : nil }
                     EditorError(message: invalidField == nil || invalidField == .title ? validation : nil)
                 }
                 Section("Body") {
-                    if let original, !editingBody { RichDescription(html: original.body); Button("Edit as plain text") { editingBody = true } }
+                    if let original, !editingBody {
+                        if original.body.isEmpty { Text("No body added").foregroundStyle(.secondary) }
+                        else { RichDescription(html: original.body) }
+                        Button("Edit as plain text") { editingBody = true; focusedField = .body }.frame(minHeight: 44)
+                    }
                     else {
-                        TextEditor(text: $bodyText).frame(minHeight: 180).focused($focusedField, equals: .body)
+                        TextEditor(text: $bodyText).frame(minHeight: bodyHeight).focused($focusedField, equals: .body)
                             .editorPrompt("Write what you learned in your own words", isShowing: bodyText.isEmpty)
                             .accessibilityLabel("Note body")
-                        if original != nil { Text("Saving replaces existing body formatting with plain paragraphs.").font(.footnote).foregroundStyle(.secondary) }
+                        if original != nil {
+                            Text("Saving replaces existing body formatting with plain paragraphs.").font(.footnote).foregroundStyle(.secondary)
+                            Button("Restore original body") {
+                                if bodyText == WorkspaceRules.plainText(original?.body ?? "") { restoreBody() }
+                                else { restoringBody = true }
+                            }.frame(minHeight: 44)
+                        }
                     }
                 }
                 Section {
@@ -63,6 +77,7 @@ struct KnowledgeEditorView: View {
                 Section {
                     DisclosureGroup("Optional details", isExpanded: $showingDetails) {
                         TextField("Summary", text: $summary, axis: .vertical).focused($focusedField, equals: .summary)
+                            .accessibilityLabel("Summary")
                         EditorError(message: invalidField == .summary ? validation : nil)
                         RecordSelectionLink(model: model, kind: .category, title: "Category", selection: $category)
                         RecordSelectionLink(model: model, kind: .project, title: "Origin project", selection: $origin, none: "No project")
@@ -73,11 +88,11 @@ struct KnowledgeEditorView: View {
                             RecordMultiSelector(model: model, kind: .capture, title: "Sources", selections: $sources)
                         } label: { LabeledContent("Sources", value: "\(sources.count) selected") }
                         TextField("Location, page, or timestamp", text: $locator).focused($focusedField, equals: .locator)
-                            .submitLabel(.done)
+                            .submitLabel(.done).onSubmit { focusedField = nil }
                         EditorError(message: invalidField == .locator ? validation : nil)
                     }
                 } footer: {
-                    Text("The origin is where this note started. Linked projects can reuse it; sources record what you learned from.")
+                    if showingDetails { Text("The origin is where this note started. Linked projects can reuse it; sources record what you learned from.") }
                 }
             }.disabled(submitting || model.isSaving)
                 .keyboardDoneButton(isEditing: focusedField != nil) { focusedField = nil }
@@ -85,8 +100,15 @@ struct KnowledgeEditorView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel") { closeRequested = true }.disabled(submitting || model.isSaving) }
-                    ToolbarItem(placement: .confirmationAction) { Button(submitting ? "Saving…" : "Save") { Task { await save() } }.disabled(!model.canEdit || submitting) }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(submitting ? "Saving…" : "Save") { Task { await save() } }
+                            .disabled(!model.canEdit || submitting || model.isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
                 }.protectDraft(isDirty: initialDraft.map { $0 != draft } ?? false, isSaving: submitting || model.isSaving, closeRequested: $closeRequested) { dismiss() }
+                .alert("Restore the original body?", isPresented: $restoringBody) {
+                    Button("Keep editing", role: .cancel) { }
+                    Button("Restore original", role: .destructive) { restoreBody() }
+                } message: { Text("Your text edits will be discarded. The original body and its formatting will be kept.") }
                 .onAppear {
                     guard !initialized else { return }; initialized = true
                     if let original {
@@ -100,6 +122,11 @@ struct KnowledgeEditorView: View {
                     initialDraft = draft
                 }
         }
+    }
+    private func restoreBody() {
+        bodyText = WorkspaceRules.plainText(original?.body ?? "")
+        editingBody = false
+        focusedField = nil
     }
     private func save() async {
         guard !submitting else { return }

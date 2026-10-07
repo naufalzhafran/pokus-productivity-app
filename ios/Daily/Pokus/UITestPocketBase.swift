@@ -42,6 +42,17 @@ actor UITestPocketBase {
                 records["knowledge", default: []].append(row)
             }
         }
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-many-tasks") {
+            for index in 1...120 {
+                var row = Self.defaults("tasks")
+                row["id"] = .string(String(format: "projecttask%04d", index))
+                row["title"] = .string(String(format: "Project task %03d", index))
+                row["project"] = .string("testproject0001")
+                row["priority"] = .string("none")
+                row["isDone"] = .bool(index > 100)
+                records["tasks", default: []].append(row)
+            }
+        }
     }
     func respond(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let parts = request.url!.path.split(separator: "/").map(String.init)

@@ -75,6 +75,8 @@ import XCTest
         let add = app.buttons["Add reminder"]
         tapAfterScrolling(add, in: app)
         XCTAssertTrue(app.navigationBars["Add reminder"].waitForExistence(timeout: 5))
+        let reminder = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        reminder.name = "Capture reminder date and time"; reminder.lifetime = .keepAlways; self.add(reminder)
         app.buttons["Save"].tap()
         XCTAssertTrue(app.buttons["Complete reminder"].waitForExistence(timeout: 5))
         app.buttons["Complete reminder"].tap()
@@ -127,7 +129,13 @@ import XCTest
         app.buttons["Edit capture"].tap()
         XCTAssertTrue(app.navigationBars["Edit capture"].waitForExistence(timeout: 5))
         let title = app.textFields["Title (optional)"]
-        title.tap(); title.clearAndType("Updated capture")
+        title.tap()
+        title.press(forDuration: 1)
+        let selectAll = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Select All'")).firstMatch
+        XCTAssertTrue(selectAll.waitForExistence(timeout: 5))
+        selectAll.tap()
+        title.typeText("Updated capture")
+        XCTAssertEqual(title.value as? String, "Updated capture")
         app.buttons["Save"].tap()
         XCTAssertTrue(app.staticTexts["Updated capture"].waitForExistence(timeout: 5))
         app.navigationBars.buttons["BackButton"].tap()
@@ -171,6 +179,10 @@ import XCTest
         captureText.tap(); captureText.typeText("Capture from the bottom bar")
         app.buttons["Save"].tap()
         XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5))
+        let savedNotice = app.buttons["dismissCaptureSaved"]
+        XCTAssertTrue(savedNotice.isHittable)
+        savedNotice.tap()
+        XCTAssertTrue(savedNotice.waitForNonExistence(timeout: 5))
         app.buttons["libraryCaptures"].tap()
         XCTAssertTrue(app.buttons["Capture from the bottom bar"].waitForExistence(timeout: 5))
         tabs["Capture"].tap()
@@ -179,6 +191,7 @@ import XCTest
         XCTAssertEqual(captureText.value as? String ?? "", "")
         captureText.tap()
         captureText.typeText("Unsaved capture\nAnother thought")
+        app.buttons["Done"].tap()
         tabs["Library"].tap()
         XCTAssertTrue(app.navigationBars["Captures"].waitForExistence(timeout: 5))
         tabs["Capture"].tap()
@@ -340,6 +353,178 @@ import XCTest
         XCTAssertTrue(app.buttons["startFocus"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["An actionable task"].exists)
     }
+    func testProjectSwipeActionsEditArchiveAndRestore() {
+        let app = launchConfirmationApp()
+        app.tabBars.buttons["Library"].tap()
+        app.buttons["libraryProjects"].tap()
+        let project = app.buttons["Test project"]
+        XCTAssertTrue(project.waitForExistence(timeout: 5))
+        project.swipeRight()
+        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Projects"].exists, "Swiping should reveal actions without opening the editor.")
+        let leading = XCTAttachment(screenshot: app.screenshot())
+        leading.name = "Project swipe to edit"; leading.lifetime = .keepAlways; add(leading)
+        app.buttons["Edit"].tap()
+        XCTAssertTrue(app.navigationBars["Edit project"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields["Title"].value as? String, "Test project")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Projects"].waitForExistence(timeout: 5))
+
+        project.swipeLeft()
+        XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Delete"].isHittable)
+        XCTAssertTrue(project.exists, "Swiping should reveal actions without archiving the project.")
+        XCTAssertEqual(app.alerts.count, 0)
+        let trailing = XCTAttachment(screenshot: app.screenshot())
+        trailing.name = "Project swipe to archive or delete"; trailing.lifetime = .keepAlways; add(trailing)
+        app.buttons["Archive"].tap()
+        XCTAssertTrue(project.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No projects yet"].waitForExistence(timeout: 5))
+        app.buttons["Filter projects"].tap()
+        XCTAssertTrue(app.navigationBars["Filter projects"].waitForExistence(timeout: 5))
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Show projects'")).firstMatch.tap()
+        app.buttons["Archived"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(project.waitForExistence(timeout: 5))
+        project.swipeLeft()
+        XCTAssertTrue(app.buttons["Restore"].waitForExistence(timeout: 5))
+        app.buttons["Restore"].tap()
+        XCTAssertTrue(project.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No matching projects"].waitForExistence(timeout: 5))
+        app.buttons["Clear search and filters"].tap()
+        XCTAssertTrue(project.waitForExistence(timeout: 5))
+        project.tap()
+        XCTAssertTrue(app.navigationBars["Project"].waitForExistence(timeout: 5))
+    }
+    func testProjectSwipeDeleteRequiresConfirmationAndPreservesTasks() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-ui-testing-pokus", "-ui-testing-many-tasks"]
+        app.launch()
+        app.tabBars.buttons["Library"].tap()
+        app.buttons["libraryProjects"].tap()
+        let project = app.buttons["Test project"]
+        XCTAssertTrue(project.waitForExistence(timeout: 5))
+        project.swipeLeft()
+        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 5))
+        app.buttons["Delete"].tap()
+        cancelCenteredConfirmation("Delete this project?", action: "Delete project", in: app)
+        XCTAssertTrue(project.exists)
+        project.swipeLeft()
+        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 5))
+        app.buttons["Delete"].tap()
+        let confirmation = app.alerts["Delete this project?"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        confirmation.buttons["Delete project"].tap()
+        XCTAssertTrue(project.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No projects yet"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons["BackButton"].tap()
+        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5))
+        let search = app.searchFields["Search your library"]
+        if !search.isHittable { app.swipeDown() }
+        search.tap(); search.typeText("Project task 001\n")
+        let task = app.buttons["libraryResult-task:projecttask0001"]
+        tapAfterScrolling(task, in: app)
+        XCTAssertTrue(app.navigationBars["Task"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Project task 001"].exists)
+    }
+    func testLongProjectKeepsTaskControlsAndResourcesWithinReach() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-ui-testing-pokus", "-ui-testing-many-tasks"]
+        app.launch()
+        app.tabBars.buttons["Library"].tap()
+        app.buttons["Projects"].tap()
+        let project = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Test project'")).firstMatch
+        XCTAssertTrue(project.waitForExistence(timeout: 5)); project.tap()
+        XCTAssertTrue(app.buttons["Project task 001"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["projectResources"].isHittable)
+        XCTAssertEqual(app.buttons["projectResources"].label, "Project resources")
+        let overview = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        overview.name = "Project overview with resources toolbar"; overview.lifetime = .keepAlways; add(overview)
+
+        let complete = app.buttons["completeTask-projecttask0040"]
+        let nearbyTask = app.buttons["Project task 041"]
+        let list = app.collectionViews.firstMatch
+        for _ in 0..<30 {
+            if complete.isHittable && nearbyTask.isHittable { break }
+            list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+                .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)))
+        }
+        XCTAssertTrue(complete.isHittable)
+        XCTAssertTrue(nearbyTask.isHittable)
+        XCTAssertTrue(app.buttons["Filter and sort"].isHittable)
+        XCTAssertTrue(app.buttons["New task"].firstMatch.isHittable)
+        XCTAssertTrue(app.segmentedControls["taskStatusFilter"].isHittable)
+        complete.tap()
+        XCTAssertTrue(complete.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(nearbyTask.isHittable, "Completing a task should keep the current place in the list.")
+        let scrolled = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        scrolled.name = "Project list after completing task 040"; scrolled.lifetime = .keepAlways; add(scrolled)
+
+        let banner = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .descendants(matching: .any).matching(identifier: "NotificationShortLookView").firstMatch
+        if banner.exists { XCTAssertTrue(banner.waitForNonExistence(timeout: 12)) }
+        let resources = app.buttons["projectResources"]
+        XCTAssertTrue(resources.waitForExistence(timeout: 5)); resources.tap()
+        XCTAssertTrue(app.navigationBars["Resources"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["projectCaptures"].isHittable)
+        let resourcePage = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        resourcePage.name = "Project resources"; resourcePage.lifetime = .keepAlways; add(resourcePage)
+        app.navigationBars.buttons["BackButton"].tap()
+        app.buttons["projectTaskSearch"].tap()
+        let search = app.textFields["projectTaskSearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertTrue(search.isHittable)
+        search.tap(); search.typeText("Project task 100\n")
+        let result = app.buttons["Project task 100"]
+        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        XCTAssertTrue(result.isHittable)
+        XCTAssertFalse(app.buttons["Project task 001"].exists)
+    }
+    func testLongProjectControlsFitWithLargeTextAndLandscape() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-ui-testing-pokus", "-ui-testing-many-tasks", "-ui-testing-accessibility"]
+        app.launch()
+        defer { XCUIDevice.shared.orientation = .portrait }
+        app.tabBars.buttons["Library"].tap()
+        tapAfterScrolling(app.buttons["libraryProjects"], in: app)
+        let project = app.buttons["Test project"]
+        XCTAssertTrue(project.waitForExistence(timeout: 5)); project.tap()
+        app.buttons["projectTaskSearch"].tap()
+        let search = app.textFields["projectTaskSearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap(); search.typeText("Project task 041\n")
+        XCTAssertTrue(app.buttons["Project task 041"].waitForExistence(timeout: 5))
+        app.buttons["projectTaskSearch"].tap()
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
+            setOrientation(orientation, in: app)
+            let status = app.descendants(matching: .any).matching(identifier: "taskStatusFilter").firstMatch
+            let list = app.collectionViews.firstMatch
+            for _ in 0..<12 {
+                if status.isHittable && status.frame.minY < app.frame.height * 0.5 { break }
+                list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+                    .press(forDuration: 0.1, thenDragTo: list.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+            }
+            let controls = [status, app.buttons["Filter and sort"], app.buttons["New task"].firstMatch, app.buttons["projectResources"]]
+            for control in controls {
+                XCTAssertTrue(control.isHittable)
+                XCTAssertTrue(app.frame.contains(control.frame))
+                XCTAssertLessThanOrEqual(control.frame.maxY, app.tabBars.firstMatch.frame.minY)
+            }
+            let visibleTask = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Project task '"))
+                .allElementsBoundByIndex.first { $0.isHittable }
+            XCTAssertNotNil(visibleTask, "Pinned controls must leave room for task rows.")
+            if orientation == .portrait {
+                status.tap()
+                app.buttons["Completed"].tap()
+                XCTAssertTrue(app.buttons["Project task 101"].waitForExistence(timeout: 5))
+            }
+            XCTAssertLessThan(status.frame.height, 100, "The selected task status should remain on one line at the largest text size.")
+            XCTAssertTrue(app.buttons["Filter and sort"].isHittable)
+            XCTAssertTrue(app.buttons["New task"].firstMatch.isHittable)
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = "Project large text \(orientation.rawValue)"; attachment.lifetime = .keepAlways; add(attachment)
+        }
+    }
     func testCaptureFiltersResetAndCategoryDeletionIsConfirmed() {
         let app = launchConfirmationApp()
         app.tabBars.buttons["Library"].tap()
@@ -367,6 +552,11 @@ import XCTest
         app.tabBars.buttons["Library"].tap()
         app.buttons["libraryProjects"].tap()
         app.buttons["Test project"].tap()
+        app.buttons["projectResources"].tap()
+        XCTAssertTrue(app.navigationBars["Resources"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["projectNotes"].waitForExistence(timeout: 5))
+        let resources = XCTAttachment(screenshot: app.screenshot())
+        resources.name = "Project resources layout"; resources.lifetime = .keepAlways; add(resources)
         tapAfterScrolling(app.buttons["projectCaptures"], in: app)
         app.buttons["Test capture"].tap()
         app.buttons["Create note"].tap()
@@ -499,7 +689,8 @@ import XCTest
         XCTAssertEqual(unit.value as? String, "pages")
         app.buttons["saveHabit"].tap()
         XCTAssertTrue(app.buttons["entry-Read"].waitForExistence(timeout: 5))
-        app.buttons["Read, view progress"].tap()
+        app.buttons["entry-Read"].press(forDuration: 1)
+        app.buttons["View history"].tap()
         app.buttons["Habit options"].tap()
         app.buttons["Edit habit"].tap()
         XCTAssertTrue(app.navigationBars["Edit habit"].waitForExistence(timeout: 5))
@@ -810,7 +1001,7 @@ import XCTest
         let app = launchConfirmationApp()
         app.tabBars.buttons["Profile"].tap()
         XCTAssertTrue(app.staticTexts["Test account"].waitForExistence(timeout: 5))
-        app.buttons["Sign out"].tap()
+        tapAfterScrolling(app.buttons["Sign out"], in: app)
         cancelCenteredConfirmation("Sign out of Pokus?", action: "Sign out", in: app)
         XCTAssertTrue(app.staticTexts["Test account"].exists)
         XCTAssertTrue(app.buttons["Sign out"].isEnabled)

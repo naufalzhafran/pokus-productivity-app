@@ -26,30 +26,35 @@ struct Card<Content: View>: View {
 
 struct StreakCards: View {
     let streaks: Streaks
+    var isOverall = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 16))
         layout {
-            stat(value: streaks.current, label: "Current streak", icon: "flame", suffix: "days")
-            stat(value: streaks.longest, label: "Best streak", icon: "trophy", suffix: "days")
+            stat(value: streaks.current, label: "Current streak")
+            stat(value: streaks.longest, label: "Best streak")
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DailyTheme.card, in: RoundedRectangle(cornerRadius: 20))
     }
 
-    private func stat(value: Int, label: String, icon: String, suffix: String) -> some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                Label(label, systemImage: icon)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text(value.formatted()).font(.system(.largeTitle, design: .rounded, weight: .semibold)).contentTransition(.numericText())
-                    Text(value == 1 ? "day" : suffix).font(.caption).foregroundStyle(.secondary)
-                }
+    private func stat(value: Int, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(value.formatted()).font(.title2.weight(.semibold)).monospacedDigit()
+                Text(value == 1 ? "day" : "days").font(.subheadline).foregroundStyle(.secondary)
             }
+            Text(label).font(.subheadline).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label), \(value) \(value == 1 ? "day" : "days")")
+        .accessibilityHint(isOverall ? "A streak day includes at least one completed habit." : "A streak day meets this habit's target.")
     }
 }
 
@@ -124,8 +129,7 @@ extension View {
     func protectDraft(isDirty: Bool, isSaving: Bool, closeRequested: Binding<Bool>, onKeepEditing: @escaping () -> Void = {}, onDiscard: @escaping () -> Void) -> some View {
         modifier(DraftProtection(isDirty: isDirty, isSaving: isSaving, closeRequested: closeRequested, onKeepEditing: onKeepEditing, onDiscard: onDiscard))
     }
-    /// Multi-line and number-pad fields have no Return key that ends editing, so editors float
-    /// Done clear of the keyboard while editing and let a downward scroll put the keyboard away.
+    /// Reserve a dismissal row above the keyboard so Done does not cover multiline text.
     func keyboardDoneButton(isEditing: Bool, _ done: @escaping () -> Void) -> some View {
         scrollDismissesKeyboard(.interactively)
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -134,8 +138,11 @@ extension View {
                         Spacer()
                         KeyboardDoneButton(action: done)
                     }
+                    .frame(maxWidth: .infinity)
                     .padding(.horizontal)
+                    .padding(.top, 8)
                     .padding(.bottom, 12)
+                    .background(Color(uiColor: .systemBackground))
                 }
             }
     }
@@ -196,6 +203,7 @@ private struct KeyboardDoneButton: View {
             .fontWeight(.semibold)
             .controlSize(.large)
             .buttonBorderShape(.capsule)
+            .frame(minWidth: 44, minHeight: 44)
             .accessibilityIdentifier("keyboardDone")
         if #available(iOS 26, *) {
             button.buttonStyle(.glass)

@@ -13,6 +13,8 @@ struct PokusLibraryView: View {
     @State private var confirmation: String?
     @State private var summary = ReadState<LibraryOverviewSummary>()
     @State private var retry = 0
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .body) private var destinationSymbolSize: CGFloat = 22
     private enum Creation: String, Identifiable { case capture, note, project; var id: String { rawValue } }
     private var searching: Bool { !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var reviewDetail: String {
@@ -50,7 +52,8 @@ struct PokusLibraryView: View {
                     }
                 }
             }
-        }.navigationTitle("Library").searchable(text: $search, prompt: "Search your library").refreshable { await model.refresh() }
+        }.navigationTitle("Library").searchable(text: $search, prompt: "Search your library")
+            .scrollDismissesKeyboard(.interactively).refreshable { await model.refresh() }
             .navigationDestination(for: LibraryRoute.self) { route in
                 switch route {
                 case .habits:
@@ -118,16 +121,24 @@ struct PokusLibraryView: View {
         VStack(alignment: .leading, spacing: 4) { Text(title).font(.headline); if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(.secondary).lineLimit(2) } }.padding(.vertical, 4)
     }
     private func destination(_ title: String, symbol: String, detail: String, count: Int? = nil) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        let countDescription = count.map { "\($0) \(title == "Unassigned tasks" ? "open" : title == "Projects" ? "unarchived" : "saved")" }
+        return HStack(alignment: .center, spacing: 12) {
             Image(systemName: symbol).foregroundStyle(DailyTheme.accent)
-                .frame(width: 44).frame(minHeight: 44).accessibilityHidden(true)
+                .font(.system(size: min(destinationSymbolSize, 28))).frame(width: 28).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
                 Text(title).font(.headline)
                 Text(detail).font(.subheadline).foregroundStyle(.secondary)
-                if let count { Text("\(count) \(title == "Unassigned tasks" ? "open" : title == "Projects" ? "unarchived" : "saved")").font(.caption).foregroundStyle(.secondary) }
-            }.fixedSize(horizontal: false, vertical: true)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
+                if typeSize.isAccessibilitySize, let countDescription {
+                    Text(countDescription).font(.caption).foregroundStyle(.secondary)
+                }
+            }.fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+            if !typeSize.isAccessibilitySize, let count {
+                Text(count, format: .number).font(.subheadline).monospacedDigit()
+                    .foregroundStyle(.secondary).fixedSize()
+            }
+        }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(.vertical, 6)
             .contentShape(Rectangle()).accessibilityElement(children: .combine)
+            .accessibilityLabel(title).accessibilityValue([detail, countDescription].compactMap { $0 }.joined(separator: ", "))
     }
 }
 
@@ -140,16 +151,19 @@ struct CapturesView: View {
     @State private var deleting: Capture?
     @State private var confirmation: String?
     @State private var save = SaveAction()
+    @Environment(\.dynamicTypeSize) private var typeSize
     private var narrowed: Bool { filter.isActive || !search.isEmpty }
     private var queryID: String { "\(projectID ?? "all")-\(filter.stage.rawValue)-\(filter.kind?.rawValue ?? "all")" }
     private var editable: Bool { model.canEdit && !save.isSaving }
     var body: some View {
         List {
             Section {
-                Picker("Stage", selection: $filter.stage) {
-                    ForEach(CaptureStage.allCases, id: \.self) { Text($0 == .all ? "All" : $0.label).tag($0) }
-                }.pickerStyle(.segmented).accessibilityIdentifier("captureStage")
-                    .listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
+                if typeSize.isAccessibilitySize {
+                    stagePicker.pickerStyle(.menu)
+                } else {
+                    stagePicker.pickerStyle(.segmented)
+                        .listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
+                }
             }
             Section {
                 AccountNotice(model: model)
@@ -172,7 +186,8 @@ struct CapturesView: View {
                 }
             }
         }.id("\(queryID)-\(search)").listSectionSpacing(.compact)
-            .navigationTitle(projectID == nil ? "Captures" : "Project captures").searchable(text: $search, prompt: "Search captures").refreshable { await model.refresh() }
+            .navigationTitle(projectID == nil ? "Captures" : "Project captures").searchable(text: $search, prompt: "Search captures")
+            .scrollDismissesKeyboard(.interactively).refreshable { await model.refresh() }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) { Button("New capture", systemImage: "plus") { creating = true }.disabled(!model.canEdit) }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -193,6 +208,11 @@ struct CapturesView: View {
                 }
             } message: { _ in Text("Its notes remain. Project and source links to this capture are removed.") }
             .saveAlert(save)
+    }
+    private var stagePicker: some View {
+        Picker("Stage", selection: $filter.stage) {
+            ForEach(CaptureStage.allCases, id: \.self) { Text($0 == .all ? "All" : $0.label).tag($0) }
+        }.frame(minHeight: 44).accessibilityIdentifier("captureStage")
     }
     private func processedButton(_ capture: Capture) -> some View {
         Button(capture.isProcessed ? "Mark unprocessed" : "Mark processed", systemImage: capture.isProcessed ? "arrow.uturn.backward.circle" : "checkmark.circle") {

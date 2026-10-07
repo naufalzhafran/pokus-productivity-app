@@ -10,39 +10,71 @@ struct ProgressViewScreen: View {
     @State private var dayState = ReadState<HabitDayIndex>()
     @State private var retry = 0
     var body: some View {
+        Group {
+            if let index = dayState.value {
+                if index.ids.isEmpty {
+                    ContentUnavailableView("No habits yet", systemImage: "checkmark.circle",
+                        description: Text("Add a habit to see your streaks and daily activity."))
+                } else {
+                    progressList(index)
+                }
+            } else if let error = dayState.error {
+                ReadError(message: error) { retry += 1 }.padding()
+            } else {
+                ProgressView("Loading habits").frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DailyTheme.background)
+        .sheet(item: $selectedDay) { DayEditorView(store: store, day: $0, today: today) }
+        .task(id: "\(store.readIdentity)-\(today)-\(retry)") {
+            async let day: Void = dayState.load { try await store.dayIndex(today) }
+            async let stats: Void = statistics.load { try await store.statistics(through: today, habitID: nil) }
+            _ = await (day, stats)
+        }
+    }
+
+    private func progressList(_ index: HabitDayIndex) -> some View {
         List {
             Section {
-                if let value = statistics.value { StreakCards(streaks: value.overall) }
+                if let value = statistics.value { StreakCards(streaks: value.overall, isOverall: true) }
                 else if let error = statistics.error { ReadError(message: error) { retry += 1 } }
                 else { ProgressView("Loading lifetime statistics") }
-            }.listRowBackground(Color.clear).listRowSeparator(.hidden)
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
             Section {
                 HabitActivityView(store: store, today: today) { selectedDay = $0 }
-            }.listRowBackground(Color.clear).listRowSeparator(.hidden)
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
             Section("Habit history") {
-                if let index = dayState.value {
-                    HabitPagedRows(store: store, ids: index.ids, day: today, index: index) { habit in
-                        NavigationLink { HabitDetailView(store: store, habitID: habit.id, today: today) } label: {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(habit.name).font(.body.weight(.medium)).foregroundStyle(.primary)
-                                if let stats = statistics.value?.byID[habit.id] {
-                                    Text("\(stats.current) day streak · \(stats.completedDays) days completed").font(.subheadline).foregroundStyle(.secondary)
-                                } else { Text(statistics.error == nil ? "Loading statistics" : "Statistics unavailable").font(.subheadline).foregroundStyle(.secondary) }
-                            }.frame(minHeight: 44)
-                        }.accessibilityIdentifier("detail-\(habit.name)")
-                    }
-                    if index.ids.isEmpty { ContentUnavailableView("No habits yet", systemImage: "checkmark.circle") }
-                } else if let error = dayState.error { ReadError(message: error) { retry += 1 } }
-                else { ProgressView("Loading habits") }
+                HabitPagedRows(store: store, ids: index.ids, day: today, index: index) { habit in
+                    NavigationLink { HabitDetailView(store: store, habitID: habit.id, today: today) } label: {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(habit.name).font(.body.weight(.medium)).foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let stats = statistics.value?.byID[habit.id] {
+                                Text("\(stats.current) day streak · \(stats.completedDays) \(stats.completedDays == 1 ? "day" : "days") completed")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                            } else {
+                                Text(statistics.error == nil ? "Loading statistics" : "Statistics unavailable")
+                                    .font(.subheadline).foregroundStyle(.secondary)
+                            }
+                        }.frame(minHeight: 44)
+                    }.accessibilityIdentifier("detail-\(habit.name)")
+                }
             }
+            .textCase(nil)
+            if let error = dayState.error { ReadError(message: error) { retry += 1 } }
             if let error = statistics.error, statistics.value != nil { ReadError(message: error) { retry += 1 } }
-        }.scrollContentBackground(.hidden).background(DailyTheme.background)
-            .sheet(item: $selectedDay) { DayEditorView(store: store, day: $0, today: today) }
-            .task(id: "\(store.readIdentity)-\(today)-\(retry)") {
-                async let day: Void = dayState.load { try await store.dayIndex(today) }
-                async let stats: Void = statistics.load { try await store.statistics(through: today, habitID: nil) }
-                _ = await (day, stats)
-            }
+        }
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(16)
+        .contentMargins(.top, 0)
+        .scrollContentBackground(.hidden)
     }
 }
 

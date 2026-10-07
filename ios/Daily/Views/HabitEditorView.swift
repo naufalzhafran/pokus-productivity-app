@@ -65,7 +65,7 @@ struct HabitEditorView: View {
                         .focused($focusedField, equals: .name)
                         .textInputAutocapitalization(.sentences)
                         .submitLabel(kind == .number ? .next : .done)
-                        .onSubmit { if kind == .number { focusedField = .target } }
+                        .onSubmit { focusedField = kind == .number ? .target : nil }
                         .accessibilityIdentifier("habitName")
                         .onChange(of: name) { _, _ in nameEdited = true }
                     EditorError(message: nameEdited || existing != nil ? nameError : nil)
@@ -99,6 +99,7 @@ struct HabitEditorView: View {
                                 TextField("Unit, e.g. pages (optional)", text: $unit)
                                     .focused($focusedField, equals: .unit)
                                     .submitLabel(.done)
+                                    .onSubmit { focusedField = nil }
                                     .accessibilityIdentifier("habitUnit")
                                 EditorError(message: unitError)
                             }

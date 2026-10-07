@@ -38,6 +38,7 @@ struct ProjectEditorView: View {
                 AccountNotice(model: model)
                 Section("Project") {
                     TextField("Title", text: $title).focused($focusedField, equals: .title).submitLabel(.done)
+                        .onSubmit { focusedField = nil }.accessibilityHint("Required")
                     EditorError(message: validation)
                 }
                 Section {
@@ -46,8 +47,10 @@ struct ProjectEditorView: View {
                     Toggle("Due date", isOn: $hasDueDate)
                     if hasDueDate { DatePicker("Due", selection: $dueDate, displayedComponents: .date) }
                     if let original {
-                        RichDescription(html: original.description)
-                        Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
+                        if !original.description.isEmpty {
+                            RichDescription(html: original.description)
+                            Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
+                        }
                     } else {
                         TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
                             .editorPrompt("Description", isShowing: description.isEmpty)
@@ -63,7 +66,7 @@ struct ProjectEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { closeRequested = true }.disabled(submitting || model.isSaving) }
-                ToolbarItem(placement: .confirmationAction) { Button(submitting ? "Saving…" : "Save") { Task { await save() } }.disabled(!model.canEdit || submitting) }
+                ToolbarItem(placement: .confirmationAction) { Button(submitting ? "Saving…" : "Save") { Task { await save() } }.disabled(!model.canEdit || submitting || model.isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
             }
             .protectDraft(isDirty: initialDraft.map { $0 != draft } ?? false, isSaving: submitting || model.isSaving, closeRequested: $closeRequested) { dismiss() }
         }
@@ -117,20 +120,24 @@ struct TaskEditorView: View {
                 AccountNotice(model: model)
                 Section("Task") {
                     TextField("Title", text: $title, axis: .vertical).focused($focusedField, equals: .title)
+                        .accessibilityLabel("Title")
                         .submitLabel(.done).submitsOnReturn($title) { focusedField = nil }
+                        .accessibilityHint("Required")
                     EditorError(message: validation)
                     RecordSelectionLink(model: model, kind: .project, title: "Project", selection: $projectID, none: "No project")
                     Toggle("Task due date", isOn: $hasDueDate)
                     if hasDueDate { DatePicker("Due date", selection: $dueDate, displayedComponents: .date) }
-                    else { Text("Uses the project's deadline when available.").font(.footnote).foregroundStyle(.secondary) }
+                    else if !projectID.isEmpty { Text("Uses the project's deadline when available.").font(.footnote).foregroundStyle(.secondary) }
                 }
                 Section {
                     DisclosureGroup("Optional details", isExpanded: $showingDetails) {
                     Picker("Priority", selection: $priority) { ForEach(Priority.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
                     RecordSelectionLink(model: model, kind: .category, title: "Category", selection: $category)
                     if let original {
-                        RichDescription(html: original.description ?? "")
-                        Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
+                        if let description = original.description, !description.isEmpty {
+                            RichDescription(html: description)
+                            Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
+                        }
                     } else {
                         TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
                             .editorPrompt("Description", isShowing: description.isEmpty)
@@ -145,7 +152,7 @@ struct TaskEditorView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel") { closeRequested = true }.disabled(submitting || model.isSaving) }
-                    ToolbarItem(placement: .confirmationAction) { Button(submitting ? "Saving…" : "Save") { Task { await save() } }.disabled(!model.canEdit || submitting) }
+                    ToolbarItem(placement: .confirmationAction) { Button(submitting ? "Saving…" : "Save") { Task { await save() } }.disabled(!model.canEdit || submitting || model.isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
                 }
                 .protectDraft(isDirty: initialDraft.map { $0 != draft } ?? false, isSaving: submitting || model.isSaving, closeRequested: $closeRequested) { dismiss() }
         }
@@ -226,11 +233,13 @@ private struct CategoryEditorView: View {
         NavigationStack {
             Form {
                 TextField("Name", text: $name).focused($focusedName).submitLabel(.done)
+                    .onSubmit { focusedName = false }.accessibilityHint("Required")
                 EditorError(message: error)
                 Picker("Color", selection: $color) {
                     ForEach(["slate", "red", "orange", "amber", "green", "teal", "blue", "violet", "pink"], id: \.self) { Text($0.capitalized).tag($0) }
                 }
             }.disabled(submitting || model.isSaving)
+                .keyboardDoneButton(isEditing: focusedName) { focusedName = false }
                 .onAppear { if initialDraft == nil { initialDraft = draft } }
                 .navigationTitle(original == nil ? "New category" : "Edit category")
                 .navigationBarTitleDisplayMode(.inline)
@@ -247,7 +256,7 @@ private struct CategoryEditorView: View {
                                     if try await model.saveCategory(original: original, creationID: creationID, name: name, color: color) { onSaved?(); dismiss() } else { error = model.error }
                                 } catch { self.error = error.localizedDescription; focusedName = true }
                             }
-                        }.disabled(!model.canEdit || submitting)
+                        }.disabled(!model.canEdit || submitting || model.isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }.protectDraft(isDirty: initialDraft.map { $0 != draft } ?? false, isSaving: submitting || model.isSaving, closeRequested: $closeRequested) { dismiss() }
         }
