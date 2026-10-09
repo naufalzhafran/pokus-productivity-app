@@ -51,7 +51,8 @@ export function usePomodoroSession() {
     try {
       const saved = await persistTransition(owner, action);
       setSnapshot(saved); setError(null); notifyTimer();
-      void syncTimers(owner);
+      // A finished session retries right away instead of waiting out an earlier failure's backoff.
+      void syncTimers(owner, saved.operations[saved.operations.length - 1]?.session.mode !== "running");
       return true;
     } catch {
       setError("Your timer could not be saved on this device. Free some space and retry.");

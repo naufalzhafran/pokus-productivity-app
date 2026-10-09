@@ -15,7 +15,7 @@ import { useHabitReminder } from "@/hooks/useHabitReminder";
 import { useCaptureReminders } from "@/hooks/useCaptureReminders";
 import { useHabits } from "@/hooks/useHabits";
 import { useAppPreferences } from "@/hooks/useAppPreferences";
-import { playCompletionSound, unlockCompletionSound, useFocusDevice } from "@/hooks/useFocusDevice";
+import { notifyCompletion, playCompletionSound, requestCompletionNotifications, unlockCompletionSound, useFocusDevice } from "@/hooks/useFocusDevice";
 import type { TimerStopOptions } from "@/components/features/timer";
 import { Button } from "@/components/ui/button";
 import {
@@ -258,6 +258,7 @@ export default function App() {
       });
       if (!saved) return false;
       if (preferences.sound) playCompletionSound();
+      notifyCompletion(completed.taskId ? `${completed.durationMinutes} minutes of focus saved.` : "Time for a break.");
       toast.success("Pomodoro complete.");
       setAppFeedback({ kind: "status", message: "Pomodoro complete." });
       return true;
@@ -297,6 +298,7 @@ export default function App() {
 
   const startTimer = useCallback(async () => {
     if (preferences.sound) unlockCompletionSound();
+    requestCompletionNotifications();
     const duration = viewState.lastDuration;
     const saved = await setSession({
       id: createPocketBaseId(),
@@ -393,7 +395,7 @@ export default function App() {
       await setTaskDone(taskId, isDone);
       if (isDone && selectedTaskId === taskId) setSelectedTaskId(null);
       if (isDone && session?.taskId === taskId) {
-        setSession((current) => (current ? { ...current, taskId: null } : null));
+        setSession((current) => (current?.mode === "running" ? { ...current, taskId: null } : current));
       }
       setAppFeedback({
         kind: "status",
@@ -414,7 +416,7 @@ export default function App() {
       await deleteTask(taskId);
       if (selectedTaskId === taskId) setSelectedTaskId(null);
       if (session?.taskId === taskId) {
-        setSession((current) => (current ? { ...current, taskId: null } : null));
+        setSession((current) => (current?.mode === "running" ? { ...current, taskId: null } : current));
       }
       toast.success("Task deleted.");
       setAppFeedback({ kind: "status", message: "Task deleted." });

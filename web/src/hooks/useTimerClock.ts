@@ -45,11 +45,10 @@ export function useTimerClock(
     };
 
     let interval: number | undefined;
+    // Keeps ticking in background tabs (browsers throttle it) so the title and completion stay current.
     const visible = () => {
       window.clearInterval(interval);
-      if (document.visibilityState !== "hidden") {
-        update(); interval = window.setInterval(update, 1000);
-      }
+      update(); interval = window.setInterval(update, 1000);
     };
     const initial = window.setTimeout(visible, 0);
     document.addEventListener("visibilitychange", visible);

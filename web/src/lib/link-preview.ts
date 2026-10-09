@@ -20,10 +20,11 @@ function hostMatches(host: string, domain: string) {
   return host === domain || host.endsWith(`.${domain}`);
 }
 
-function webUrl(value: unknown) {
+/** Preview images load straight from third-party hosts, so only HTTPS URLs are kept (no mixed content). */
+function imageUrl(value: unknown) {
   if (typeof value !== "string" || value.length > 2048) return undefined;
   const url = parseUrl(value.trim());
-  return url && (url.protocol === "https:" || url.protocol === "http:") ? url.href : undefined;
+  return url?.protocol === "https:" ? url.href : undefined;
 }
 
 /** Keeps only well-formed preview fields; stored previews originate from untrusted third-party pages. */
@@ -35,8 +36,8 @@ export function sanitizeLinkPreview(value: unknown): LinkPreview | null {
     const text = typeof source[key] === "string" ? source[key].replace(/\s+/g, " ").trim().slice(0, limit) : "";
     if (text) preview[key] = text;
   }
-  const image = webUrl(source.image);
-  const icon = webUrl(source.icon);
+  const image = imageUrl(source.image);
+  const icon = imageUrl(source.icon);
   if (image) preview.image = image;
   if (icon) preview.icon = icon;
   return Object.keys(preview).length ? preview : null;

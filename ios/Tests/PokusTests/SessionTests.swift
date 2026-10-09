@@ -36,6 +36,17 @@ struct SessionTests {
         #expect(resumed.remaining(at: start.addingTimeInterval(260)) == 1340)
         #expect(session.remaining(at: start.addingTimeInterval(99999)) == 0)
     }
+    @Test func expiredSessionCompletesAtItsDeadline() {
+        let start = Date(timeIntervalSince1970: 1000)
+        let session = FocusSession(task: "task00000000000", durationMinutes: 25, now: start)
+        let reopened = SessionEngine(now: { start.addingTimeInterval(86_400) })
+        let finished = reopened.finish(session, save: true)
+        #expect(finished.mode == .complete)
+        #expect(finished.lastTick == 1_000_000 + 1500 * 1000)
+        #expect(finished.creditedSeconds == 1500)
+        #expect(reopened.toggle(session).lastTick == 1_000_000 + 1500 * 1000)
+        #expect(SessionEngine(now: { start.addingTimeInterval(91) }).finish(session, save: true).lastTick == 1_091_000)
+    }
     @Test func earlyStopAndDiscard() {
         let start = Date(timeIntervalSince1970: 1000)
         let session = FocusSession(task: "task00000000000", durationMinutes: 25, now: start)

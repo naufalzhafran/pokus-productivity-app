@@ -259,9 +259,15 @@ final class PokusModel {
             let refreshed = try await client.refreshAuthentication()
             guard epoch == generation, !Task.isCancelled else { return }
             if !testing { try credentials.save(refreshed) }; authentication = refreshed
-        } catch {
-            if epoch == generation, !Task.isCancelled { self.error = error.localizedDescription }
+        } catch let failure as APIError where failure.status == 401 || failure.status == 403 {
+            if epoch == generation, !Task.isCancelled { self.error = failure.localizedDescription }
             return
+        } catch {
+            // A slow or failing refresh endpoint doesn't block syncing with the saved, still valid token.
+            guard epoch == generation, !Task.isCancelled, authentication?.isValid == true else {
+                if epoch == generation, !Task.isCancelled { self.error = error.localizedDescription }
+                return
+            }
         }
         if refreshReloadRequested || needsAuthenticationReload {
             refreshReloadRequested = false

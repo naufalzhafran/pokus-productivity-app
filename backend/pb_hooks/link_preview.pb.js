@@ -10,9 +10,19 @@ routerAdd("GET", "/api/pokus/link-preview", (e) => {
   if (!parts) throw new BadRequestError("Enter a valid http or https link.");
   const scheme = parts[1].toLowerCase();
   const host = parts[2].toLowerCase();
-  const origin = scheme + "://" + host + (parts[3] || "");
-  // Only public hostnames: no IP literals, localhost, or private suffixes.
-  if (host === "localhost" || /^[\d.]+$|^0x|^\[/.test(host) || !host.includes(".") || /\.(local|localhost|internal|intranet|lan|home|arpa|test)$/.test(host)) {
+  const port = parts[3] || "";
+  const origin = scheme + "://" + host + port;
+  // Only public hostnames on standard web ports: no IP literals (including names that embed
+  // one, like 10.0.0.1.nip.io), localhost, private suffixes, or a trailing dot ("localhost.").
+  // $http.send resolves DNS and follows redirects itself, so names that resolve to private
+  // addresses can only be stopped at the network level.
+  if (
+    !/^[a-z0-9.-]+$/.test(host) || !/^([/?]|$)/.test(parts[4]) || host.endsWith(".") || host.includes("..") || !host.includes(".")
+    || (port && port !== ":80" && port !== ":443")
+    || host === "localhost" || /^[\d.]+$|^0x/.test(host)
+    || /(^|[.-])\d{1,3}[.-]\d{1,3}[.-]\d{1,3}[.-]\d{1,3}([.-]|$)/.test(host)
+    || /(^|\.)(local|localhost|internal|intranet|lan|home|arpa|test|invalid|example|corp|private)$/.test(host)
+  ) {
     throw new BadRequestError("This link cannot be previewed.");
   }
 

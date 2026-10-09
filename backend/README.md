@@ -10,6 +10,8 @@ app (`../ios`).
   OAuth callback).
 - `scripts/test-ios-oauth.mjs` — checks the iOS OAuth hook. Run
   `node backend/scripts/test-ios-oauth.mjs` from the repository root.
+- `scripts/test-link-preview.mjs` — checks which links the preview hook refuses.
+  Run `node backend/scripts/test-link-preview.mjs` from the repository root.
 
 The web client's PocketBase integration tests live in `../web/scripts` because
 they exercise web source code.
@@ -26,7 +28,12 @@ Copy `pb_hooks/link_preview.pb.js` into your PocketBase `pb_hooks` directory to
 enable capture link previews. It adds an authenticated
 `GET /api/pokus/link-preview?url=` route that reads public page metadata
 server-side. Without it, captures still work and fall back to built-in YouTube
-thumbnails and type-specific cards.
+thumbnails and type-specific cards. The hook only fetches public hostnames on ports
+80 and 443; it refuses IP addresses, names that embed one (such as `nip.io`
+hosts), private suffixes and trailing dots. PocketBase's HTTP client resolves DNS
+and follows redirects itself, so a public name that points at a private address
+can only be blocked at the network level (for example, a firewall rule denying the
+PocketBase container access to private ranges and `169.254.169.254`).
 
 New and renamed task titles have a 160-character maximum; project titles remain
 limited to 120 characters. Existing legacy task titles are preserved when only

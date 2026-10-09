@@ -6,7 +6,7 @@ export function unlockCompletionSound() {
   try { audio ??= new AudioContext(); void audio.resume().catch(() => undefined); } catch { /* Audio is optional. */ }
 }
 export function playCompletionSound() {
-  if (!audio || audio.state !== "running" || document.visibilityState !== "visible") return;
+  if (!audio || audio.state !== "running") return;
   [523.25, 659.25, 783.99].forEach((frequency, index) => {
     const oscillator = audio!.createOscillator();
     const gain = audio!.createGain();
@@ -18,6 +18,18 @@ export function playCompletionSound() {
     oscillator.connect(gain); gain.connect(audio!.destination);
     oscillator.start(start); oscillator.stop(start + 0.45);
   });
+}
+/** Asks once, from a user gesture, so a session that ends in a background tab can still alert. */
+export function requestCompletionNotifications() {
+  if (typeof Notification === "undefined" || Notification.permission !== "default") return;
+  void Promise.resolve(Notification.requestPermission()).catch(() => undefined);
+}
+export function notifyCompletion(body: string) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted" || document.visibilityState === "visible") return;
+  try {
+    const notification = new Notification("Pomodoro complete", { body, tag: "pokus-timer", icon: "/pwa-192.png" });
+    notification.onclick = () => { window.focus(); notification.close(); };
+  } catch { /* Some browsers only allow notifications from a service worker. */ }
 }
 export function useFocusDevice(running: boolean) {
   const { keepAwake } = useAppPreferences();

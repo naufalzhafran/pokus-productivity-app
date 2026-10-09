@@ -28,6 +28,8 @@ describe("link previews", () => {
   it("drops unsafe or malformed preview fields", () => {
     expect(sanitizeLinkPreview({ title: "  A   title ", image: "javascript:alert(1)", icon: "https://example.com/i.png", extra: 1 }))
       .toEqual({ title: "A title", icon: "https://example.com/i.png" });
+    expect(sanitizeLinkPreview({ title: "Plain", image: "http://example.com/i.png", icon: "http://example.com/f.ico" }))
+      .toEqual({ title: "Plain" });
     expect(sanitizeLinkPreview({ title: "" })).toBeNull();
     expect(sanitizeLinkPreview("nope")).toBeNull();
   });

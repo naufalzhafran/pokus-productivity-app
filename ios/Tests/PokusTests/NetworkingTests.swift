@@ -45,7 +45,7 @@ struct NetworkingTests {
         let entries = body["requests"] as! [[String: Any]]
         #expect(entries.count == 3); #expect(entries[0]["method"] as? String == "PUT")
         let fields = entries[0]["body"] as! [String: Any]
-        #expect(fields["lastTick"] as? Double == 2000000)
+        #expect(fields["lastTick"] as? Double == 1060000)
         #expect(fields["owner"] as? String == "owner")
         #expect((entries[2]["body"] as! [String: Any])["focusedSeconds+"] as? Int == 60)
     }

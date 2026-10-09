@@ -16,6 +16,8 @@ await admin.settings.update({ batch: { enabled: true, maxRequests: 3, timeout: 3
 const vite = await createServer({ configFile: false, optimizeDeps: { noDiscovery: true, include: [] }, resolve: { alias: { '@': resolve('src') } }, define: { 'import.meta.env.VITE_POCKETBASE_URL': JSON.stringify(endpoint) }, server: { middlewareMode: true } });
 try {
   const { pb } = await vite.ssrLoadModule('/src/lib/pocketbase.ts');
+  // The script fires parallel requests on purpose; the SDK would otherwise cancel all but one.
+  pb.autoCancellation(false);
   const { sendSessionOperation } = await vite.ssrLoadModule('/src/lib/session-sync.ts');
   const user = await admin.collection('users').create({ email: `pokus-${Date.now()}@example.com`, password: 'Pokus-test-user-2026!', passwordConfirm: 'Pokus-test-user-2026!' });
   await pb.collection('users').authWithPassword(user.email, 'Pokus-test-user-2026!');
@@ -115,6 +117,18 @@ try {
   const foreignProject = await admin.collection('projects').create({ owner: stranger.id, title: 'Not yours', isDone: false });
   await assert.rejects(pb.collection('knowledge').update(rule.id, { 'linkedProjects+': [foreignProject.id] }));
   await assert.rejects(pb.collection('knowledge').update(rule.id, { project: foreignProject.id }));
+  // Update rules check the submitted relation, not the one already stored.
+  const ownTask = await makeTask();
+  const foreignTask = await admin.collection('tasks').create({ owner: stranger.id, title: 'Not yours' });
+  const foreignCategory = await admin.collection('categories').create({ owner: stranger.id, name: 'Not yours', color: 'red' });
+  await assert.rejects(pb.collection('tasks').update(ownTask.id, { project: foreignProject.id }));
+  await assert.rejects(pb.collection('tasks').update(ownTask.id, { category: foreignCategory.id }));
+  await assert.rejects(pb.collection('knowledge').update(rule.id, { category: foreignCategory.id }));
+  const runningId = 'runn' + id.slice(4);
+  await pb.collection('pomodoro_sessions').create({ ...session(runningId, null, 'running'), owner, task: '' });
+  await assert.rejects(pb.collection('pomodoro_sessions').update(runningId, { task: foreignTask.id }));
+  await pb.collection('pomodoro_sessions').update(runningId, { task: ownTask.id, isActive: false });
+  await pb.collection('tasks').update(ownTask.id, { 'focusedSeconds+': 5 });
   await assert.rejects(pb.collection('knowledge').update(rule.id, { 'sources+': [foreign.id] }));
   await assert.rejects(pb.collection('knowledge').create({ owner, title: 'Sneaky', status: 'draft', sources: [foreign.id] }));
   await assert.rejects(pb.collection('knowledge').create({ owner: stranger.id, title: 'Impostor', status: 'draft' }));

@@ -66,14 +66,20 @@ public struct SessionEngine {
         guard session.mode == .running else { return session }
         var next = session
         next.remainingSeconds = session.remaining(at: now())
-        next.isActive.toggle(); next.lastTick = floor(now().timeIntervalSince1970 * 1000)
+        next.isActive.toggle(); next.lastTick = endTick(session)
         if next.remainingSeconds == 0 { next.mode = .complete; next.isActive = false }
         return next
     }
     public func finish(_ session: FocusSession, save: Bool) -> FocusSession {
         var next = session
         next.remainingSeconds = session.remaining(at: now()); next.isActive = false
-        next.mode = save ? .complete : .discarded; next.lastTick = floor(now().timeIntervalSince1970 * 1000)
+        next.mode = save ? .complete : .discarded; next.lastTick = endTick(session)
         return next
+    }
+    /// A running session that already ran out ended at its deadline, not when the app noticed.
+    private func endTick(_ session: FocusSession) -> Double {
+        let current = floor(now().timeIntervalSince1970 * 1000)
+        guard session.mode == .running, session.isActive, session.remaining(at: now()) == 0 else { return current }
+        return min(current, session.lastTick + Double(max(0, session.remainingSeconds)) * 1000)
     }
 }

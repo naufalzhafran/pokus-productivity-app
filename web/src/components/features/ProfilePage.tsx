@@ -12,6 +12,16 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -26,7 +36,7 @@ import { pb } from "@/lib/pocketbase";
 import { getUserDisplayName } from "@/lib/user-profile";
 import type { PomodoroHistoryEntry, Task } from "@/types/task";
 import { AppSettings } from "@/components/features/AppSettings";
-import type { SessionOperation } from "@/lib/offline-store";
+import { clearAccountCache, type SessionOperation } from "@/lib/offline-store";
 import type { SyncState } from "@/lib/session-sync";
 
 interface ProfilePageProps {
@@ -132,6 +142,13 @@ export function ProfilePage({
   }, [pendingSessions, savedHistory]);
   const [visibleCount, setVisibleCount] = useState(25);
   const [historyAnnouncement, setHistoryAnnouncement] = useState("");
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const signOut = async () => {
+    const owner = record?.id;
+    // Cached workspace data leaves this browser; unsynced sessions stay for the next sign-in.
+    if (owner) await clearAccountCache(owner).catch(() => undefined);
+    pb.authStore.clear();
+  };
 
   const totalFocusedSeconds = useMemo(
     () => history.reduce((total, entry) => total + entry.focusedSeconds, 0),
@@ -188,7 +205,9 @@ export function ProfilePage({
           <CardContent><p className="text-sm text-muted-foreground" role="status">{syncState?.error ?? (syncState?.syncing ? "Syncing…" : "Pending changes stay on this device until your account reconnects.")}</p></CardContent>
           <CardFooter className="flex flex-col gap-2">
             {pendingSessions.length ? <Button variant="outline" className="w-full" disabled={syncState?.syncing} onClick={onRetrySync}>Retry sync</Button> : null}
-            <Button variant="ghost" className="w-full" onClick={() => pb.authStore.clear()}><LogOut data-icon="inline-start" />{pb.authStore.isValid ? "Sign out" : "Sign in again"}</Button>
+            {pb.authStore.isValid
+              ? <Button variant="ghost" className="w-full" onClick={() => setConfirmSignOut(true)}><LogOut data-icon="inline-start" />Sign out</Button>
+              : <Button variant="ghost" className="w-full" onClick={() => pb.authStore.clear()}><LogOut data-icon="inline-start" />Sign in again</Button>}
           </CardFooter>
         </Card>
       </div>
@@ -304,6 +323,23 @@ export function ProfilePage({
           </div>
         ) : null}
       </ResponsiveOverlay>
+
+      <AlertDialog open={confirmSignOut} onOpenChange={setConfirmSignOut}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingSessions.length
+                ? `${pendingSessions.length} session ${pendingSessions.length === 1 ? "change hasn't" : "changes haven't"} synced yet. ${pendingSessions.length === 1 ? "It stays" : "They stay"} on this device and will sync the next time you sign in here. Your saved workspace will be removed from this browser.`
+                : "Your saved workspace will be removed from this browser. Everything is synced to your account."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => void signOut()}>Sign out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

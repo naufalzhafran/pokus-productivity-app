@@ -40,15 +40,45 @@ export async function writeCache<T>(owner: string, key: string, value: T) {
   await (await db()).put("cache", value, `${owner}:${key}`);
 }
 
+/** Removes the account's downloaded workspace from this browser. Pending sessions and reminder claims stay. */
+export async function clearAccountCache(owner: string) {
+  const prefix = `${owner}:`;
+  const tx = (await db()).transaction("cache", "readwrite");
+  let cursor = await tx.store.openCursor(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
+  while (cursor) {
+    if (!String(cursor.key).startsWith(`${prefix}capture-reminder:`)) await cursor.delete();
+    cursor = await cursor.continue();
+  }
+  await tx.done;
+}
+
+const CLAIM_RETENTION_MS = 90 * 86_400_000;
+
 /** IndexedDB serializes this claim across tabs before either tab shows a toast. */
 export async function claimCaptureReminder(owner: string, captureId: string, reminderAt: number): Promise<boolean> {
-  const key = `${owner}:capture-reminder:${captureId}:${reminderAt}`;
+  const prefix = `${owner}:capture-reminder:`;
+  const key = `${prefix}${captureId}:${reminderAt}`;
   const tx = (await db()).transaction("cache", "readwrite");
   const claimed = await tx.store.get(key);
-  if (!claimed) await tx.store.put(true, key);
+  if (!claimed) {
+    const now = Date.now();
+    // Each claim records when it was made; claims older than the retention window are pruned.
+    let cursor = await tx.store.openCursor(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
+    while (cursor) {
+      if (typeof cursor.value === "number" && cursor.value < now - CLAIM_RETENTION_MS) await cursor.delete();
+      cursor = await cursor.continue();
+    }
+    await tx.store.put(now, key);
+  }
   await tx.done;
   return !claimed;
 }
+// Only recent sessions can come back from a stale tab, so older terminal ids are dropped.
+const TERMINAL_ID_LIMIT = 100;
+function recentTerminalIds(ids: string[]) {
+  return [...new Set(ids)].slice(-TERMINAL_ID_LIMIT);
+}
+
 export async function readTimer(owner: string) {
   return (await (await db()).get("timers", owner)) ?? emptySnapshot();
 }
@@ -73,6 +103,13 @@ export async function persistTransition(
     await tx.done;
     return saved;
   }
+  // A finished session's queued result (including its task credit) is never rewritten.
+  if (next && next.mode !== "running" && saved.terminalIds?.includes(next.id)) {
+    const snapshot = { ...saved, current: next };
+    await tx.store.put(snapshot, owner);
+    await tx.done;
+    return snapshot;
+  }
   const revision = saved.revision + 1;
   const session: StoredSession | null = next ?? (saved.current?.mode === "running"
     ? { ...saved.current, mode: "discarded", isActive: false, lastTick: Date.now() }
@@ -80,7 +117,7 @@ export async function persistTransition(
   const operations = session
     ? [...saved.operations.filter((operation) => operation.session.id !== session.id), { session, revision }]
     : saved.operations;
-  const terminalIds = session && session.mode !== "running" ? [...new Set([...(saved.terminalIds ?? []), session.id])] : saved.terminalIds;
+  const terminalIds = session && session.mode !== "running" ? recentTerminalIds([...(saved.terminalIds ?? []), session.id]) : saved.terminalIds;
   const snapshot = { current: next, operations, revision, terminalIds };
   await tx.store.put(snapshot, owner);
   await tx.done;
@@ -96,7 +133,7 @@ export async function acknowledgeOperation(owner: string, operation: SessionOper
   if (current?.id === authoritative.id && terminal) {
     current = authoritative.mode === "discarded" ? null : { ...authoritative, mode: "complete" };
   }
-  const terminalIds = terminal ? [...new Set([...(saved.terminalIds ?? []), authoritative.id])] : saved.terminalIds;
+  const terminalIds = terminal ? recentTerminalIds([...(saved.terminalIds ?? []), authoritative.id]) : saved.terminalIds;
   await tx.store.put({ ...saved, current, operations, terminalIds }, owner);
   await tx.done;
 }

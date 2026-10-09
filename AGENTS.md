@@ -41,3 +41,4 @@ Run the checks for every area you changed, and report any failure with its outpu
 | `ios/` (anything) | `xcodebuild -project ios/Daily.xcodeproj -scheme Daily -destination 'generic/platform=iOS Simulator' build` |
 | `backend/pb_schema.json` | `node -e "JSON.parse(require('fs').readFileSync('backend/pb_schema.json','utf8'))"`, plus the web and iOS checks for the clients you updated |
 | `backend/pb_hooks/ios_oauth.pb.js` | `node backend/scripts/test-ios-oauth.mjs` |
+| `backend/pb_hooks/link_preview.pb.js` | `node backend/scripts/test-link-preview.mjs` |

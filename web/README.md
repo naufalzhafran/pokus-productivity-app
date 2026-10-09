@@ -127,13 +127,15 @@ loaded tasks work offline. Task and project editing requires a connection. Sessi
 transitions are saved in user-scoped IndexedDB before the controls confirm them;
 completed focus sessions queue for automatic sync. Profile shows pending work and
 Retry. An expired login allows local use but requires signing in again to sync.
-Signing out locks cached data and leaves pending work attached to its original
-account. Browser storage can be cleared by the user or operating system; do not
+Signing out asks for confirmation, removes the account's cached workspace from the
+browser, and leaves pending sessions attached to their account until it signs in again. Browser storage can be cleared by the user or operating system; do not
 clear site data while sessions are pending.
 
 Sound works while the app is open and audio has been unlocked by Start, Resume,
-or Test sound. iOS may suspend background web apps: there is no push service or
-locked-screen alarm. Timer deadlines reconcile on return, including lock/unlock.
+or Test sound. The timer keeps ticking in background tabs, and when a session ends
+while the tab is hidden, a system notification appears if notifications were allowed
+(Pokus asks once, when a timer starts). iOS may suspend background web apps: there
+is no push service or locked-screen alarm. Timer deadlines reconcile on return, including lock/unlock.
 Wake lock is optional and best effort; it releases when paused or hidden.
 
 ## PWA rollout and hosting
