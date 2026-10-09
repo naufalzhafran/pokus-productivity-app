@@ -102,4 +102,15 @@ describe("CapturePage", () => {
 
     await waitFor(() => expect(onOrganize).toHaveBeenCalledWith("idea", ["blog"], true));
   });
+  it("captures offline without a preview lookup, prefilled from a share, and marks unsynced captures", async () => {
+    const user = userEvent.setup();
+    const createCapture = vi.fn(async () => ({ ...captures[3], id: "queued", syncState: "pending" as const }));
+    render(<CapturePage readOnly sharedText="https://example.com/shared" store={store({ createCapture, captures: [{ ...captures[3], id: "queued", syncState: "pending" }] })} projects={projects} onOrganize={vi.fn()} />);
+    const field = screen.getByLabelText("Link or thought to capture");
+    expect(field).toBeEnabled();
+    expect(field).toHaveValue("https://example.com/shared");
+    expect(screen.getByText("Waiting to sync")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Capture" }));
+    expect(createCapture).toHaveBeenCalledWith(expect.objectContaining({ url: "https://example.com/shared", preview: undefined }));
+  });
 });

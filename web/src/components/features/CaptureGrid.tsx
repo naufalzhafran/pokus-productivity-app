@@ -7,6 +7,7 @@ import { CaptureCard } from "@/components/features/CaptureCard";
 import { CaptureOrganizer } from "@/components/features/CaptureOrganizer";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { CaptureReminderEditor } from "@/components/features/CaptureReminderEditor";
+import { ConfirmPrompt, type ConfirmRequest } from "@/components/features/ConfirmPrompt";
 import type { CaptureStore } from "@/hooks/useCaptures";
 import { captureDisplayTitle } from "@/lib/capture";
 import { knowledgeHash } from "@/lib/routes";
@@ -42,6 +43,7 @@ export function CaptureGrid({ label, captures, store, projects, readOnly, onOrga
   const reminderCapture = captures.find((capture) => capture.id === reminderId);
   const [organizing, setOrganizing] = useState<Capture | null>(null);
   const [showingKnowledge, setShowingKnowledge] = useState<Capture | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const shownNotes = showingKnowledge ? knowledgeBySource?.get(showingKnowledge.id) ?? [] : [];
   const projectsByCapture = useMemo(() => {
     const map = new Map<string, Project[]>();
@@ -84,7 +86,8 @@ export function CaptureGrid({ label, captures, store, projects, readOnly, onOrga
           onEdit={() => setEditing(capture)}
           onReminder={() => setReminderId(capture.id)}
           onRefreshPreview={() => void refresh(capture)}
-          onDelete={() => { if (window.confirm(`Delete ${captureDisplayTitle(capture)}? It will be removed from every project.`)) void mutate(capture.id, () => store.deleteCapture(capture.id), "Capture deleted.", "This capture could not be deleted."); }} />
+          onDelete={() => setConfirm({ title: `Delete ${captureDisplayTitle(capture)}?`, description: capture.syncState ? "This capture hasn't synced yet. It will be removed from this device." : "It will be removed from every project. This can't be undone.", confirmLabel: "Delete capture",
+            onConfirm: () => void mutate(capture.id, () => store.deleteCapture(capture.id), "Capture deleted.", "This capture could not be deleted.") })} />
       </li>)}
     </ul> : empty}
     <ResponsiveOverlay open={Boolean(reminderCapture)} onOpenChange={(open) => { if (!open) setReminderId(null); }} title={reminderCapture ? `Reminder for ${captureDisplayTitle(reminderCapture)}` : "Capture reminder"}>
@@ -115,5 +118,6 @@ export function CaptureGrid({ label, captures, store, projects, readOnly, onOrga
         toast.success(projectIds.length ? `In ${projectIds.length} ${projectIds.length === 1 ? "project" : "projects"}.` : "Removed from all projects.");
       }} /> : null}
     </ResponsiveOverlay>
+    <ConfirmPrompt request={confirm} onClose={() => setConfirm(null)} />
   </>;
 }

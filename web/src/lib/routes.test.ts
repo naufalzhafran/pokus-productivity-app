@@ -6,6 +6,8 @@ describe("hash routes", () => {
     expect(parseRoute("")).toEqual({ page: "timer", projectId: null });
     expect(parseRoute("#capture")).toEqual({ page: "capture", projectId: null });
     expect(parseRoute("#habits")).toEqual({ page: "habits", projectId: null });
+    expect(parseRoute("#today")).toEqual({ page: "today", projectId: null });
+    expect(parseRoute("#more")).toEqual({ page: "more", projectId: null });
     expect(parseRoute("#projects")).toEqual({ page: "projects", projectId: null });
     expect(parseRoute("#projects/abc123")).toEqual({ page: "projects", projectId: "abc123" });
     expect(parseRoute("#tasks")).toEqual({ page: "projects", projectId: null });

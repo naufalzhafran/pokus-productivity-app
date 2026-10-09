@@ -20,16 +20,18 @@ interface TaskEditorProps {
   projects: Project[];
   categories?: Category[];
   initialProjectId: string | null;
+  /** The due date a new task starts with, such as the selected calendar day. */
+  initialDueDate?: string | null;
   onCancel: () => void;
   onSave: (input: TaskInput) => Promise<unknown>;
   onCreateCategory?: (input: CategoryInput) => Promise<Category>;
 }
 
-export function TaskEditor({ task, projects, categories = [], initialProjectId, onCancel, onSave, onCreateCategory }: TaskEditorProps) {
+export function TaskEditor({ task, projects, categories = [], initialProjectId, initialDueDate = null, onCancel, onSave, onCreateCategory }: TaskEditorProps) {
   const [input, setInput] = useState<TaskInput>({
     title: task?.title ?? "", description: task?.description ?? "", projectId: task ? task.projectId : initialProjectId,
     priority: task?.priority ?? "none", categoryId: task?.categoryId ?? null,
-    dueDate: task?.dueDate ?? null,
+    dueDate: task ? task.dueDate ?? null : initialDueDate,
   });
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryName, setCategoryName] = useState("");

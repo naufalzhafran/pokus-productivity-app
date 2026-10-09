@@ -16,6 +16,8 @@ interface TimerCompletionProps {
   syncPending?: boolean;
   isSaving?: boolean;
   taskTitle?: string;
+  /** The session's task has been marked done. */
+  taskDone?: boolean;
   onMarkTaskDone?: () => Promise<unknown>;
   onFocusAgain: () => void;
   onViewTasks: () => void;
@@ -28,6 +30,7 @@ export function TimerCompletion({
   syncPending = false,
   isSaving = false,
   taskTitle,
+  taskDone = false,
   onMarkTaskDone,
   onFocusAgain,
   onViewTasks,
@@ -75,6 +78,7 @@ export function TimerCompletion({
       {taskTitle ? (
         <CardContent>
           <SessionTask title={taskTitle} isComplete />
+          {taskDone ? <p className="mt-2 text-center text-sm text-muted-foreground">Task marked done.</p> : null}
         </CardContent>
       ) : null}
       {error ? (
@@ -85,9 +89,17 @@ export function TimerCompletion({
         </CardContent>
       ) : null}
       <CardFooter className="grid gap-2">
+        <Button
+          type="button"
+          onClick={onFocusAgain}
+          disabled={isFinishingTask || isSaving}
+        >
+          Focus again
+        </Button>
         {taskTitle && onMarkTaskDone ? (
           <Button
             type="button"
+            variant="outline"
             onClick={() => void finishTask()}
             disabled={isFinishingTask || isSaving}
           >
@@ -96,17 +108,9 @@ export function TimerCompletion({
             ) : (
               <CheckCircle2 data-icon="inline-start" />
             )}
-            {isFinishingTask ? "Completing task…" : "Mark done & view tasks"}
+            {isFinishingTask ? "Completing task…" : "Mark task done"}
           </Button>
         ) : null}
-        <Button
-          type="button"
-          variant="default"
-          onClick={onFocusAgain}
-          disabled={isFinishingTask || isSaving}
-        >
-          Focus again
-        </Button>
         <Button
           type="button"
           variant="ghost"

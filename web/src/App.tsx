@@ -10,7 +10,7 @@ import { TimerReset } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/features/AppShell";
 import { PwaUpdate } from "@/components/features/PwaUpdate";
-import { useConnectivity } from "@/hooks/useConnectivity";
+import { requireConnection, useConnectivity } from "@/hooks/useConnectivity";
 import { useHabitReminder } from "@/hooks/useHabitReminder";
 import { useCaptureReminders } from "@/hooks/useCaptureReminders";
 import { useHabits } from "@/hooks/useHabits";
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePomodoroSession } from "@/hooks/usePomodoroSession";
+import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
 import { useProjects } from "@/hooks/useProjects";
 import { useCaptures, type CaptureStore } from "@/hooks/useCaptures";
 import { useCategories } from "@/hooks/useCategories";
@@ -44,7 +45,10 @@ import { captureDisplayTitle } from "@/lib/capture";
 import { knowledgeBySource } from "@/lib/knowledge";
 import { dueKnowledge } from "@/lib/review";
 import { knowledgeHash, KNOWLEDGE_REVIEW_ID, parseRoute, projectHash, routeHash, type AppPage, type AppRoute } from "@/lib/routes";
-import { getProjectStatus, isProjectArchived, NO_PROJECT_ID, PROJECT_TITLE_MAX_LENGTH } from "@/lib/workspace";
+import { getProjectStatus, isProjectArchived, NO_PROJECT_ID, PROJECT_TITLE_MAX_LENGTH, resetTaskFilters } from "@/lib/workspace";
+import { focusStatistics, mergeFocusHistory } from "@/lib/focus-stats";
+import { consumeSharedCapture } from "@/lib/share-target";
+import { dismissWelcome, isFirstRun, welcomeDismissed } from "@/lib/first-run";
 import type { Capture, CaptureInput } from "@/types/capture";
 import type { Knowledge, KnowledgeInput } from "@/types/knowledge";
 import type { PomodoroSession, ProjectInput } from "@/types/task";
@@ -75,6 +79,11 @@ const KnowledgeComposer = lazy(() => import("@/components/features/KnowledgeComp
 const BreakReview = lazy(() => import("@/components/features/BreakReview").then((module) => ({ default: module.BreakReview })));
 const ProjectCompletionDialog = lazy(() => import("@/components/features/ProjectCompletionDialog").then((module) => ({ default: module.ProjectCompletionDialog })));
 const ProjectKnowledge = lazy(() => import("@/components/features/ProjectKnowledge").then((module) => ({ default: module.ProjectKnowledge })));
+const loadTodayPage = () => import("@/components/features/TodayPage");
+const TodayPage = lazy(() => loadTodayPage().then((module) => ({ default: module.TodayPage })));
+const loadMorePage = () => import("@/components/features/MorePage");
+const MorePage = lazy(() => loadMorePage().then((module) => ({ default: module.MorePage })));
+const WelcomeCard = lazy(() => import("@/components/features/WelcomeCard").then((module) => ({ default: module.WelcomeCard })));
 const loadTimerPage = () => import("@/components/features/TimerPage");
 const TimerPage = lazy(() =>
   loadTimerPage().then((module) => ({ default: module.TimerPage })),
@@ -107,7 +116,8 @@ export default function App() {
   const { online, canEdit } = useConnectivity();
   const preferences = useAppPreferences();
   const userId = pb.authStore.record?.id ?? "anonymous";
-  useHabitReminder(userId);
+  // Read before the route: a share lands on Capture with its text prefilled.
+  const [sharedText] = useState(consumeSharedCapture);
   const [viewState, setViewState] = useWorkspacePreferences(userId);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
     loadSelectedTaskId,
@@ -171,6 +181,11 @@ export default function App() {
 
   const captures = useCaptures();
   const habitStore = useHabits();
+  useHabitReminder(userId, habitStore.isLoading ? null : habitStore.habits);
+  const savedHistory = usePomodoroHistory();
+  const history = useMemo(() => mergeFocusHistory(savedHistory.history, pending), [pending, savedHistory.history]);
+  const todaySeconds = useMemo(() => focusStatistics(history).today, [history]);
+  const [welcomeHidden, setWelcomeHidden] = useState(() => welcomeDismissed(userId));
   useCaptureReminders(userId, captures.captures, captures.isLoading);
   const { deleteCapture, createCapture, setCaptureProcessed } = captures;
   const reconcileKnowledgeCapture = knowledgeStore.reconcileDeletedCapture;
@@ -196,6 +211,8 @@ export default function App() {
   }, [captures.captures, changeProjectCaptures, setCaptureProcessed]);
   const removeCaptureFromProject = useCallback((projectId: string, captureId: string) => changeProjectCaptures(projectId, [], [captureId]), [changeProjectCaptures]);
   const captureToProject = useCallback(async (projectId: string, input: CaptureInput) => {
+    // Filing into a project needs the server, so this never queues offline.
+    requireConnection();
     const saved = await createCapture(input, { isProcessed: true });
     await changeProjectCaptures(projectId, [saved.id], []);
   }, [changeProjectCaptures, createCapture]);
@@ -259,7 +276,7 @@ export default function App() {
       if (!saved) return false;
       if (preferences.sound) playCompletionSound();
       notifyCompletion(completed.taskId ? `${completed.durationMinutes} minutes of focus saved.` : "Time for a break.");
-      toast.success("Pomodoro complete.");
+      toast.success("Pomodoro complete.", { action: { label: "View", onClick: () => { window.location.hash = "#timer"; } } });
       setAppFeedback({ kind: "status", message: "Pomodoro complete." });
       return true;
     },
@@ -284,11 +301,12 @@ export default function App() {
   const navigate = useCallback((nextPage: AppPage) => navigateTo({ page: nextPage, projectId: null }), [navigateTo]);
   const openProject = useCallback((projectId: string | null) => navigateTo({ page: "projects", projectId: projectId ?? NO_PROJECT_ID }), [navigateTo]);
 
-  useEffect(() => {
-    if (currentSession?.mode === "complete") {
-      window.location.hash = "timer";
-    }
-  }, [currentSession?.mode]);
+  // A different project opens with default filters, so one project's "Completed" view doesn't hide another's open tasks.
+  const [filteredProjectId, setFilteredProjectId] = useState(route.projectId);
+  if (route.projectId && route.projectId !== filteredProjectId) {
+    setFilteredProjectId(route.projectId);
+    setViewState(resetTaskFilters);
+  }
 
   const setDuration = useCallback((duration: number) =>
     setViewState((current) => ({
@@ -310,12 +328,24 @@ export default function App() {
       lastTick: Date.now(),
     });
     if (!saved) return;
+    // The task now belongs to the session; Focus again or a discard brings it back.
+    setSelectedTaskId(null);
     void navigator.storage?.persist?.().catch(() => undefined);
     setAppFeedback({ kind: "status", message: "Pomodoro started." });
     navigate("timer");
   }, [navigate, preferences.sound, selectedTask?.id, setSession, viewState.lastDuration]);
 
+  /** Attaches a task to a running session that has none, so the session credits it. */
+  const linkTask = useCallback(async (taskId: string) => {
+    const task = taskMap.get(taskId);
+    if (!task || task.isDone || isProjectArchived(task.projectId ? projectMap.get(task.projectId) : undefined)) return;
+    if (!(await setSession((current) => current?.mode === "running" && !current.taskId ? { ...current, taskId } : current))) return;
+    toast.success("Task linked to this session.");
+    setAppFeedback({ kind: "status", message: "Task linked to this session." });
+  }, [projectMap, setSession, taskMap]);
+
   const setUpTimerForTask = useCallback((taskId: string) => {
+    if (currentSession?.mode === "running" && !currentSession.taskId) { void linkTask(taskId); return; }
     if (currentSession) {
       const message = "Finish the current session before starting another.";
       toast.error(message);
@@ -327,7 +357,15 @@ export default function App() {
     if (!task || task.isDone || isProjectArchived(taskProject)) return;
     setSelectedTaskId(taskId);
     navigate("timer");
-  }, [currentSession, navigate, projectMap, taskMap]);
+  }, [currentSession, linkTask, navigate, projectMap, taskMap]);
+  const canFocus = !currentSession || (currentSession.mode === "running" && !currentSession.taskId);
+
+  const createQuickTask = useCallback((title: string) => createTask({ title, description: "", projectId: null, priority: "none", categoryId: null, dueDate: null }), [createTask]);
+  const createFirstTask = useCallback(async (title: string) => {
+    const task = await createQuickTask(title);
+    setSelectedTaskId(task.id);
+    toast.success("Task added. It’s selected for your first session.");
+  }, [createQuickTask]);
 
   const toggleTimer = useCallback(async () => {
     if (!currentSession || currentSession.mode !== "running") return;
@@ -347,7 +385,8 @@ export default function App() {
 
   const stopTimer = useCallback(async ({ saveElapsedTime, elapsedSeconds }: TimerStopOptions) => {
     if (!currentSession) return;
-    if (saveElapsedTime && currentSession.taskId) {
+    // Saved time counts toward history and totals, with or without a task.
+    if (saveElapsedTime && elapsedSeconds > 0) {
       const saved = await setSession({
         ...currentSession,
         mode: "complete",
@@ -365,6 +404,7 @@ export default function App() {
       });
     } else {
       if (!(await setSession(null))) return;
+      if (currentSession.taskId) setSelectedTaskId(currentSession.taskId);
       setAppFeedback({ kind: "status", message: "Pomodoro stopped." });
     }
   }, [currentSession, setSession]);
@@ -475,6 +515,8 @@ export default function App() {
 
   const handleNavigationIntent = useCallback((nextPage: AppPage) => {
     if (nextPage === "timer") void loadTimerPage();
+    if (nextPage === "today") void loadTodayPage();
+    if (nextPage === "more") void loadMorePage();
     if (nextPage === "profile") void loadProfilePage();
     if (nextPage === "habits") void loadHabitsPage();
     if (nextPage === "calendar") void loadCalendarPage();
@@ -483,17 +525,12 @@ export default function App() {
     if (nextPage === "knowledge") { void loadKnowledgePage(); void loadKnowledgeDetailPage(); }
   }, []);
 
-  const handleNavigate = useCallback((nextPage: AppPage) => {
-    if (nextPage === "timer" && !currentSession) setSelectedTaskId(null);
-    navigate(nextPage);
-  }, [currentSession, navigate]);
+  // Navigation keeps the chosen task; only starting a session, clearing it, or finishing the task does.
+  const handleNavigate = navigate;
 
   const handleTimerTaskDone = useCallback(async () => {
-    if (!sessionTask) return;
-    await handleStatusChange(sessionTask.id, true);
-    if (!(await setSession(null))) return;
-    openProject(sessionTask.projectId);
-  }, [handleStatusChange, openProject, sessionTask, setSession]);
+    if (sessionTask) await handleStatusChange(sessionTask.id, true);
+  }, [handleStatusChange, sessionTask]);
 
   const handleFocusAgain = useCallback(async () => {
     if (!(await setSession(null))) return;
@@ -512,6 +549,8 @@ export default function App() {
 
   const loadError = tasksLoadError ?? projectsLoadError ?? categoriesLoadError ?? captures.loadError ?? knowledgeStore.loadError ?? sessionLoadError;
   const timerMode = currentSession?.mode;
+  const showWelcome = !welcomeHidden && !currentSession && !areTasksLoading && !areProjectsLoading && !captures.isLoading && !savedHistory.isLoading
+    && isFirstRun({ projects: projects.length, tasks: tasks.length, captures: captures.captures.length, sessions: history.length });
 
   return (
     <AppShell
@@ -584,7 +623,7 @@ export default function App() {
             categories={categories}
             viewState={viewState}
             setViewState={setViewState}
-            canStartPomodoro={!currentSession}
+            canStartPomodoro={canFocus}
             onCreateTask={createTask}
             onEditTask={editTask}
             onDeleteTask={handleDeleteTask}
@@ -616,6 +655,8 @@ export default function App() {
             onUpdateCategory={updateCategory}
             onDeleteCategory={handleDeleteCategory}
             captureIds={captures.isLoading ? undefined : captureIds}
+            onCreateTask={createTask}
+            onCreateCategory={createCategory}
           />}
           </Suspense>
         </div>
@@ -623,7 +664,7 @@ export default function App() {
         <div className="screen-panel">
           <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
             <CapturePage readOnly={!canEdit} store={captureStore} projects={projects} onOrganize={organizeCapture}
-              knowledgeBySource={notesBySource} onDistill={distillCapture} onStartProject={startProjectFromCapture} />
+              knowledgeBySource={notesBySource} onDistill={distillCapture} onStartProject={startProjectFromCapture} sharedText={sharedText} />
           </Suspense>
         </div>
       ) : page === "habits" ? (
@@ -632,7 +673,16 @@ export default function App() {
         <Suspense fallback={<Skeleton className="h-96 w-full" />}><CalendarPage key={userId} projects={projects} tasks={tasks} categories={categories} captureStore={captureStore} habitStore={habitStore}
           readOnly={!canEdit} loading={areTasksLoading || areProjectsLoading || captures.isLoading} loadError={loadError}
           selectedDay={route.calendarDay} captureId={route.captureId} onSelect={(calendarDay, captureId) => navigateTo({ page: "calendar", projectId: null, calendarDay, captureId })}
-          onTaskDone={handleStatusChange} onEditTask={editTask} onEditProject={handleUpdateProject} onCreateCategory={createCategory} /></Suspense>
+          onTaskDone={handleStatusChange} onEditTask={editTask} onEditProject={handleUpdateProject} onCreateCategory={createCategory}
+          onCreateTask={createTask} onFocusTask={setUpTimerForTask} canFocus={canFocus} /></Suspense>
+      ) : page === "today" ? (
+        <Suspense fallback={<Skeleton className="h-96 w-full" />}><TodayPage key={userId} projects={projects} tasks={tasks} categories={categories} captureStore={captureStore} habitStore={habitStore}
+          readOnly={!canEdit} loading={areTasksLoading || areProjectsLoading || captures.isLoading} loadError={loadError}
+          session={currentSession} sessionTask={sessionTask} selectedTask={selectedTask} remainingSeconds={remainingSeconds} todaySeconds={todaySeconds} isSaving={isSaving}
+          onStartFocus={startTimer} onOpenTimer={() => navigate("timer")} onFocusTask={setUpTimerForTask} canFocus={canFocus}
+          onTaskDone={handleStatusChange} onEditTask={editTask} onEditProject={handleUpdateProject} onCreateTask={createTask} onCreateCategory={createCategory} /></Suspense>
+      ) : page === "more" ? (
+        <Suspense fallback={<Skeleton className="h-72 w-full" />}><MorePage onNavigate={handleNavigate} /></Suspense>
       ) : page === "knowledge" ? (
         <div className="screen-panel">
           <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
@@ -651,6 +701,16 @@ export default function App() {
             tasks={tasks}
             openTaskId={profileTaskId}
             onOpenTask={setProfileTaskId}
+            history={history}
+            historyLoading={savedHistory.isLoading}
+            historyError={savedHistory.error}
+            onExport={async () => {
+              const { downloadDataExport } = await import("@/lib/data-export");
+              downloadDataExport({
+                account: { id: userId, email: String(pb.authStore.record?.email ?? "") },
+                projects, tasks, categories, captures: captures.captures, knowledge, habits: habitStore.habits, focusHistory: history,
+              });
+            }}
           />
         </Suspense>
       ) : (
@@ -671,6 +731,10 @@ export default function App() {
             tasks={tasks}
             projects={projects}
             onSelectTask={setSelectedTaskId}
+            onLinkTask={(taskId) => void linkTask(taskId)}
+            onCreateTask={createQuickTask}
+            todaySeconds={todaySeconds}
+            welcome={showWelcome ? <Suspense fallback={null}><WelcomeCard canEdit={canEdit} onCreateTask={createFirstTask} onDismiss={() => { dismissWelcome(userId); setWelcomeHidden(true); }} /></Suspense> : undefined}
             onMarkTaskDone={handleTimerTaskDone}
             onFocusAgain={handleFocusAgain}
             onViewTasks={handleViewTasks}

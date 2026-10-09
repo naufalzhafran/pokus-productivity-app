@@ -7,7 +7,10 @@ Tailwind CSS. Run every command below from this `web/` directory.
 
 - Adjustable Pomodoro duration with a circular control
 - Quick presets for 15, 25, 45, and 60 minutes
-- Installable Timer-first PWA with Timer, Projects, Calendar, Capture, Knowledge, and Profile navigation; Habits is accessible from Calendar
+- Installable Timer-first PWA (it still opens on the Timer). Desktop navigation lists Timer, Today, Projects, Calendar, Habits, Capture, Knowledge, and Profile; phones show Timer, Today, Projects, Capture, and More (Calendar, Habits, Knowledge, Profile). Old hash links keep working
+- Today page: today's focus total with Start focus, Overdue, tasks and project deadlines due today, today's habits, capture reminders, a collapsed Completed list, and New task (due today)
+- Install shortcuts for New capture, Start focus, and Today, and a share target (Android and desktop Chrome) that opens Quick capture prefilled with the shared title, text, and link
+- A short, dismissible welcome on the Timer for new accounts: pick a length, add a first task, or just start
 - Responsive sticky desktop navigation and safe-area-aware mobile navigation
 - Projects list with status, Due soon, and Archived filters, progress, and focused time per project
 - Project detail pages with the project's tasks, filters, and actions, plus a No project page for loose tasks
@@ -21,22 +24,31 @@ Tailwind CSS. Run every command below from this `web/` directory.
 - Create and edit tasks through accessible modals
 - Persistent task creation, selection, completion, and reopening
 - Set up a Pomodoro from a task, or pick one on the Timer, and choose its duration before starting
-- Run a Pomodoro without attaching a task
+- Run a Pomodoro without attaching a task, and link a task to it while it runs (switching tasks stays blocked)
+- The chosen task stays selected while you move around the app until a session starts, you clear it, or it's done or deleted
+- When a session ends you stay where you are; the "Pomodoro complete" toast has View to open the timer
+- Completion screen: Focus again first, Mark task done (stays on the timer), and View tasks
 - Track successful Pomodoro time per task in hours and minutes
-- Save or discard elapsed task time when stopping a session early
+- Save or discard elapsed time when stopping a session early, with or without a task; saved time counts toward history and totals
 - Start, pause, resume, and stop controls backed by an app-level wall clock
 - Accurate timer completion after navigation, tab backgrounding, or visibility changes
 - Google OAuth authentication through PocketBase
 - User-scoped PocketBase persistence for projects, tasks, focused time, and the active Pomodoro session
-- Profile page with account details, focus totals, and Pomodoro history
+- Profile page with account details, focus stats (today, this week, daily streak, total, and a 7-day chart), Pomodoro history, and **Export my data** (one JSON file with projects, tasks, categories, captures, knowledge, habits with entries and targets, and focus history)
+- Today's focus total on the idle Timer
 - Capture inbox for links and thoughts with rich previews for YouTube videos, social posts, articles, and Google Drive files
+- Quick capture works offline or with an expired sign-in: captures are queued in IndexedDB, shown as "Waiting to sync", and sync automatically (link previews are fetched afterward)
 - Projects contain captures: add inbox captures to one or more projects, capture straight into a project, and browse them on its Captures tab
 - Centaur-style daily habits: check-ins, numeric totals, daily targets, quick increments, editable past entries, activity grids, and streaks
-- Account-owned habits synced across browsers, with cached offline browsing and online-only edits
+- Account-owned habits synced across browsers, with cached offline browsing. Check-ins and totals made offline are saved on this device and sync later; adding 1 and editing habits need a connection
 - Dated numeric targets preserve historical progress when targets change
-- Optional per-browser in-app daily reminders while Pokus is open
+- Optional per-browser in-app daily reminders while Pokus is open, skipped on days when every habit is already done
 - Month calendar and daily agenda for project deadlines, tasks, habits, and capture reminders
 - Task due dates override project deadlines; undated work appears in Calendar’s Unscheduled list
+- Calendar and Today rows have Focus for open tasks, and the selected day has New task on that date
+- New task from the Projects header (project optional) and from the Timer's task picker
+- Opening a different project resets its status, priority, and category filters (the sort is kept)
+- Deletes and other irreversible actions confirm in the app's dialog
 - One timed reminder per capture, with completion independent of capture processing
 
 ## Tech Stack
@@ -123,7 +135,8 @@ it opens the Timer without browser navigation. Profile includes dismissible inst
 help, System/Light/Dark appearance, completion sound, and optional screen wake lock.
 
 After the first online visit finishes downloading the app, timers and previously
-loaded tasks work offline. Task and project editing requires a connection. Session
+loaded tasks work offline. Task and project editing requires a connection; new captures
+and habit check-ins/totals queue on the device and sync when the account reconnects. Session
 transitions are saved in user-scoped IndexedDB before the controls confirm them;
 completed focus sessions queue for automatic sync. Profile shows pending work and
 Retry. An expired login allows local use but requires signing in again to sync.

@@ -18,6 +18,10 @@ interface QuickCaptureProps {
   title?: string;
   description?: string;
   successMessage?: string;
+  /** Look up link previews while typing; off while offline, so the preview is fetched after the capture syncs. */
+  previews?: boolean;
+  /** Prefilled text, such as something shared to Pokus. */
+  initialText?: string;
 }
 
 export function QuickCapture({
@@ -26,9 +30,11 @@ export function QuickCapture({
   title = "Quick capture",
   description = "Save it now, sort it later. Paste a post, article, YouTube video, or Google Drive link, or just write a thought.",
   successMessage = "Captured to your inbox.",
+  previews = !readOnly,
+  initialText = "",
 }: QuickCaptureProps) {
   const id = useId();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lookup, setLookup] = useState<{ url: string; preview: LinkPreview | null } | null>(null);
@@ -37,11 +43,11 @@ export function QuickCapture({
   const preview = lookup && lookup.url === url ? lookup.preview : undefined;
 
   useEffect(() => {
-    if (!url || readOnly) return;
+    if (!url || !previews) return;
     let current = true;
     const timer = window.setTimeout(() => void fetchLinkPreview(url).then((value) => { if (current) setLookup({ url, preview: value }); }), PREVIEW_DELAY_MS);
     return () => { current = false; window.clearTimeout(timer); };
-  }, [readOnly, url]);
+  }, [previews, url]);
 
   const draft: Capture | null = parsed && url ? { id: "draft", ...parsed, preview: preview ?? null, isProcessed: false, createdAt: 0, updatedAt: 0 } : null;
 
@@ -52,9 +58,9 @@ export function QuickCapture({
     if (invalid) { setError(invalid); return; }
     setIsSaving(true); setError(null);
     try {
-      await onCapture({ ...parsed, preview });
+      const saved = await onCapture({ ...parsed, preview });
       setText("");
-      toast.success(successMessage);
+      toast.success(saved && typeof saved === "object" && "syncState" in saved && saved.syncState ? "Saved on this device. It syncs when you’re back online." : successMessage);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "This could not be captured. Try again.");
     } finally {
@@ -78,7 +84,7 @@ export function QuickCapture({
           aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} />
         <FieldError id={`${id}-error`}>{error}</FieldError>
         {draft ? <section aria-label="Link preview" className="overflow-hidden rounded-2xl border bg-background">
-          <CapturePreview capture={draft} loading={preview === undefined && !readOnly} />
+          <CapturePreview capture={draft} loading={preview === undefined && previews} />
         </section> : null}
         <div className="flex items-center justify-between gap-3">
           <p className="hidden text-xs text-muted-foreground sm:block">⌘ Enter or Ctrl Enter to capture</p>

@@ -41,6 +41,12 @@ export function createDefaultWorkspaceState(): WorkspaceViewState {
   };
 }
 
+/** Opening a different project starts from the default status, priority, and category filters; the sort is kept. */
+export function resetTaskFilters(state: WorkspaceViewState): WorkspaceViewState {
+  if (state.status === "open" && (state.priority ?? "all") === "all" && !state.categoryId) return state;
+  return { ...state, status: "open", priority: "all", categoryId: null };
+}
+
 export function normalizeTaskTitle(title: string) {
   return title.replace(/\s+/g, " ").trim();
 }

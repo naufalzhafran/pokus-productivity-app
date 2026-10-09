@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addLocalDays, buildProjectStats, countProjectsByFilter, createDefaultWorkspaceState, NO_PROJECT_ID, selectProjects, selectProjectTasks, validateTaskTitle } from "@/lib/workspace";
+import { addLocalDays, buildProjectStats, countProjectsByFilter, createDefaultWorkspaceState, NO_PROJECT_ID, resetTaskFilters, selectProjects, selectProjectTasks, validateTaskTitle } from "@/lib/workspace";
 import type { Category, Project, Task } from "@/types/task";
 
 const today = "2026-07-29";
@@ -61,5 +61,14 @@ describe("task validation", () => {
     const legacy = "x".repeat(500);
     expect(validateTaskTitle(legacy, legacy)).toBeNull();
     expect(validateTaskTitle(`${legacy} changed`, legacy)).toMatch(/160/);
+  });
+});
+
+describe("task filters per project", () => {
+  it("resets status, priority, and category but keeps the sort", () => {
+    const state = { ...createDefaultWorkspaceState(), status: "completed" as const, priority: "high" as const, categoryId: "c", sort: "newest" as const, lastDuration: 45 };
+    expect(resetTaskFilters(state)).toEqual({ ...state, status: "open", priority: "all", categoryId: null });
+    const defaults = createDefaultWorkspaceState();
+    expect(resetTaskFilters(defaults)).toBe(defaults);
   });
 });

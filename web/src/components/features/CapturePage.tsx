@@ -30,9 +30,11 @@ interface CapturePageProps {
   knowledgeBySource?: ReadonlyMap<string, Knowledge[]>;
   onDistill?: (capture: Capture) => void;
   onStartProject?: (capture: Capture) => Promise<unknown>;
+  /** Text shared to Pokus, prefilled in Quick capture. */
+  sharedText?: string | null;
 }
 
-export function CapturePage({ readOnly = false, store, projects, onOrganize, knowledgeBySource, onDistill, onStartProject }: CapturePageProps) {
+export function CapturePage({ readOnly = false, store, projects, onOrganize, knowledgeBySource, onDistill, onStartProject, sharedText }: CapturePageProps) {
   const { captures, loadError, createCapture } = store;
   const [status, setStatus] = useState<CaptureStage>("inbox");
   const [kind, setKind] = useState<KindFilter>("all");
@@ -56,7 +58,8 @@ export function CapturePage({ readOnly = false, store, projects, onOrganize, kno
   const filtered = Boolean(deferredSearch.trim()) || kind !== "all" || projectFilter !== ANY_PROJECT;
   const clearFilters = () => { setSearch(""); setKind("all"); setProjectFilter(ANY_PROJECT); };
   return <div className="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
-    <div className="lg:sticky lg:top-6"><QuickCapture readOnly={readOnly} onCapture={createCapture} /></div>
+    <div className="lg:sticky lg:top-6"><QuickCapture readOnly={false} previews={!readOnly} initialText={sharedText ?? ""} onCapture={createCapture}
+      description={readOnly ? "You’re offline or signed out. Captures are saved on this device and sync automatically later." : undefined} /></div>
     <section aria-label="Captures" className="flex min-w-0 flex-col gap-4">
       {loadError ? <p role="alert" className="text-sm text-destructive">{loadError}</p> : null}
       <div className="flex flex-col gap-3">

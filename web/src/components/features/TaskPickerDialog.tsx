@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { Check, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { QuickTaskForm } from "@/components/features/QuickTaskForm";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { isProjectArchived, titlePreview } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,10 @@ interface TaskPickerDialogProps {
   projects: Project[];
   selectedTaskId: string | null;
   onSelect: (taskId: string | null) => void;
+  /** Linking a task to a running session: there's no "no task" choice. */
+  linking?: boolean;
+  /** Adds a task without a project; the new task is chosen. Omitted when tasks can't be created. */
+  onCreateTask?: (title: string) => Promise<{ id: string }>;
 }
 
 function Option({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
@@ -25,7 +30,7 @@ function Option({ label, selected, onClick }: { label: string; selected: boolean
 }
 
 /** Lets the Timer pick an open task, grouped by active project. */
-export function TaskPickerDialog({ open, onOpenChange, tasks, projects, selectedTaskId, onSelect }: TaskPickerDialogProps) {
+export function TaskPickerDialog({ open, onOpenChange, tasks, projects, selectedTaskId, onSelect, linking = false, onCreateTask }: TaskPickerDialogProps) {
   const [search, setSearch] = useState("");
   const needle = useDeferredValue(search).trim().toLocaleLowerCase();
   const groups = useMemo(() => {
@@ -46,14 +51,14 @@ export function TaskPickerDialog({ open, onOpenChange, tasks, projects, selected
   const choose = (taskId: string | null) => { onSelect(taskId); onOpenChange(false); };
 
   return (
-    <ResponsiveOverlay open={open} onOpenChange={onOpenChange} title="Choose a task" description="Focus on one open task, or start without one.">
+    <ResponsiveOverlay open={open} onOpenChange={onOpenChange} title={linking ? "Link a task" : "Choose a task"} description={linking ? "Your running session will count toward this task." : "Focus on one open task, or start without one."}>
       <div className="flex flex-col gap-3">
         <label className="relative">
           <span className="sr-only">Search tasks and projects</span>
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks and projects" className="pl-9" />
         </label>
-        <ul aria-label="No task"><Option label="No task, just focus" selected={!selectedTaskId} onClick={() => choose(null)} /></ul>
+        {linking ? null : <ul aria-label="No task"><Option label="No task, just focus" selected={!selectedTaskId} onClick={() => choose(null)} /></ul>}
         {groups.map((group) => (
           <section key={group.title} aria-label={group.title} className="flex flex-col gap-1">
             <h3 className="px-3 pt-2 text-xs font-medium text-muted-foreground">{group.title}</h3>
@@ -62,7 +67,8 @@ export function TaskPickerDialog({ open, onOpenChange, tasks, projects, selected
             </ul>
           </section>
         ))}
-        {!groups.length ? <p className="px-3 py-6 text-center text-sm text-muted-foreground">{needle ? "No matching open tasks." : "No open tasks. Add tasks from a project."}</p> : null}
+        {!groups.length ? <p className="px-3 py-6 text-center text-sm text-muted-foreground">{needle ? "No matching open tasks." : onCreateTask ? "No open tasks yet. Add one below." : "No open tasks. Add tasks from a project."}</p> : null}
+        {onCreateTask ? <div className="border-t pt-3"><QuickTaskForm label="New task" onCreate={async (title) => choose((await onCreateTask(title)).id)} /></div> : null}
       </div>
     </ResponsiveOverlay>
   );

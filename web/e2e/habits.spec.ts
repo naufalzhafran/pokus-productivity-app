@@ -102,9 +102,17 @@ test("habits sync, retain targets and history, and remain readable offline", asy
     await page.reload();
     await expect(page.getByText("11.5 / 20 pages", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add 1 to Read books" })).toBeDisabled();
+    // Absolute totals queue offline and replay once connected.
+    await page.getByRole("button", { name: "Set total for Read books" }).click();
+    await page.getByLabel(/Daily total/).fill("12");
+    await page.getByRole("button", { name: "Save total" }).click();
+    await expect(page.getByText("12 / 20 pages", { exact: true })).toBeVisible();
+    await expect(page.getByText("1 habit entry is waiting to sync.")).toBeVisible();
     await context.unroute(`${endpoint}/**`);
     await page.evaluate(() => { localStorage.removeItem("habit-test-offline"); window.dispatchEvent(new Event("online")); });
     await expect(page.getByRole("button", { name: "Add 1 to Read books" })).toBeEnabled();
+    await expect.poll(async () => (await client.collection("habit_entries").getFullList()).map((entry) => entry.value)).toContain(12);
+    await expect(page.getByText("1 habit entry is waiting to sync.")).toHaveCount(0);
     await page.getByRole("button", { name: "Read books", exact: true }).click();
     await page.getByRole("dialog", { name: "Read books", exact: true }).getByRole("button", { name: "Delete habit" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete habit" }).click();

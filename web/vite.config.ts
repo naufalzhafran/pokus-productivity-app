@@ -18,6 +18,13 @@ export default defineConfig({
         { src: "/pwa-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
         { src: "/pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
       ],
+      shortcuts: [
+        { name: "New capture", short_name: "Capture", url: "/#capture", icons: [{ src: "/pwa-192.png", sizes: "192x192", type: "image/png" }] },
+        { name: "Start focus", short_name: "Focus", url: "/#timer", icons: [{ src: "/pwa-192.png", sizes: "192x192", type: "image/png" }] },
+        { name: "Today", url: "/#today", icons: [{ src: "/pwa-192.png", sizes: "192x192", type: "image/png" }] },
+      ],
+      // Shared links and text open Quick capture prefilled (`src/lib/share-target.ts`).
+      share_target: { action: "/", method: "GET", params: { title: "title", text: "text", url: "url" } },
     },
     workbox: {
       globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],

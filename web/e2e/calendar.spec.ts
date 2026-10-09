@@ -37,7 +37,8 @@ test("calendar shares tasks, habits and reminders with source screens", async ({
     await page.getByRole("button", { name: "Complete Walk outside" }).click();
     await page.getByRole("link", { name: "Habits", exact: true }).click();
     await expect(page.getByRole("button", { name: "Uncheck Walk outside" })).toBeVisible();
-    await page.getByRole("link", { name: "Calendar", exact: true }).last().click();
+    await page.getByRole("link", { name: /^More/ }).click();
+    await page.getByRole("navigation", { name: "More", exact: true }).getByRole("link", { name: "Calendar", exact: true }).click();
     await page.getByRole("tab", { name: "Unscheduled", exact: true }).click();
     await page.getByRole("button", { name: "Set date", exact: true }).click();
     let dialog = page.getByRole("dialog", { name: "Edit task", exact: true });

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/features/AppShell";
@@ -47,5 +47,13 @@ describe("AppShell", () => {
     );
 
     expect(screen.getByLabelText("Pomodoro running, 25:05 remaining")).toBeInTheDocument();
+  });
+  it("keeps phone navigation to five tabs and marks More for pages inside it", () => {
+    render(<AppShell page="habits" session={null} onNavigate={vi.fn()}><p>Habits</p></AppShell>);
+    const [desktop, phone] = screen.getAllByRole("navigation", { name: "Primary navigation" });
+    expect(within(desktop).getAllByRole("link").map((link) => link.textContent)).toEqual(["Timer", "Today", "Projects", "Calendar", "Habits", "Capture", "Knowledge", "Profile"]);
+    expect(within(phone).getAllByRole("link")).toHaveLength(5);
+    expect(within(phone).getByRole("link", { name: "More, Habits" })).toHaveAttribute("href", "#more");
+    expect(within(desktop).getByRole("link", { name: "Habits" })).toHaveAttribute("aria-current", "page");
   });
 });

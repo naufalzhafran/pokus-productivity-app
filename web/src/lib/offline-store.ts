@@ -40,13 +40,28 @@ export async function writeCache<T>(owner: string, key: string, value: T) {
   await (await db()).put("cache", value, `${owner}:${key}`);
 }
 
-/** Removes the account's downloaded workspace from this browser. Pending sessions and reminder claims stay. */
+/** Changes still waiting to sync live in the cache store under `<owner>:pending:<name>`. */
+const pendingKey = (owner: string, name: string) => `${owner}:pending:${name}`;
+export async function readPending<T>(owner: string, name: string): Promise<T[]> {
+  return ((await (await db()).get("cache", pendingKey(owner, name))) as T[] | undefined) ?? [];
+}
+/** Reads and rewrites one pending list in a single transaction, so tabs can't lose each other's changes. */
+export async function updatePending<T>(owner: string, name: string, change: (items: T[]) => T[]) {
+  const tx = (await db()).transaction("cache", "readwrite");
+  const next = change(((await tx.store.get(pendingKey(owner, name))) as T[] | undefined) ?? []);
+  await tx.store.put(next, pendingKey(owner, name));
+  await tx.done;
+  return next;
+}
+
+/** Removes the account's downloaded workspace from this browser. Pending changes and reminder claims stay. */
 export async function clearAccountCache(owner: string) {
   const prefix = `${owner}:`;
   const tx = (await db()).transaction("cache", "readwrite");
   let cursor = await tx.store.openCursor(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
   while (cursor) {
-    if (!String(cursor.key).startsWith(`${prefix}capture-reminder:`)) await cursor.delete();
+    const key = String(cursor.key);
+    if (!key.startsWith(`${prefix}capture-reminder:`) && !key.startsWith(`${prefix}pending:`)) await cursor.delete();
     cursor = await cursor.continue();
   }
   await tx.done;

@@ -34,12 +34,16 @@ export function useCachedResource<T>(key: string, loader: () => Promise<T[]>) {
       }
     };
     const visible = () => { if (document.visibilityState === "visible") void refresh(); };
+    let cachedOnDevice = false;
     void readCache<T[]>(owner, key).then((cached) => {
       if (!alive) return;
-      if (cached) { itemsRef.current = cached; setItems(cached); }
+      if (cached) { cachedOnDevice = true; itemsRef.current = cached; setItems(cached); }
       else if (!navigator.onLine) setError(`No saved ${key} on this device yet.`);
     }).catch(() => { if (alive) setError("Device storage is unavailable."); }).finally(() => {
-      if (alive) { setLoading(false); void refresh(); }
+      if (!alive) return;
+      // With nothing saved yet, keep loading until the first download instead of flashing an empty state.
+      if (cachedOnDevice || !navigator.onLine || !pb.authStore.isValid || pb.authStore.record?.id !== owner) setLoading(false);
+      void refresh();
     });
     window.addEventListener("online", refresh);
     window.addEventListener("pokus-workspace-refresh", refresh);

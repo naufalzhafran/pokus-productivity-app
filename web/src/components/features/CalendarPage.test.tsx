@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CalendarPage } from "@/components/features/CalendarPage";
@@ -16,7 +16,7 @@ const capture: Capture = { id: "capture00000001", kind: "note", title: "Read ref
 function props() {
   return {
     projects: [project], tasks: [task], categories: [], captureStore: { captures: [capture], isLoading: false, loadError: null, previewing: new Set(), createCapture: vi.fn(), updateCapture: vi.fn(), refreshPreview: vi.fn(), deleteCapture: vi.fn(), setCaptureProcessed: vi.fn(), setCaptureReminder: vi.fn(), setCaptureReminderDone: vi.fn() } as CaptureStore,
-    habitStore: { habits: [{ id: "habit", name: "Walk", kind: "check" as const, unit: "", startDay: today, createdAt: 1, targets: [], entries: {} }], isLoading: false, loadError: null, saving: false, create: vi.fn(), edit: vi.fn(), setValue: vi.fn(), increment: vi.fn(), remove: vi.fn() },
+    habitStore: { habits: [{ id: "habit", name: "Walk", kind: "check" as const, unit: "", startDay: today, createdAt: 1, targets: [], entries: {} }], isLoading: false, loadError: null, saving: false, pendingCount: 0, create: vi.fn(), edit: vi.fn(), setValue: vi.fn(), increment: vi.fn(), remove: vi.fn() },
     readOnly: false, loading: false, loadError: null, selectedDay: today,
     onSelect: vi.fn(), onTaskDone: vi.fn().mockResolvedValue(true), onEditTask: vi.fn(), onEditProject: vi.fn(), onCreateCategory: vi.fn(),
   };
@@ -62,5 +62,20 @@ describe("Calendar", () => {
     await user.click(screen.getByRole("button", { name: "Complete reminder" }));
     expect(input.captureStore.setCaptureReminderDone).toHaveBeenCalledWith(capture.id, true);
     expect(input.captureStore.setCaptureProcessed).not.toHaveBeenCalled();
+  });
+  it("adds a task on the selected day and focuses on agenda tasks", async () => {
+    const user = userEvent.setup(); const input = props();
+    const onCreateTask = vi.fn().mockResolvedValue(undefined); const onFocusTask = vi.fn();
+    const tomorrow = addHabitDays(today, 1);
+    const view = render(<CalendarPage {...input} onCreateTask={onCreateTask} onFocusTask={onFocusTask} canFocus />);
+    await user.click(screen.getByRole("button", { name: "Focus on Ship calendar" }));
+    expect(onFocusTask).toHaveBeenCalledWith("task");
+    view.rerender(<CalendarPage {...input} onCreateTask={onCreateTask} onFocusTask={onFocusTask} canFocus={false} selectedDay={tomorrow} />);
+    await user.click(screen.getByRole("button", { name: /^New task on / }));
+    const dialog = await screen.findByRole("dialog", { name: "New task" });
+    expect(await within(dialog).findByLabelText("Task due date")).toHaveValue(tomorrow);
+    await user.type(within(dialog).getByRole("textbox", { name: "Task" }), "Plan the review");
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith(expect.objectContaining({ title: "Plan the review", dueDate: tomorrow, projectId: null })));
   });
 });

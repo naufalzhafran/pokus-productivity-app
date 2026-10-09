@@ -25,6 +25,10 @@ export function overallHabitProgress(habits: Habit[], day: string) {
   const completed = eligible.filter((habit) => habitComplete(habit, day)).length;
   return { completed, total: eligible.length, fraction: eligible.length ? completed / eligible.length : 0 };
 }
+/** True when a habit that has started is still incomplete on this day; nothing to do means no reminder. */
+export function habitsDueOn(habits: Habit[], day: string) {
+  return habits.some((habit) => habit.startDay <= day && !habitComplete(habit, day));
+}
 export function habitStreaks(habits: Habit[], today: string) {
   const days = new Set(habits.flatMap((habit) => Object.keys(habit.entries).filter((day) => day <= today && habitComplete(habit, day))));
   let current = 0; let longest = 0; let run = 0; let previous = "";

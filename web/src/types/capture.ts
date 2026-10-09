@@ -25,6 +25,8 @@ export interface Capture {
   /** One reminder instant, in Unix milliseconds. */
   reminderAt?: number | null;
   reminderDone?: boolean;
+  /** Client-only: saved on this device and waiting to sync, or rejected by the server. */
+  syncState?: "pending" | "failed";
 }
 
 export interface CaptureInput {

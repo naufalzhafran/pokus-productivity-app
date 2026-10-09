@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmPrompt, type ConfirmRequest } from "@/components/features/ConfirmPrompt";
 import { ProjectTasks, type ProjectTasksProps } from "@/components/features/ProjectTasks";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { buildProjectStats, dueLabel, formatFocused, getProjectStatus, isProjectArchived, localDateKey, NO_PROJECT_ID, PROJECT_STATUS_LABELS } from "@/lib/workspace";
@@ -39,6 +40,7 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
   const [editing, setEditing] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const isNoProject = projectId === NO_PROJECT_ID;
   const project = isNoProject ? null : projects.find((item) => item.id === projectId);
   const stats = useMemo(() => buildProjectStats(tasks).get(isNoProject ? NO_PROJECT_ID : projectId), [isNoProject, projectId, tasks]);
@@ -84,9 +86,7 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
                 <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label={`More actions for ${project.title}`} disabled={pending} />}><MoreHorizontal /></DropdownMenuTrigger>
                 <DropdownMenuContent align="end"><DropdownMenuGroup>
                   <DropdownMenuItem disabled={readOnly} onClick={() => void run(() => onArchiveProject(project.id, !archived))}>{archived ? <RotateCcw /> : <Archive />}{archived ? "Restore project" : "Archive project"}</DropdownMenuItem>
-                  <DropdownMenuItem variant="destructive" disabled={readOnly} onClick={() => {
-                    if (window.confirm(`Delete ${project.title}? Its tasks will move to No project.`)) void run(() => onDeleteProject(project.id));
-                  }}><Trash2 />Delete project</DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" disabled={readOnly} onClick={() => setConfirm({ title: `Delete ${project.title}?`, description: "Its tasks move to No project, and its captures and knowledge are kept. This can’t be undone.", confirmLabel: "Delete project", onConfirm: () => void run(() => onDeleteProject(project.id)) })}><Trash2 />Delete project</DropdownMenuItem>
                 </DropdownMenuGroup></DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -134,6 +134,7 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
       <ResponsiveOverlay open={editing} onOpenChange={setEditing} title="Edit project">
         {editing && project ? <Suspense fallback={<Skeleton className="h-64 w-full" />}><ProjectEditor project={project} openTaskCount={stats?.openCount ?? 0} onCancel={() => setEditing(false)} onSave={async (input) => { await onUpdateProject(project.id, input); setEditing(false); }} /></Suspense> : null}
       </ResponsiveOverlay>
+      <ConfirmPrompt request={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }

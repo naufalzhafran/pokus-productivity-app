@@ -1,8 +1,10 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { FolderPlus, FolderSearch, Search, Settings2 } from "lucide-react";
+import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { FolderPlus, FolderSearch, Plus, Search, Settings2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CategoryManager } from "@/components/features/CategoryManager";
 import { ProjectCard } from "@/components/features/ProjectCard";
@@ -10,7 +12,9 @@ import { ProjectEditor } from "@/components/features/ProjectEditor";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { projectHash } from "@/lib/routes";
 import { buildProjectStats, countProjectsByFilter, localDateKey, NO_PROJECT_ID, PROJECT_LIST_FILTERS, selectProjects, type ProjectListFilter, type WorkspaceViewState } from "@/lib/workspace";
-import type { Category, CategoryInput, Project, ProjectInput, Task } from "@/types/task";
+import type { Category, CategoryInput, Project, ProjectInput, Task, TaskInput } from "@/types/task";
+
+const TaskEditor = lazy(() => import("@/components/features/TaskEditor").then((module) => ({ default: module.TaskEditor })));
 
 const filterLabels: Record<ProjectListFilter, string> = { all: "All", active: "Active", planned: "Planned", on_hold: "On hold", completed: "Completed", due: "Due soon", archived: "Archived" };
 
@@ -27,13 +31,17 @@ interface ProjectsPageProps {
   onDeleteCategory: (id: string) => Promise<unknown>;
   /** Ids of captures that still exist, so deleted captures aren't counted. */
   captureIds?: ReadonlySet<string>;
+  /** Adds a task; the project is optional. */
+  onCreateTask?: (input: TaskInput) => Promise<unknown>;
+  onCreateCategory?: (input: CategoryInput) => Promise<Category>;
 }
 
-export function ProjectsPage({ readOnly, projects, tasks, categories, viewState, setViewState, onCreateProject, onOpenProject, onUpdateCategory, onDeleteCategory, captureIds }: ProjectsPageProps) {
+export function ProjectsPage({ readOnly, projects, tasks, categories, viewState, setViewState, onCreateProject, onOpenProject, onUpdateCategory, onDeleteCategory, captureIds, onCreateTask, onCreateCategory }: ProjectsPageProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [creating, setCreating] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
   const [managingCategories, setManagingCategories] = useState(false);
   const today = localDateKey();
   const filter = viewState.projectFilter;
@@ -53,6 +61,7 @@ export function ProjectsPage({ readOnly, projects, tasks, categories, viewState,
           <Button variant="outline" disabled={readOnly} onClick={() => setManagingCategories(true)} aria-label="Manage categories" title="Manage categories">
             <Settings2 /><span className="hidden sm:inline">Categories</span>
           </Button>
+          {onCreateTask ? <Button variant="outline" disabled={readOnly} onClick={() => setCreatingTask(true)}><Plus />New task</Button> : null}
           <Button disabled={readOnly} onClick={() => setCreating(true)}><FolderPlus />New project</Button>
         </div>
       </div>
@@ -89,6 +98,15 @@ export function ProjectsPage({ readOnly, projects, tasks, categories, viewState,
           setCreating(false);
           if (saved) onOpenProject(saved.id);
         }} /> : null}
+      </ResponsiveOverlay>
+      <ResponsiveOverlay open={creatingTask} onOpenChange={setCreatingTask} title="New task">
+        {creatingTask && onCreateTask ? <Suspense fallback={<Skeleton className="h-96 w-full" />}><TaskEditor initialProjectId={null} projects={projects} categories={categories} onCreateCategory={onCreateCategory} onCancel={() => setCreatingTask(false)}
+          onSave={async (input) => {
+            await onCreateTask(input);
+            setCreatingTask(false);
+            const project = projects.find((item) => item.id === input.projectId);
+            toast.success(project ? `Task added to ${project.title}.` : "Task added. Find it under No project.", { action: { label: "View", onClick: () => onOpenProject(input.projectId ?? NO_PROJECT_ID) } });
+          }} /></Suspense> : null}
       </ResponsiveOverlay>
       <ResponsiveOverlay open={managingCategories} onOpenChange={setManagingCategories} title="Manage categories">
         <CategoryManager categories={categories} tasks={tasks} onUpdate={onUpdateCategory} onDelete={onDeleteCategory} />

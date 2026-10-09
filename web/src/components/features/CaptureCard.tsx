@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { BookOpen, CheckCheck, CirclePlay, ClipboardList, ExternalLink, File, FileText, Folder, FolderInput, FolderMinus, FolderPlus, HardDrive, Lightbulb, MessagesSquare, MoreHorizontal, Newspaper, PenTool, Pencil, Play, Presentation, RefreshCw, Sheet, StickyNote, Trash2, Undo2, type LucideIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -134,8 +135,10 @@ interface CaptureCardProps {
   onReminder?: () => void;
 }
 
-export function CaptureCard({ capture, readOnly, pending, loadingPreview, onToggleProcessed, onEdit, onRefreshPreview, onDelete, projects = [], onOrganize, onRemoveFromProject, knowledgeCount = 0, onShowKnowledge, onDistill, onStartProject, onReminder }: CaptureCardProps) {
+export function CaptureCard({ capture, readOnly: offline, pending, loadingPreview, onToggleProcessed, onEdit, onRefreshPreview, onDelete, projects = [], onOrganize, onRemoveFromProject, knowledgeCount = 0, onShowKnowledge, onDistill, onStartProject, onReminder }: CaptureCardProps) {
   const title = captureDisplayTitle(capture);
+  // A capture that hasn't synced exists only on this device: it can be deleted, not edited.
+  const readOnly = offline || Boolean(capture.syncState);
   return <article aria-busy={pending || loadingPreview} aria-label={title} className="flex min-w-0 flex-col overflow-hidden rounded-[min(var(--radius-4xl),24px)] border bg-card text-card-foreground">
     <CapturePreview capture={capture} loading={loadingPreview} />
     {capture.reminderAt && onReminder ? <Button variant="ghost" className="mx-3 mb-3 h-auto min-h-11 justify-start whitespace-normal text-left" onClick={onReminder}>{capture.reminderDone ? "Reminder completed" : "Reminder"} · {new Date(capture.reminderAt).toLocaleString()}</Button> : null}
@@ -158,6 +161,7 @@ export function CaptureCard({ capture, readOnly, pending, loadingPreview, onTogg
       <p className="mr-auto truncate text-xs text-muted-foreground">
         {CAPTURE_KIND_LABELS[capture.kind]} · <time dateTime={new Date(capture.createdAt).toISOString()}>{dateFormatter.format(capture.createdAt)}</time>
       </p>
+      {capture.syncState ? <Badge variant={capture.syncState === "failed" ? "destructive" : "outline"} className="shrink-0">{capture.syncState === "failed" ? "Couldn’t sync" : "Waiting to sync"}</Badge> : null}
       {capture.url ? <a href={capture.url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "ghost", size: "icon-sm" })} aria-label={`Open ${title} in a new tab`} title="Open link"><ExternalLink /></a> : null}
       <Button type="button" variant="ghost" size="icon-sm" disabled={readOnly || pending} onClick={onToggleProcessed}
         aria-label={capture.isProcessed ? `Move ${title} back to inbox` : `Mark ${title} as processed`} title={capture.isProcessed ? "Move back to inbox" : "Mark as processed"}>
@@ -173,7 +177,7 @@ export function CaptureCard({ capture, readOnly, pending, loadingPreview, onTogg
           {onRemoveFromProject ? <DropdownMenuItem onClick={onRemoveFromProject} disabled={readOnly}><FolderMinus />Remove from project</DropdownMenuItem> : null}
           <DropdownMenuItem onClick={onEdit} disabled={readOnly}><Pencil />Edit</DropdownMenuItem>
           {capture.url ? <DropdownMenuItem onClick={onRefreshPreview} disabled={readOnly || loadingPreview}><RefreshCw />Refresh preview</DropdownMenuItem> : null}
-          <DropdownMenuItem variant="destructive" onClick={onDelete} disabled={readOnly}><Trash2 />Delete</DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={onDelete} disabled={capture.syncState ? false : offline}><Trash2 />Delete</DropdownMenuItem>
         </DropdownMenuGroup></DropdownMenuContent>
       </DropdownMenu>
     </div>

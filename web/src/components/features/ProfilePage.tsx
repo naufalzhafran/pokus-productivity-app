@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from "react";
-import { CheckCircle2, Clock3, History, LogOut } from "lucide-react";
+import { CheckCircle2, Clock3, Download, History, LogOut } from "lucide-react";
+import { toast } from "sonner";
 import { UserAvatar } from "@/components/features/UserAvatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,7 +32,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
-import { usePomodoroHistory } from "@/hooks/usePomodoroHistory";
+import { FocusStats } from "@/components/features/FocusStats";
+import { focusStatistics } from "@/lib/focus-stats";
 import { pb } from "@/lib/pocketbase";
 import { getUserDisplayName } from "@/lib/user-profile";
 import type { PomodoroHistoryEntry, Task } from "@/types/task";
@@ -46,6 +48,12 @@ interface ProfilePageProps {
   pendingSessions?: SessionOperation[];
   syncState?: SyncState;
   onRetrySync?: () => void;
+  /** Synced focus history merged with completed sessions waiting to sync, newest first. */
+  history?: PomodoroHistoryEntry[];
+  historyLoading?: boolean;
+  historyError?: string | null;
+  /** Downloads everything this browser has loaded for the account as one JSON file. */
+  onExport?: () => Promise<void>;
 }
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -127,19 +135,20 @@ export function ProfilePage({
   pendingSessions = [],
   syncState,
   onRetrySync,
+  history = [],
+  historyLoading: isLoading = false,
+  historyError: error = null,
+  onExport,
 }: ProfilePageProps) {
   const record = pb.authStore.record;
-  const { history: savedHistory, isLoading, error } = usePomodoroHistory();
-  const history = useMemo(() => {
-    const entries = new Map(savedHistory.map((entry) => [entry.id, entry]));
-    for (const { session } of pendingSessions) {
-      if (session.mode === "complete" && !entries.has(session.id)) entries.set(session.id, {
-        id: session.id, taskId: session.taskId, durationMinutes: session.durationMinutes,
-        focusedSeconds: session.durationMinutes * 60 - session.remainingSeconds, completedAt: session.lastTick,
-      });
-    }
-    return [...entries.values()].sort((a, b) => b.completedAt - a.completedAt);
-  }, [pendingSessions, savedHistory]);
+  const [exporting, setExporting] = useState(false);
+  const exportData = async () => {
+    if (!onExport) return;
+    setExporting(true);
+    try { await onExport(); toast.success("Your data was exported."); }
+    catch { toast.error("Your data could not be exported. Try again."); }
+    finally { setExporting(false); }
+  };
   const [visibleCount, setVisibleCount] = useState(25);
   const [historyAnnouncement, setHistoryAnnouncement] = useState("");
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -150,10 +159,7 @@ export function ProfilePage({
     pb.authStore.clear();
   };
 
-  const totalFocusedSeconds = useMemo(
-    () => history.reduce((total, entry) => total + entry.focusedSeconds, 0),
-    [history],
-  );
+  const stats = useMemo(() => focusStatistics(history), [history]);
   const completedTasks = useMemo(
     () => tasks.filter((task) => task.isDone).length,
     [tasks],
@@ -184,27 +190,13 @@ export function ProfilePage({
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-          <Card size="sm">
-            <CardHeader>
-              <CardDescription>Total focus</CardDescription>
-              <CardTitle className="text-2xl">
-                {formatFocusedTime(totalFocusedSeconds)}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card size="sm">
-            <CardHeader>
-              <CardDescription>Completed tasks</CardDescription>
-              <CardTitle className="text-2xl">{completedTasks}</CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
+        <FocusStats stats={stats} completedTasks={completedTasks} />
         <AppSettings />
         <Card><CardHeader><CardTitle>Sync & account</CardTitle><CardDescription>{pendingSessions.length ? `${pendingSessions.length} session changes saved on this device.` : "All session changes are synced."}</CardDescription></CardHeader>
           <CardContent><p className="text-sm text-muted-foreground" role="status">{syncState?.error ?? (syncState?.syncing ? "Syncing…" : "Pending changes stay on this device until your account reconnects.")}</p></CardContent>
           <CardFooter className="flex flex-col gap-2">
             {pendingSessions.length ? <Button variant="outline" className="w-full" disabled={syncState?.syncing} onClick={onRetrySync}>Retry sync</Button> : null}
+            {onExport ? <Button variant="outline" className="w-full" disabled={exporting} onClick={() => void exportData()}><Download data-icon="inline-start" />{exporting ? "Exporting…" : "Export my data"}</Button> : null}
             {pb.authStore.isValid
               ? <Button variant="ghost" className="w-full" onClick={() => setConfirmSignOut(true)}><LogOut data-icon="inline-start" />Sign out</Button>
               : <Button variant="ghost" className="w-full" onClick={() => pb.authStore.clear()}><LogOut data-icon="inline-start" />Sign in again</Button>}

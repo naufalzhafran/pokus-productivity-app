@@ -7,8 +7,9 @@ import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { habitComplete, habitTarget, parseHabitNumber, formatHabitDay } from "@/lib/habits";
 import type { Habit } from "@/types/habit";
 
-export function HabitDayList({ habits, day, disabled, onSet, onIncrement, onDetail }: {
-  habits: Habit[]; day: string; disabled: boolean; onSet: (habit: Habit, value: number) => Promise<void>;
+export function HabitDayList({ habits, day, disabled, canIncrement = true, onSet, onIncrement, onDetail }: {
+  /** Adding 1 needs a connection; check-ins and totals can be saved offline. */
+  habits: Habit[]; day: string; disabled: boolean; canIncrement?: boolean; onSet: (habit: Habit, value: number) => Promise<void>;
   onIncrement: (habit: Habit) => Promise<void>; onDetail: (habit: Habit) => void;
 }) {
   const [editing, setEditing] = useState<Habit | null>(null);
@@ -23,7 +24,7 @@ export function HabitDayList({ habits, day, disabled, onSet, onIncrement, onDeta
             <p className="text-sm text-muted-foreground">{habit.kind === "check" ? complete ? "Done" : "Not done yet" : `${amount.toLocaleString()} / ${habitTarget(habit, day).toLocaleString()} ${habit.unit}`}</p>
           </div>
           {habit.kind === "check" ? <Button variant={complete ? "secondary" : "outline"} disabled={disabled} aria-label={`${complete ? "Uncheck" : "Complete"} ${habit.name}`} aria-pressed={complete} onClick={() => { void onSet(habit, complete ? 0 : 1).catch(() => {}); }}><Check data-icon="inline-start" />{complete ? "Done" : "Check in"}</Button>
-            : <div className="flex gap-2"><Button variant="outline" disabled={disabled} aria-label={`Add 1 to ${habit.name}`} onClick={() => { void onIncrement(habit).catch(() => {}); }}><Plus data-icon="inline-start" />1</Button><Button variant="outline" disabled={disabled} onClick={() => { setEditing(habit); setValue(String(amount)); setError(null); }} aria-label={`Set total for ${habit.name}`}>Set total</Button></div>}
+            : <div className="flex gap-2"><Button variant="outline" disabled={disabled || !canIncrement} aria-label={`Add 1 to ${habit.name}`} onClick={() => { void onIncrement(habit).catch(() => {}); }}><Plus data-icon="inline-start" />1</Button><Button variant="outline" disabled={disabled} onClick={() => { setEditing(habit); setValue(String(amount)); setError(null); }} aria-label={`Set total for ${habit.name}`}>Set total</Button></div>}
         </li>;
       })}
     </ul>

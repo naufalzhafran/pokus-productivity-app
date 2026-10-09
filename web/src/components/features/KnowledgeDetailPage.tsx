@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { ConfirmPrompt, type ConfirmRequest } from "@/components/features/ConfirmPrompt";
 import { KnowledgeReview } from "@/components/features/KnowledgeReview";
 import type { KnowledgeStore } from "@/hooks/useKnowledge";
 import { CAPTURE_KIND_LABELS, captureDisplayTitle } from "@/lib/capture";
@@ -40,6 +41,7 @@ function ProjectLink({ project }: { project: Project }) {
 export function KnowledgeDetailPage({ knowledgeId, readOnly, store, projects, captures, categories, onEdit, onDeleted }: KnowledgeDetailPageProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [pending, setPending] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const note = store.knowledge.find((item) => item.id === knowledgeId);
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
   const captureMap = useMemo(() => new Map(captures.map((capture) => [capture.id, capture])), [captures]);
@@ -86,7 +88,7 @@ export function KnowledgeDetailPage({ knowledgeId, readOnly, store, projects, ca
                   {evergreen ? <Sprout /> : <TreeDeciduous />}{evergreen ? "Move back to draft" : "Mark as evergreen"}
                 </DropdownMenuItem>
                 <DropdownMenuItem variant="destructive" disabled={readOnly} onClick={() => {
-                  if (window.confirm(`Delete ${note.title}? This can’t be undone.`)) void run(async () => { await store.deleteKnowledge(note.id); onDeleted(); }, "Knowledge deleted.");
+                  setConfirm({ title: `Delete ${note.title}?`, description: "This note will be removed from your knowledge and review queue. This can’t be undone.", confirmLabel: "Delete note", onConfirm: () => void run(async () => { await store.deleteKnowledge(note.id); onDeleted(); }, "Knowledge deleted.") });
                 }}><Trash2 />Delete</DropdownMenuItem>
               </DropdownMenuGroup></DropdownMenuContent>
             </DropdownMenu>
@@ -131,5 +133,6 @@ export function KnowledgeDetailPage({ knowledgeId, readOnly, store, projects, ca
         </div>
       </section>
     </article>
+    <ConfirmPrompt request={confirm} onClose={() => setConfirm(null)} />
   </div>;
 }

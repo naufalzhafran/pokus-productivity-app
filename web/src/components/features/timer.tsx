@@ -172,37 +172,28 @@ export function Timer({
           <AlertDialogHeader>
             <AlertDialogTitle>Stop Pomodoro?</AlertDialogTitle>
             <AlertDialogDescription>
-              {conciseTitle
-                ? `You focused for ${formatElapsed(elapsedSeconds)} on ${conciseTitle}. Save this time or discard it?`
-                : "The countdown will be cleared."}
+              {elapsedSeconds > 0
+                ? `You focused for ${formatElapsed(elapsedSeconds)}${conciseTitle ? ` on ${conciseTitle}` : ""}. Save this time to your history or discard it?`
+                : "Nothing has been timed yet, so there's no time to save."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel aria-label="Continue Pomodoro timer">
               Continue
             </AlertDialogCancel>
-            {taskTitle ? (
-              <AlertDialogAction
-                variant="destructive"
-                aria-label="Discard this focus session"
-                onClick={() =>
-                  onStop({ saveElapsedTime: false, elapsedSeconds })
-                }
-              >
-                Discard
-              </AlertDialogAction>
-            ) : null}
             <AlertDialogAction
-              variant={taskTitle ? "default" : "destructive"}
-              aria-label={taskTitle ? "Save focused time and stop" : "Stop Pomodoro timer"}
-              onClick={() =>
-                onStop({
-                  saveElapsedTime: Boolean(taskTitle),
-                  elapsedSeconds,
-                })
-              }
+              variant="destructive"
+              aria-label="Discard this focus session"
+              onClick={() => onStop({ saveElapsedTime: false, elapsedSeconds })}
             >
-              {taskTitle ? "Save time" : "Stop"}
+              Discard
+            </AlertDialogAction>
+            <AlertDialogAction
+              aria-label="Save focused time and stop"
+              disabled={elapsedSeconds < 1}
+              onClick={() => onStop({ saveElapsedTime: true, elapsedSeconds })}
+            >
+              Save time
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

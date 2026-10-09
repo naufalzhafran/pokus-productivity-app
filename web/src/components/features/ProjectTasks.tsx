@@ -3,9 +3,9 @@ import { ListTodo, Plus, Search, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmPrompt, type ConfirmRequest } from "@/components/features/ConfirmPrompt";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { TaskRow } from "@/components/features/TaskRow";
 import { selectProjectTasks, TASK_BATCH_SIZE, titlePreview, type PriorityFilter, type TaskSort, type TaskStatusFilter, type WorkspaceViewState } from "@/lib/workspace";
@@ -13,6 +13,8 @@ import type { Category, CategoryInput, Project, Task, TaskInput } from "@/types/
 
 const TaskEditor = lazy(() => import("@/components/features/TaskEditor").then((module) => ({ default: module.TaskEditor })));
 const TaskDetail = lazy(() => import("@/components/features/TaskDetail").then((module) => ({ default: module.TaskDetail })));
+// The filter selects load separately to keep a project's first render light.
+const TaskFilters = lazy(() => import("@/components/features/TaskFilters").then((module) => ({ default: module.TaskFilters })));
 
 const taskStatusLabels = { open: "Open", completed: "Completed", all: "All statuses" };
 const priorityFilterLabels = { all: "All priorities", none: "No priority", low: "Low", medium: "Medium", high: "High", urgent: "Urgent" };
@@ -47,6 +49,7 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
   const [pending, setPending] = useState(new Set<string>());
   const pendingRef = useRef(new Set<string>());
   const [announcement, setAnnouncement] = useState("");
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const categoryMap = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
   const projectId = project?.id ?? null;
   const selected = useMemo(() => selectProjectTasks(tasks, projectId, viewState, deferredSearch, categoryMap), [categoryMap, deferredSearch, projectId, tasks, viewState]);
@@ -78,9 +81,8 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
     }
   }, []);
   const confirmDelete = (task: Task) => {
-    if (!window.confirm(`Delete ${titlePreview(task.title)}?`)) return;
     setDetailId(null);
-    void mutate(task.id, () => onDeleteTask(task.id), "Task deleted.");
+    setConfirm({ title: `Delete ${titlePreview(task.title)}?`, description: "Its focus history stays in your profile. This can’t be undone.", confirmLabel: "Delete task", onConfirm: () => void mutate(task.id, () => onDeleteTask(task.id), "Task deleted.") });
   };
 
   const filterSelects = ([
@@ -116,12 +118,7 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
         <Button disabled={readOnly} onClick={() => setEditorTask("new")}><Plus />New task</Button>
       </div>
       <div className="hidden flex-wrap gap-2 sm:flex">
-        {filterSelects.map((filter) => (
-          <Select key={filter.key} items={filter.items} value={filter.value} onValueChange={(value) => filter.onChange(value as string)}>
-            <SelectTrigger aria-label={filter.label} className={filter.width}><SelectValue /></SelectTrigger>
-            <SelectContent><SelectGroup>{Object.entries(filter.items as Record<string, string>).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent>
-          </Select>
-        ))}
+        <Suspense fallback={<Skeleton className="h-9 w-full max-w-xl" />}><TaskFilters filters={filterSelects} /></Suspense>
         {hasFilters ? <Button variant="ghost" onClick={clearFilters}><X />Clear</Button> : null}
       </div>
       <Card size="sm" className="gap-0 py-0">
@@ -177,19 +174,12 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
       </ResponsiveOverlay>
       <ResponsiveOverlay open={filtersOpen} onOpenChange={setFiltersOpen} title="Filter tasks">
         <div className="flex flex-col gap-4">
-          {filterSelects.map((filter) => (
-            <Field key={filter.key}>
-              <FieldLabel>{filter.label}</FieldLabel>
-              <Select items={filter.items} value={filter.value} onValueChange={(value) => filter.onChange(value as string)}>
-                <SelectTrigger aria-label={filter.label} className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectGroup>{Object.entries(filter.items as Record<string, string>).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent>
-              </Select>
-            </Field>
-          ))}
+          {filtersOpen ? <Suspense fallback={<Skeleton className="h-64 w-full" />}><TaskFilters filters={filterSelects} stacked /></Suspense> : null}
           <Button onClick={() => setFiltersOpen(false)}>Show tasks</Button>
           <Button variant="ghost" onClick={clearFilters}>Clear filters</Button>
         </div>
       </ResponsiveOverlay>
+      <ConfirmPrompt request={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }

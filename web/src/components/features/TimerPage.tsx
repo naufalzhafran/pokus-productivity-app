@@ -1,11 +1,12 @@
 import { lazy, Suspense, useState, type ReactNode } from "react";
-import { ListTodo, Minus, Plus, Play } from "lucide-react";
+import { Link2, ListTodo, Minus, Plus, Play } from "lucide-react";
 import { CircularDurationInput } from "@/components/features/CircularDurationInput";
 import { SessionTask } from "@/components/features/SessionTask";
 import { Timer, type TimerStopOptions } from "@/components/features/timer";
 import { TimerCompletion } from "@/components/features/TimerCompletion";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { formatFocusDuration } from "@/lib/focus-stats";
 import type { PomodoroSession, Project, Task } from "@/types/task";
 
 const TaskPickerDialog = lazy(() => import("@/components/features/TaskPickerDialog").then((module) => ({ default: module.TaskPickerDialog })));
@@ -26,6 +27,14 @@ interface TimerPageProps {
   onToggle: () => void;
   onStop: (options: TimerStopOptions) => void;
   onSelectTask: (taskId: string | null) => void;
+  /** Attaches a task to a running session that has none. */
+  onLinkTask?: (taskId: string) => void;
+  /** Adds a task without a project from the task picker. */
+  onCreateTask?: (title: string) => Promise<{ id: string }>;
+  /** Focused seconds today, including sessions waiting to sync. */
+  todaySeconds?: number;
+  /** Shown above the dial before the first session, such as the welcome card. */
+  welcome?: ReactNode;
   onMarkTaskDone: () => Promise<void>;
   onFocusAgain: () => void;
   onViewTasks: () => void;
@@ -34,24 +43,31 @@ interface TimerPageProps {
 }
 export function TimerPage({ session, sessionTask, selectedTask, tasks, projects, duration, remainingSeconds,
   isSaving = false, canEdit = true, syncPending = false, onDurationChange, onStart,
-  onToggle, onStop, onSelectTask, onMarkTaskDone, onFocusAgain, onViewTasks, breakContent }: TimerPageProps) {
+  onToggle, onStop, onSelectTask, onLinkTask, onCreateTask, todaySeconds, welcome, onMarkTaskDone, onFocusAgain, onViewTasks, breakContent }: TimerPageProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const linking = session?.mode === "running";
+  const picker = pickerOpen ? <Suspense fallback={null}><TaskPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} tasks={tasks} projects={projects} linking={linking}
+    selectedTaskId={linking ? null : selectedTask?.id ?? null} onSelect={(taskId) => { if (!linking) onSelectTask(taskId); else if (taskId) onLinkTask?.(taskId); }}
+    onCreateTask={canEdit ? onCreateTask : undefined} /></Suspense> : null;
   if (session?.mode === "complete") return <div className="mx-auto flex min-h-[55svh] max-w-md flex-col justify-center">
     <TimerCompletion durationMinutes={(session.durationMinutes * 60 - session.remainingSeconds) / 60}
-      taskTitle={sessionTask?.title} onMarkTaskDone={sessionTask && canEdit ? onMarkTaskDone : undefined}
+      taskTitle={sessionTask?.title} taskDone={sessionTask?.isDone} onMarkTaskDone={sessionTask && !sessionTask.isDone && canEdit ? onMarkTaskDone : undefined}
       onFocusAgain={onFocusAgain} onViewTasks={onViewTasks} syncPending={syncPending} isSaving={isSaving}>{breakContent}</TimerCompletion>
   </div>;
   if (session?.mode === "running") return <div className="focus-screen mx-auto w-full max-w-xl text-center">
     <div className="mb-5 flex flex-col gap-2">
       <p className="text-sm text-muted-foreground">{session.isActive ? "Time to focus" : "Take a breath"} · {session.durationMinutes} min</p>
       {sessionTask ? <SessionTask title={sessionTask.title} /> : <h2 className="text-xl font-medium">Open focus session</h2>}
+      {!session.taskId && onLinkTask ? <Button variant="outline" size="sm" className="self-center" disabled={isSaving} onClick={() => setPickerOpen(true)}><Link2 data-icon="inline-start" />Link a task</Button> : null}
     </div>
     <Timer durationMinutes={session.durationMinutes} remainingSeconds={remainingSeconds}
       isActive={session.isActive} isSaving={isSaving} sessionTitle={sessionTask?.title ?? "Focus session"}
       taskTitle={sessionTask?.title ?? (session.taskId ? "Your task" : undefined)} onToggle={onToggle} onStop={onStop} />
+    {picker}
   </div>;
   return <div className="focus-screen mx-auto flex w-full max-w-md flex-col items-center gap-4 md:gap-6">
-    <div className="text-center"><h2 className="text-xl font-medium md:text-2xl">Make room for focus.</h2><p className="mt-1 text-sm text-muted-foreground">One session. One thing at a time.</p></div>
+    {welcome}
+    <div className="text-center"><h2 className="text-xl font-medium md:text-2xl">Make room for focus.</h2><p className="mt-1 text-sm text-muted-foreground">{todaySeconds ? `${formatFocusDuration(todaySeconds)} focused today. One thing at a time.` : "One session. One thing at a time."}</p></div>
     <div className="focus-dial setup-dial relative aspect-square">
       <CircularDurationInput value={duration} onChange={onDurationChange} min={1} max={60} size={540} strokeWidth={10}
         ariaLabel="Pomodoro duration in minutes" ariaValueText={`${duration} minutes`}>
@@ -69,6 +85,6 @@ export function TimerPage({ session, sessionTask, selectedTask, tasks, projects,
       <Button variant="ghost" size="icon" aria-label="Increase duration" disabled={duration >= 60 || isSaving} onClick={() => onDurationChange(duration + 1)}><Plus /></Button>
     </div>
     <Button size="lg" className="focus-primary w-full" disabled={isSaving} onClick={onStart}><Play data-icon="inline-start" />{isSaving ? "Saving…" : "Start focus"}</Button>
-    {pickerOpen ? <Suspense fallback={null}><TaskPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} tasks={tasks} projects={projects} selectedTaskId={selectedTask?.id ?? null} onSelect={onSelectTask} /></Suspense> : null}
+    {picker}
   </div>;
 }

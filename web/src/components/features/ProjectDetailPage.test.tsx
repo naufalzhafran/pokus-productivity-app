@@ -26,7 +26,7 @@ describe("ProjectDetailPage", () => {
     expect(screen.getByText("0/1 task done")).toBeInTheDocument();
     expect(await screen.findByText("Ship the beta")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute("href", "#projects");
-    expect(screen.getByRole("combobox", { name: "Task status" })).toHaveTextContent("Open");
+    expect(await screen.findByRole("combobox", { name: "Task status" })).toHaveTextContent("Open");
     expect(screen.getByLabelText("Priority: High")).toBeInTheDocument();
     expect(screen.getByText("Writing")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /open details/i }));

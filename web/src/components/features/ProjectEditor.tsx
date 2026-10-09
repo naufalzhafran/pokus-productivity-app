@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmPrompt, type ConfirmRequest } from "@/components/features/ConfirmPrompt";
 import { getProjectStatus, PROJECT_STATUS_LABELS, PROJECT_TITLE_MAX_LENGTH } from "@/lib/workspace";
 import type { Project, ProjectInput, ProjectStatus } from "@/types/task";
 
@@ -25,16 +26,20 @@ export function ProjectEditor({ project, openTaskCount = 0, onCancel, onSave }: 
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const submit = async (event?: FormEvent, confirmed = false) => {
+    event?.preventDefault();
     const title = input.title.trim();
     if (!title || title.length > PROJECT_TITLE_MAX_LENGTH) {
       setError("Enter a project name up to 120 characters.");
       return;
     }
     const completing = input.status === "completed" && (!project || getProjectStatus(project) !== "completed");
-    if (completing && openTaskCount && !window.confirm(`Mark this project Completed with ${openTaskCount} open ${openTaskCount === 1 ? "task" : "tasks"}?`)) return;
+    if (completing && openTaskCount && !confirmed) {
+      setConfirm({ title: "Complete this project?", description: `It still has ${openTaskCount} open ${openTaskCount === 1 ? "task" : "tasks"}. They stay open and keep their dates.`, confirmLabel: "Mark completed", destructive: false, onConfirm: () => void submit(undefined, true) });
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -78,6 +83,7 @@ export function ProjectEditor({ project, openTaskCount = 0, onCancel, onSave }: 
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={saving}>{saving ? "Saving…" : project ? "Save changes" : "Create project"}</Button>
       </div>
+      <ConfirmPrompt request={confirm} onClose={() => setConfirm(null)} />
     </form>
   );
 }

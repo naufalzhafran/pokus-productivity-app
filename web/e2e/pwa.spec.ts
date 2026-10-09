@@ -4,7 +4,12 @@ import axe from "axe-core";
 
 const endpoint = "http://127.0.0.1:8099";
 async function tab(page: Page, name: string) {
-  await page.getByRole("navigation", { name: "Primary navigation" }).filter({ visible: true }).getByRole("link", { name, exact: name !== "Timer" }).click();
+  const navigation = page.getByRole("navigation", { name: "Primary navigation" }).filter({ visible: true });
+  const link = navigation.getByRole("link", { name, exact: name !== "Timer" });
+  if (await link.count()) { await link.click(); return; }
+  // Phones reach Calendar, Habits, Knowledge, and Profile through More.
+  await navigation.getByRole("link", { name: /^More/ }).click();
+  await page.getByRole("navigation", { name: "More", exact: true }).getByRole("link", { name, exact: true }).click();
 }
 // The seeded task has no project, so it lives under the "No project" card.
 async function openTasks(page: Page) {
@@ -100,7 +105,7 @@ test("an update waits for a paused session and an open editor", async ({ page, r
   const update = page.getByRole("button", { name: "Update app" });
   await expect(update).toBeDisabled();
   await page.getByRole("button", { name: "Stop Pomodoro timer", exact: true }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Stop Pomodoro timer", exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Discard this focus session", exact: true }).click();
   await expect(update).toBeEnabled();
   await openTasks(page);
   await page.getByRole("button", { name: "New task", exact: true }).click();
