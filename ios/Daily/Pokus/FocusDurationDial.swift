@@ -35,11 +35,11 @@ struct FocusDurationDial<Content: View>: View {
             ZStack {
                 Circle().stroke(Color(uiColor: .systemGray5), lineWidth: 10).padding(inset)
                 Circle().trim(from: 0, to: fraction)
-                    .stroke(Color.blue, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .rotationEffect(.degrees(-90)).padding(inset)
                 content.padding(min(24, side * 0.1)).allowsHitTesting(false)
                 if progress == nil {
-                    Circle().fill(Color.blue).frame(width: 22, height: 22)
+                    Circle().fill(Color.accentColor).frame(width: 22, height: 22)
                         .overlay { Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 3) }
                         .offset(x: radius * cos(angle), y: radius * sin(angle))
                         .allowsHitTesting(false)

@@ -717,7 +717,7 @@ import XCTest
 
     func testSignedOutShellGuardsHabits() {
         let app = XCUIApplication(); app.launchArguments = ["-ui-testing"]; app.launch()
-        XCTAssertTrue(app.navigationBars["Pocus"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Focus"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Continue with Google"].exists)
         app.tabBars.buttons["Today"].tap()
         XCTAssertTrue(app.buttons["Continue with Google"].waitForExistence(timeout: 5))
@@ -742,7 +742,7 @@ import XCTest
         let pause = app.buttons["Pause"]
         XCTAssertTrue(pause.waitForExistence(timeout: 5)); pause.tap()
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
-        app.tabBars.buttons["Today"].tap(); app.tabBars.buttons["Pocus"].tap()
+        app.tabBars.buttons["Today"].tap(); app.tabBars.buttons["Focus"].tap()
         XCTAssertTrue(app.buttons["Resume"].exists); app.buttons["Resume"].tap()
         XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
         app.buttons["Stop"].tap()
@@ -875,7 +875,7 @@ import XCTest
             XCTAssertTrue(picker.waitForExistence(timeout: 5))
             picker.tap()
             app.buttons[appearance].tap()
-            app.tabBars.buttons["Pocus"].tap()
+            app.tabBars.buttons["Focus"].tap()
             for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
                 XCUIDevice.shared.orientation = orientation
                 let start = app.buttons["startFocus"]

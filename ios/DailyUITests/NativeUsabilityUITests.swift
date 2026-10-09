@@ -94,7 +94,7 @@ import XCTest
         app.launchArguments = ["-ui-testing"] + (signedIn ? ["-ui-testing-pokus"] : [])
         if accessibilityText { app.launchArguments.append("-ui-testing-accessibility") }
         app.launch()
-        XCTAssertTrue(app.navigationBars["Pocus"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Focus"].waitForExistence(timeout: 10))
         if signedIn { XCTAssertTrue(app.buttons["startFocus"].waitForExistence(timeout: 10)) }
         return app
     }

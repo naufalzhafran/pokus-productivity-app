@@ -65,7 +65,7 @@ struct PokusTimerView: View {
         }
         .background(Color(uiColor: .systemBackground))
         .saveAlert(taskSave)
-        .navigationTitle("Pocus")
+        .navigationTitle("Focus")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Stop this focus session?", isPresented: $stopping) {
             Button("Continue", role: .cancel) { }
