@@ -34,8 +34,6 @@ The existing Daily bundle identifier and habit store are preserved for upgrades.
 See [native setup and release checks](Docs/PokusNative.md) for Google OAuth deployment,
 architecture, tests, and the pending physical-device verification checklist.
 
-Original Daily habit previews: [Today](Docs/Screenshots/Today.png) · [Overall progress](Docs/Screenshots/Progress.png) · [Habit progress](Docs/Screenshots/Habit.png) · [Dark mode](Docs/Screenshots/Dark.png)
-
 ## Run
 
 ### In the simulator

@@ -861,6 +861,6 @@ Implements `notes/review/ios-ux-review.md`.
   account can, otherwise add it in the developer portal.
 
 No simulator runtime was installed on the build machine, so simulator UI tests
-were not run and `Docs/Screenshots` was not refreshed. `swift test` and the
-generic iOS Simulator build pass.
+were not run. `swift test` and the generic iOS Simulator build pass. The outdated
+Daily screenshots in `Docs/Screenshots` were removed.
 
