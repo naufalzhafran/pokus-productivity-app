@@ -172,7 +172,7 @@ extension PocketBaseClient {
         let baselineIDs = records.filter { $0.kind == "number" && $0.startDay <= first.rawValue }.map(\.id)
         var effective = try await effectiveTargets(baselineIDs, on: first), target = try await targetStream.next()
         let byID = Dictionary(records.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
-        var completed: [DayKey: Int] = [:], individualEntries: [DayKey: Double] = [:], individualTargets: [TargetChange] = []
+        var completed: [DayKey: Int] = [:], credit: [DayKey: Double] = [:], individualEntries: [DayKey: Double] = [:], individualTargets: [TargetChange] = []
         if let habit, let baseline = effective[habit] { individualTargets.append(TargetChange(day: first, target: baseline)) }
         while let entry = try await entries.next() {
             while let revision = target, revision.day <= entry.day {
@@ -186,6 +186,7 @@ extension PocketBaseClient {
             let threshold = record.kind == "check" ? 1 : effective[entry.habit]
             guard let threshold else { throw PokusError.message("A habit's historical target is missing.") }
             if entry.value >= threshold { completed[day, default: 0] += 1 }
+            credit[day, default: 0] += min(entry.value / threshold, 1)
             if entry.habit == habit { individualEntries[day] = entry.value }
         }
         while let revision = target {
@@ -200,7 +201,7 @@ extension PocketBaseClient {
         var eligible = 0
         for day in DayKey.days(from: first, through: last) {
             while eligible < starts.count && starts[eligible] <= day { eligible += 1 }
-            progress[day] = DayProgress(completed: completed[day] ?? 0, total: eligible)
+            progress[day] = DayProgress(completed: completed[day] ?? 0, total: eligible, credit: credit[day] ?? 0)
         }
         var individual: HabitHistory?
         if let record = records.first, habit != nil, let kind = HabitKind(rawValue: record.kind), let start = DayKey(rawValue: record.startDay) {

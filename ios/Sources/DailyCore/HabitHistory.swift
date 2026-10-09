@@ -87,14 +87,17 @@ public struct Streaks: Equatable, Sendable {
 public struct DayProgress: Equatable, Sendable {
     public let completed: Int
     public let total: Int
-    public var fraction: Double { total == 0 ? 0 : Double(completed) / Double(total) }
-    public init(completed: Int, total: Int) { self.completed = completed; self.total = total }
+    /// Sum of each habit's partial progress (capped at 1 per habit); nil means only completed habits count.
+    public let credit: Double?
+    public var fraction: Double { total == 0 ? 0 : min((credit ?? Double(completed)) / Double(total), 1) }
+    public init(completed: Int, total: Int, credit: Double? = nil) { self.completed = completed; self.total = total; self.credit = credit }
 }
 
 public enum ProgressCalculator {
     public static func progress(on day: DayKey, habits: [HabitHistory]) -> DayProgress {
         let eligible = habits.filter { $0.startDay <= day }
-        return DayProgress(completed: eligible.filter { $0.isComplete(on: day) }.count, total: eligible.count)
+        return DayProgress(completed: eligible.filter { $0.isComplete(on: day) }.count, total: eligible.count,
+            credit: eligible.reduce(0) { $0 + $1.fraction(on: day) })
     }
 
     public static func streaks(habits: [HabitHistory], today: DayKey) -> Streaks {
