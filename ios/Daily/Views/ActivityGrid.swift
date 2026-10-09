@@ -161,7 +161,7 @@ struct ActivityGrid: View {
 
     private var calendar: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 44), spacing: 0), count: 7), spacing: 4) {
-            ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { _, label in
+            ForEach(Array(DayKey.weekdaySymbols(firstWeekday: month.firstWeekday).enumerated()), id: \.offset) { _, label in
                 Text(label).font(.caption).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
                     .accessibilityHidden(true)

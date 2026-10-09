@@ -31,8 +31,31 @@ public struct DayKey: Hashable, Comparable, Codable, Sendable, Identifiable {
 
     public var year: Int { Self.calendar.component(.year, from: date) }
     public var month: Int { Self.calendar.component(.month, from: date) }
-    /// Monday = 0, Sunday = 6.
-    public var weekdayIndex: Int { (Self.calendar.component(.weekday, from: date) + 5) % 7 }
+    /// The device's first day of the week (1 = Sunday, 2 = Monday), as `Calendar.firstWeekday` reports it.
+    public static var firstWeekday: Int { Calendar.autoupdatingCurrent.firstWeekday }
+    /// Position in a week that starts on the device's first weekday: 0 is the first column, 6 the last.
+    public var weekdayIndex: Int { weekdayIndex(firstWeekday: Self.firstWeekday) }
+    /// Position in a week that starts on `firstWeekday` (1 = Sunday … 7 = Saturday).
+    public func weekdayIndex(firstWeekday: Int) -> Int {
+        (Self.calendar.component(.weekday, from: date) - firstWeekday + 7) % 7
+    }
+    /// The first day of the week containing this date.
+    public func startOfWeek(firstWeekday: Int = Self.firstWeekday) -> Self {
+        adding(days: -weekdayIndex(firstWeekday: firstWeekday))
+    }
+    /// Very short weekday symbols ordered from `firstWeekday`, e.g. "S M T W T F S" for a Sunday start.
+    public static func weekdaySymbols(firstWeekday: Int = Self.firstWeekday, locale: Locale = .autoupdatingCurrent) -> [String] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = locale
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        let start = min(7, max(1, firstWeekday)) - 1
+        return Array(symbols[start...] + symbols[..<start])
+    }
+    /// Every day from the start of the week containing `start` through the end of the week containing `end`.
+    public static func weeks(from start: Self, through end: Self, firstWeekday: Int = Self.firstWeekday) -> [Self] {
+        days(from: start.startOfWeek(firstWeekday: firstWeekday),
+             through: end.startOfWeek(firstWeekday: firstWeekday).adding(days: 6))
+    }
 
     public func adding(days: Int) -> Self {
         Self(date: Self.calendar.date(byAdding: .day, value: days, to: date)!, timeZone: Self.calendar.timeZone)
@@ -57,12 +80,10 @@ public struct DayKey: Hashable, Comparable, Codable, Sendable, Identifiable {
         return (0...count).map { start.adding(days: $0) }
     }
 
-    public static func yearGrid(_ year: Int) -> [[Self]] {
+    public static func yearGrid(_ year: Int, firstWeekday: Int = Self.firstWeekday) -> [[Self]] {
         guard let first = Self(rawValue: String(format: "%04d-01-01", year)),
               let last = Self(rawValue: String(format: "%04d-12-31", year)) else { return [] }
-        let start = first.adding(days: -first.weekdayIndex)
-        let end = last.adding(days: 6 - last.weekdayIndex)
-        let dates = days(from: start, through: end)
+        let dates = weeks(from: first, through: last, firstWeekday: firstWeekday)
         return stride(from: 0, to: dates.count, by: 7).map { Array(dates[$0..<($0 + 7)]) }
     }
 

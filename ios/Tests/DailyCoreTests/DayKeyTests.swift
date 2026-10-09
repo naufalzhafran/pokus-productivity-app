@@ -28,14 +28,52 @@ final class DayKeyTests: XCTestCase {
         XCTAssertEqual(DayKey.days(from: spring, through: spring.adding(days: 2)).count, 3)
     }
 
-    func testYearGridContainsEveryDateOnceWithMondayRows() {
-        for year in [2024, 2026, 2028] {
-            let weeks = DayKey.yearGrid(year)
-            XCTAssertTrue(weeks.allSatisfy { $0.count == 7 && $0[0].weekdayIndex == 0 && $0[6].weekdayIndex == 6 })
-            let dates = weeks.flatMap { $0 }.filter { $0.year == year }
-            XCTAssertEqual(dates.count, year == 2026 ? 365 : 366)
-            XCTAssertEqual(Set(dates).count, dates.count)
+    func testYearGridContainsEveryDateOnceForMondayAndSundayStarts() {
+        for firstWeekday in [1, 2] {
+            for year in [2024, 2026, 2028] {
+                let weeks = DayKey.yearGrid(year, firstWeekday: firstWeekday)
+                XCTAssertTrue(weeks.allSatisfy {
+                    $0.count == 7 && $0[0].weekdayIndex(firstWeekday: firstWeekday) == 0 && $0[6].weekdayIndex(firstWeekday: firstWeekday) == 6
+                })
+                let dates = weeks.flatMap { $0 }.filter { $0.year == year }
+                XCTAssertEqual(dates.count, year == 2026 ? 365 : 366)
+                XCTAssertEqual(Set(dates).count, dates.count)
+            }
         }
+        // 2026-01-01 is a Thursday.
+        XCTAssertEqual(DayKey.yearGrid(2026, firstWeekday: 2)[0][0].rawValue, "2025-12-29")
+        XCTAssertEqual(DayKey.yearGrid(2026, firstWeekday: 1)[0][0].rawValue, "2025-12-28")
+    }
+
+    func testWeekdayIndexFollowsTheFirstWeekday() {
+        let sunday = DayKey(rawValue: "2026-10-04")!, monday = DayKey(rawValue: "2026-10-05")!
+        XCTAssertEqual(sunday.weekdayIndex(firstWeekday: 1), 0)
+        XCTAssertEqual(monday.weekdayIndex(firstWeekday: 1), 1)
+        XCTAssertEqual(sunday.weekdayIndex(firstWeekday: 2), 6)
+        XCTAssertEqual(monday.weekdayIndex(firstWeekday: 2), 0)
+        XCTAssertEqual(DayKey(rawValue: "2026-10-08")!.startOfWeek(firstWeekday: 1), sunday)
+        XCTAssertEqual(DayKey(rawValue: "2026-10-08")!.startOfWeek(firstWeekday: 2), monday)
+        XCTAssertEqual(sunday.startOfWeek(firstWeekday: 2).rawValue, "2026-09-28")
+    }
+
+    func testWeeksCoverWholeWeeksFromTheFirstWeekday() {
+        let first = DayKey(rawValue: "2026-10-01")!, last = DayKey(rawValue: "2026-10-31")!
+        let mondayWeeks = DayKey.weeks(from: first, through: last, firstWeekday: 2)
+        XCTAssertEqual(mondayWeeks.first?.rawValue, "2026-09-28")
+        XCTAssertEqual(mondayWeeks.last?.rawValue, "2026-11-01")
+        XCTAssertEqual(mondayWeeks.count % 7, 0)
+        let sundayWeeks = DayKey.weeks(from: first, through: last, firstWeekday: 1)
+        XCTAssertEqual(sundayWeeks.first?.rawValue, "2026-09-27")
+        XCTAssertEqual(sundayWeeks.last?.rawValue, "2026-10-31")
+        XCTAssertEqual(sundayWeeks.count, 35)
+    }
+
+    func testWeekdaySymbolsRotateToTheFirstWeekday() {
+        let english = Locale(identifier: "en_US")
+        XCTAssertEqual(DayKey.weekdaySymbols(firstWeekday: 1, locale: english), ["S", "M", "T", "W", "T", "F", "S"])
+        XCTAssertEqual(DayKey.weekdaySymbols(firstWeekday: 2, locale: english), ["M", "T", "W", "T", "F", "S", "S"])
+        XCTAssertEqual(DayKey.weekdaySymbols(firstWeekday: 7, locale: english).first, "S")
+        XCTAssertEqual(DayKey.weekdaySymbols(firstWeekday: 2, locale: Locale(identifier: "fr_FR")).count, 7)
     }
 }
 

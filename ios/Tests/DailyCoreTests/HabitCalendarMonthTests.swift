@@ -3,7 +3,7 @@ import XCTest
 
 final class HabitCalendarMonthTests: XCTestCase {
     func testGridIncludesLeapDayOnceAndPadsOnlyOutsideMonth() {
-        let month = HabitCalendarMonth(containing: DayKey(rawValue: "2024-02-20")!)
+        let month = HabitCalendarMonth(containing: DayKey(rawValue: "2024-02-20")!, firstWeekday: 2)
         XCTAssertEqual(month.firstDay.rawValue, "2024-02-01")
         XCTAssertEqual(month.days.count, 29)
         XCTAssertEqual(month.grid.count, 35)
@@ -30,11 +30,21 @@ final class HabitCalendarMonthTests: XCTestCase {
     }
 
     func testSixWeekMonthAndDateLimits() {
-        let month = HabitCalendarMonth(containing: DayKey(rawValue: "2026-03-01")!)
+        let month = HabitCalendarMonth(containing: DayKey(rawValue: "2026-03-01")!, firstWeekday: 2)
         XCTAssertEqual(month.grid.count, 42)
         XCTAssertEqual(month.grid[6]?.rawValue, "2026-03-01")
         XCTAssertNil(HabitCalendarMonth(containing: DayKey(rawValue: "0001-01-01")!).adding(months: -1))
         XCTAssertNil(HabitCalendarMonth(containing: DayKey(rawValue: "9999-12-01")!).adding(months: 1))
+    }
+
+    func testSundayStartShiftsTheLeadingPadding() {
+        let march = HabitCalendarMonth(containing: DayKey(rawValue: "2026-03-14")!, firstWeekday: 1)
+        XCTAssertEqual(march.grid.first??.rawValue, "2026-03-01")
+        XCTAssertEqual(march.grid.count, 35)
+        let february = HabitCalendarMonth(containing: DayKey(rawValue: "2024-02-20")!, firstWeekday: 1)
+        XCTAssertEqual(february.grid.prefix(4).filter { $0 == nil }.count, 4)
+        XCTAssertEqual(february.grid[4]?.rawValue, "2024-02-01")
+        XCTAssertEqual(february.adding(months: 1)?.firstWeekday, 1)
     }
 
     func testGregorianCutoverDoesNotIncludeFollowingMonth() {

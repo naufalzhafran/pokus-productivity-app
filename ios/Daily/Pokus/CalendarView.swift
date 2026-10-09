@@ -25,12 +25,13 @@ struct PokusCalendarView: View {
     @State private var habitToView: UUID?
     @State private var showingReminderInfo = false
     @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .caption2) private var markerSize: CGFloat = 10
 
     private var selectedDay: DayKey { showsMonth ? pickedDay ?? today : today }
     private var first: DayKey { DayKey(rawValue: String(format: "%04d-%02d-01", month.year, month.month))! }
     private var nextMonth: DayKey { first.adding(days: 32).firstOfCalendarMonth }
     private var last: DayKey { nextMonth.adding(days: -1) }
-    private var days: [DayKey] { DayKey.days(from: first.adding(days: -first.weekdayIndex), through: last.adding(days: 6 - last.weekdayIndex)) }
+    private var days: [DayKey] { DayKey.weeks(from: first, through: last) }
     private var windowStart: DayKey { showsMonth ? days[0] : today }
     private var windowEnd: DayKey { showsMonth ? days[days.count - 1] : today }
     private var items: [CalendarItem] { window.value?.items.filter { $0.day == selectedDay } ?? [] }
@@ -121,7 +122,7 @@ struct PokusCalendarView: View {
             }
             VStack(spacing: 5) {
                 HStack(spacing: 0) {
-                    ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { _, title in
+                    ForEach(Array(DayKey.weekdaySymbols().enumerated()), id: \.offset) { _, title in
                         Text(title).font(.caption).foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity).accessibilityHidden(true)
                     }
@@ -136,15 +137,17 @@ struct PokusCalendarView: View {
             }
             if window.isLoading { ProgressView("Loading calendar").font(.footnote) }
             if let error = window.error { ReadError(message: error) { retry += 1 } }
-            HStack(spacing: 12) {
-                Label("Projects", systemImage: "folder")
-                Label("Tasks", systemImage: "checklist")
-            }.font(.caption).foregroundStyle(.secondary)
-            HStack(spacing: 12) {
-                Label("Habits", systemImage: "checkmark.circle")
-                Label("Reminders", systemImage: "bell")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { markerLegend }
+                VStack(alignment: .leading, spacing: 4) { markerLegend }
             }.font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    @ViewBuilder private var markerLegend: some View {
+        Label("Project deadlines", systemImage: "folder")
+        Label("Tasks", systemImage: "checklist")
+        Label("Reminders", systemImage: "bell")
     }
 
     private func dayButton(_ date: DayKey) -> some View {
@@ -153,8 +156,10 @@ struct PokusCalendarView: View {
                 Text(String(Int(date.rawValue.suffix(2)) ?? 0)).fontWeight(date == today ? .bold : .regular)
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
                 HStack(spacing: 2) {
-                    ForEach(markers(date), id: \.self) { symbol in Image(systemName: symbol).font(.system(size: 7)) }
-                }.frame(height: 9).accessibilityHidden(true)
+                    ForEach(markers(date), id: \.self) { symbol in
+                        Image(systemName: symbol).font(.system(size: min(markerSize, 16), weight: .semibold))
+                    }
+                }.frame(minHeight: min(markerSize, 16) + 2).accessibilityHidden(true)
             }.frame(maxWidth: .infinity, minHeight: 44)
                 .background(date == selectedDay ? DailyTheme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 9))
                 .foregroundStyle(date == selectedDay ? Color.white : date.month == month.month ? Color.primary : Color.secondary)
@@ -300,12 +305,12 @@ struct PokusCalendarView: View {
     }
     private func markers(_ date: DayKey) -> [String] {
         let items = window.value?.items.filter { $0.day == date } ?? []
+        // Habits recur every day, so they're listed in the day's agenda rather than marked on the grid.
         return [(items.contains { $0.kind == .project }, "folder"), (items.contains { $0.kind == .task }, "checklist"),
-                (window.value?.habits.contains { $0.startDay <= date.rawValue } ?? false, "checkmark.circle"),
                 (items.contains { $0.kind == .reminder }, "bell")].filter(\.0).map(\.1)
     }
     private func markerDescription(_ date: DayKey) -> String {
-        let labels = ["folder": "Projects", "checklist": "Tasks", "checkmark.circle": "Habits", "bell": "Reminders"]
+        let labels = ["folder": "Project deadlines", "checklist": "Tasks", "bell": "Reminders"]
         return markers(date).compactMap { labels[$0] }.joined(separator: ", ")
     }
 }
