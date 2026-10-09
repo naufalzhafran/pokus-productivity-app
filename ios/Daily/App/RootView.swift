@@ -12,9 +12,8 @@ struct RootView: View {
     @AppStorage("pokus.appearance") private var appearance = "system"
     @State private var today = DayKey()
     @State private var selectedTab = 0
-    @State private var captureReturnTab = 0
-    @State private var captureDraftID = UUID()
-    @State private var captureConfirmation = false
+    @State private var creating: Creation?
+    @State private var savedNotice: String?
     @State private var habitsProgress = false
     @State private var habitNavigationID = UUID()
     @State private var libraryPath: [LibraryRoute] = []
@@ -38,11 +37,11 @@ struct RootView: View {
                     recover: { Task { await recoverFromError() } },
                     dismiss: { pokus.error = nil })
             }
-            if captureConfirmation {
+            if let savedNotice {
                 HStack {
-                    Label("Capture saved", systemImage: "checkmark.circle")
+                    Label(savedNotice, systemImage: "checkmark.circle")
                     Spacer()
-                    Button { captureConfirmation = false } label: {
+                    Button { self.savedNotice = nil } label: {
                         Label("Dismiss", systemImage: "xmark").labelStyle(.iconOnly)
                             .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                     }.accessibilityIdentifier("dismissCaptureSaved")
@@ -51,21 +50,12 @@ struct RootView: View {
                     .accessibilityIdentifier("captureSavedNotice")
             }
             TabView(selection: $selectedTab) {
-                NavigationStack { PokusTimerView(model: pokus, isVisible: selectedTab == 0) }
+                NavigationStack { PokusTimerView(model: pokus, isVisible: selectedTab == 0, newCapture: newCapture) }
                     .tabItem { Label("Focus", systemImage: "timer") }.tag(0)
                 NavigationStack {
-                    PokusCalendarView(model: pokus, today: today, showsMonth: false, openHabits: openHabits, selectedCapture: $selectedCapture)
+                    PokusCalendarView(model: pokus, today: today, showsMonth: false, openHabits: openHabits, selectedCapture: $selectedCapture,
+                                      newCapture: newCapture, newTask: newTask, openTimer: { selectedTab = 0 })
                 }.id(pokus.scope?.generation).tabItem { Label("Today", systemImage: "sun.max") }.tag(2)
-                Group {
-                    if pokus.account != nil {
-                        CaptureEditorView(model: pokus, showsCancelButton: false, onClose: {
-                            if selectedTab == 1 { selectedTab = captureReturnTab }
-                            captureDraftID = UUID()
-                        }, onSaved: { _ in captureConfirmation = true }).id("\(captureDraftID)-\(pokus.account?.id ?? "signedout")")
-                    } else {
-                        NavigationStack { AccountNotice(model: pokus).navigationTitle("New capture") }
-                    }
-                }.tabItem { Label("Capture", systemImage: "plus.circle.fill") }.tag(1)
                 NavigationStack(path: $libraryPath) { PokusLibraryView(model: pokus, habitStore: habitStore, today: today, habitsProgress: $habitsProgress) }
                     .id("\(habitNavigationID)-\(pokus.scope?.generation.uuidString ?? "signedout")")
                     .tabItem { Label("Library", systemImage: "books.vertical") }.tag(4)
@@ -73,16 +63,21 @@ struct RootView: View {
                     .tabItem { Label("Profile", systemImage: "person.crop.circle") }.tag(3)
             }
         }
-        .onChange(of: selectedTab) { previous, current in
-            if current == 1 { captureReturnTab = previous }
+        .sheet(item: $creating) { creation in
+            switch creation {
+            case .capture:
+                CaptureEditorView(model: pokus, onSaved: { _ in savedNotice = "Capture saved" })
+            case .task:
+                TaskEditorView(model: pokus, original: nil, projectID: "", onSaved: { _ in savedNotice = "Task saved" })
+            }
         }
         .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
-        .onChange(of: selectedTab) { _, current in if current == 1 { captureConfirmation = false } }
+        .onChange(of: creating) { _, next in if next != nil { savedNotice = nil } }
         .transformEnvironment(\.dynamicTypeSize) { size in
             if ProcessInfo.processInfo.arguments.contains("-ui-testing-accessibility") { size = .accessibility5 }
         }
         .onChange(of: pokus.account?.id) { _, owner in
-            captureConfirmation = false
+            savedNotice = nil; creating = nil
             selectedCapture = nil; libraryPath = []
             routeNotification()
             Task { await reminders.setAccountAvailable(owner != nil || localPreview) }
@@ -146,6 +141,9 @@ struct RootView: View {
         else if pokus.account == nil || pokus.authentication?.isValid == false { await pokus.signIn() }
         else { await pokus.refresh() }
     }
+    private enum Creation: String, Identifiable { case capture, task; var id: String { rawValue } }
+    private var newCapture: (() -> Void)? { pokus.account == nil ? nil : { creating = .capture } }
+    private var newTask: (() -> Void)? { pokus.account == nil ? nil : { creating = .task } }
     private func openHabits() { selectedTab = 4; habitsProgress = false; libraryPath = [.habits] }
     private func refreshDate() {
         let newDay = DayKey()

@@ -15,7 +15,7 @@ struct PokusLibraryView: View {
     @State private var retry = 0
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .body) private var destinationSymbolSize: CGFloat = 22
-    private enum Creation: String, Identifiable { case capture, note, project; var id: String { rawValue } }
+    private enum Creation: String, Identifiable { case capture, note, task, project; var id: String { rawValue } }
     private var searching: Bool { !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var reviewDetail: String {
         guard let value = summary.value else { return summary.error == nil ? "Loading review schedule" : "Review schedule unavailable" }
@@ -76,6 +76,7 @@ struct PokusLibraryView: View {
                     Menu {
                         Button("New capture", systemImage: "tray") { creating = .capture }
                         Button("New note", systemImage: "square.and.pencil") { creating = .note }
+                        Button("New task", systemImage: "checklist") { creating = .task }
                         Button("New project", systemImage: "folder.badge.plus") { creating = .project }
                     } label: { Label("Create", systemImage: "plus") }.disabled(!model.canEdit)
                 }
@@ -84,6 +85,7 @@ struct PokusLibraryView: View {
                 switch creation {
                 case .capture: CaptureEditorView(model: model, onSaved: { _ in confirmation = "Capture saved" })
                 case .note: KnowledgeEditorView(model: model, onSaved: { _ in confirmation = "Note saved" })
+                case .task: TaskEditorView(model: model, original: nil, projectID: "", onSaved: { _ in confirmation = "Task saved" })
                 case .project: ProjectEditorView(model: model, original: nil, onSaved: { _ in confirmation = "Project saved" })
                 }
             }

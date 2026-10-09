@@ -10,6 +10,9 @@ struct PokusCalendarView: View {
     var showsMonth = true
     var openHabits: (() -> Void)?
     @Binding var selectedCapture: String?
+    var newCapture: (() -> Void)? = nil
+    var newTask: (() -> Void)? = nil
+    var openTimer: (() -> Void)? = nil
     @State private var pickedDay: DayKey?
     @State private var month = DayKey()
     @State private var window = ReadState<CalendarWindow>()
@@ -64,6 +67,15 @@ struct PokusCalendarView: View {
         .toolbar {
             if showsMonth {
                 ToolbarItem(placement: .topBarLeading) { Button("Today") { pickedDay = nil; month = today }.accessibilityIdentifier("calendarToday") }
+            }
+            if newCapture != nil || newTask != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        if let newCapture { Button("New capture", systemImage: "tray", action: newCapture) }
+                        if let newTask { Button("New task", systemImage: "checklist", action: newTask) }
+                    } label: { Label("Add", systemImage: "plus") }
+                        .disabled(!model.canEdit).accessibilityIdentifier("todayAdd")
+                }
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {

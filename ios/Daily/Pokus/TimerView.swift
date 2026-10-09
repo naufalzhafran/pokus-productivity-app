@@ -5,6 +5,7 @@ import SwiftUI
 struct PokusTimerView: View {
     @Bindable var model: PokusModel
     var isVisible = true
+    var newCapture: (() -> Void)? = nil
     @AppStorage("pokus.duration") private var duration = 25
     @State private var stopping = false
     @State private var choosingTask = false
@@ -78,6 +79,14 @@ struct PokusTimerView: View {
                  : "Save to add the elapsed time to your focus history.")
         }
         .sheet(isPresented: $choosingTask) { TimerTaskPicker(model: model) }
+        .toolbar {
+            if let newCapture {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("New capture", systemImage: "plus", action: newCapture)
+                        .disabled(!model.canEdit).accessibilityIdentifier("newCapture")
+                }
+            }
+        }
         .task(id: "\(model.queryIdentity)-\(model.session?.task ?? model.selectedTaskID)") {
             let id = model.session?.task ?? model.selectedTaskID, scope = model.scope
             guard !id.isEmpty else { model.workspaceState.value.tasks = []; return }
