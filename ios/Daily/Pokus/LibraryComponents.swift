@@ -26,10 +26,17 @@ struct LibraryFilterSummary: View {
     let active: Bool
     let reset: () -> Void
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(text).font(.subheadline).foregroundStyle(.secondary)
-            if active { Button("Reset filters", action: reset).frame(minHeight: 44) }
-        }.padding(.vertical, 4)
+        HStack(spacing: 12) {
+            Label(text, systemImage: "line.3.horizontal.decrease.circle.fill")
+                .font(.subheadline.weight(.medium)).foregroundStyle(Color.accentColor)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if active {
+                Button("Reset", action: reset)
+                    .font(.subheadline).buttonStyle(.borderless)
+                    .frame(minHeight: 44)
+                    .accessibilityLabel("Reset filters")
+            }
+        }
     }
 }
 

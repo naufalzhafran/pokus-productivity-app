@@ -76,7 +76,7 @@ struct TodayView: View {
                     Section {
                         TodaySummary(progress: progress, today: today)
                             .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 12, trailing: 0))
+                            .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 12, trailing: 4))
                             .listRowSeparator(.hidden)
                     }
                     if !index.remaining.isEmpty {
@@ -147,7 +147,6 @@ private struct TodaySummary: View {
                 .fixedSize(horizontal: false, vertical: true)
             ProgressView(value: progress.fraction)
                 .tint(DailyTheme.accent)
-                .padding(.horizontal, 4)
                 .accessibilityHidden(true)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: progress)

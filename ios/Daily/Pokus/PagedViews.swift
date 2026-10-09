@@ -180,25 +180,31 @@ struct RecordSelector: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         List {
-            choice("", none)
-            if !selection.isEmpty {
-                Section("Selected") { Button { dismiss() } label: { SelectedRecordLabel(model: model, kind: kind, id: selection) }.accessibilityAddTraits(.isSelected) }
-            }
-            switch kind {
-            case .project:
-                PagedRows(model: model, query: RecordQueries.projects(search: search), search: search) { choice($0.id, $0.title) }
-            case .category:
-                PagedRows(model: model, query: RecordQueries.categories(search: search), search: search) { choice($0.id, $0.name) }
-            case .capture:
-                PagedRows(model: model, query: RecordQueries.captures(search: search), search: search) { choice($0.id, $0.label) }
+            Section { choice("", none) }
+            Section(sectionTitle) {
+                switch kind {
+                case .project:
+                    PagedRows(model: model, query: RecordQueries.projects(search: search), search: search) { choice($0.id, $0.title) }
+                case .category:
+                    PagedRows(model: model, query: RecordQueries.categories(search: search), search: search) { choice($0.id, $0.name) }
+                case .capture:
+                    PagedRows(model: model, query: RecordQueries.captures(search: search), search: search) { choice($0.id, $0.label) }
+                }
             }
         }.id(search).navigationTitle(title).searchable(text: $search)
             .scrollDismissesKeyboard(.interactively).refreshable { await model.refresh() }
     }
+    private var sectionTitle: String {
+        switch kind { case .project: "Projects"; case .category: "Categories"; case .capture: "Captures" }
+    }
     private func choice(_ id: String, _ label: String) -> some View {
         Button { selection = id; dismiss() } label: {
-            HStack { Text(label).foregroundStyle(.primary); Spacer(); if selection == id { Image(systemName: "checkmark").accessibilityHidden(true) } }.frame(minHeight: 44)
-        }.accessibilityAddTraits(selection == id ? .isSelected : [])
+            HStack(spacing: 12) {
+                Text(label).foregroundStyle(id.isEmpty ? Color.secondary : Color.primary).multilineTextAlignment(.leading)
+                Spacer(minLength: 8)
+                if selection == id { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.accentColor).accessibilityHidden(true) }
+            }.frame(minHeight: 44).contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityAddTraits(selection == id ? .isSelected : [])
     }
 }
 struct RecordMultiSelector: View {

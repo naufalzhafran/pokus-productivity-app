@@ -9,7 +9,6 @@ struct ProjectEditorView: View {
     let original: Project?
     var captureID: String? = nil
     var onSaved: ((String) -> Void)? = nil
-    @State private var showingDetails = false
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
     @State private var description = ""
@@ -36,26 +35,27 @@ struct ProjectEditorView: View {
         NavigationStack {
             Form {
                 AccountNotice(model: model)
-                Section("Project") {
-                    TextField("Title", text: $title).focused($focusedField, equals: .title).submitLabel(.done)
+                Section {
+                    TextField("Project name", text: $title).focused($focusedField, equals: .title).submitLabel(.done)
                         .onSubmit { focusedField = nil }.accessibilityHint("Required")
+                        .font(.headline).frame(minHeight: 44)
                     EditorError(message: validation)
                 }
-                Section {
-                    DisclosureGroup("Optional details", isExpanded: $showingDetails) {
+                Section("Details") {
                     Picker("Status", selection: $status) { ForEach(ProjectStatus.allCases, id: \.self) { Text($0.label).tag($0) } }
-                    Toggle("Due date", isOn: $hasDueDate)
+                    Toggle("Due date", isOn: $hasDueDate.animation())
                     if hasDueDate { DatePicker("Due", selection: $dueDate, displayedComponents: .date) }
-                    if let original {
-                        if !original.description.isEmpty {
-                            RichDescription(html: original.description)
-                            Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
-                        }
-                    } else {
+                }
+                Section("Description") {
+                    if let original, !original.description.isEmpty {
+                        RichDescription(html: original.description)
+                        Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
+                    } else if original == nil {
                         TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
                             .editorPrompt("Description", isShowing: description.isEmpty)
                             .accessibilityLabel("Project description")
-                    }
+                    } else {
+                        Text("No description").foregroundStyle(.secondary)
                     }
                 }
             }
@@ -89,7 +89,6 @@ struct TaskEditorView: View {
     @Bindable var model: PokusModel
     let original: FocusTask?
     var onSaved: ((String) -> Void)? = nil
-    @State private var showingDetails = false
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
     @State private var description = ""
@@ -118,31 +117,34 @@ struct TaskEditorView: View {
         NavigationStack {
             Form {
                 AccountNotice(model: model)
-                Section("Task") {
-                    TextField("Title", text: $title, axis: .vertical).focused($focusedField, equals: .title)
-                        .accessibilityLabel("Title")
+                Section {
+                    TextField("Task name", text: $title, axis: .vertical).focused($focusedField, equals: .title)
+                        .accessibilityLabel("Title").font(.headline).frame(minHeight: 44)
                         .submitLabel(.done).submitsOnReturn($title) { focusedField = nil }
                         .accessibilityHint("Required")
                     EditorError(message: validation)
-                    RecordSelectionLink(model: model, kind: .project, title: "Project", selection: $projectID, none: "No project")
-                    Toggle("Task due date", isOn: $hasDueDate)
-                    if hasDueDate { DatePicker("Due date", selection: $dueDate, displayedComponents: .date) }
-                    else if !projectID.isEmpty { Text("Uses the project's deadline when available.").font(.footnote).foregroundStyle(.secondary) }
                 }
-                Section {
-                    DisclosureGroup("Optional details", isExpanded: $showingDetails) {
+                Section("Organize") {
+                    RecordSelectionLink(model: model, kind: .project, title: "Project", selection: $projectID, none: "No project")
                     Picker("Priority", selection: $priority) { ForEach(Priority.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
                     RecordSelectionLink(model: model, kind: .category, title: "Category", selection: $category)
+                }
+                Section {
+                    Toggle("Due date", isOn: $hasDueDate.animation())
+                    if hasDueDate { DatePicker("Date", selection: $dueDate, displayedComponents: .date) }
+                } header: { Text("Schedule") } footer: {
+                    if !hasDueDate && !projectID.isEmpty { Text("Uses the project's deadline when available.") }
+                }
+                Section("Description") {
                     if let original {
                         if let description = original.description, !description.isEmpty {
                             RichDescription(html: description)
                             Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
-                        }
+                        } else { Text("No description").foregroundStyle(.secondary) }
                     } else {
                         TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
                             .editorPrompt("Description", isShowing: description.isEmpty)
                             .accessibilityLabel("Task description")
-                    }
                     }
                 }
             }.disabled(submitting || model.isSaving)

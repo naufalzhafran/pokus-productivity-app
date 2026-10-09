@@ -184,7 +184,9 @@ struct KnowledgeReviewView: View {
                     Button("Done") { dismiss() }.frame(minHeight: 44)
                 } else {
                     ContentUnavailableView("Nothing due", systemImage: "checkmark.circle", description: Text("Include a note in review to revisit it over time."))
+                        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                     NavigationLink("Browse notes") { KnowledgeListView(model: model) }
+                        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                 }
                 if let value = schedule.value {
                     if value.due > 0 { Button("Review remaining notes") { restart += 1 }.frame(minHeight: 44) }

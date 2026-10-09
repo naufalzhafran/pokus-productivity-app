@@ -35,7 +35,6 @@ import XCTest
         XCTAssertTrue(app.buttons["Set date"].firstMatch.waitForExistence(timeout: 5))
         app.buttons["Set date"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Edit project"].waitForExistence(timeout: 5))
-        app.buttons["Optional details"].tap()
         app.switches["Due date"].coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
         XCTAssertEqual(app.switches["Due date"].value as? String, "1")
         let dated = XCTAttachment(screenshot: XCUIScreen.main.screenshot()); dated.name = "Project date before save"; dated.lifetime = .keepAlways; add(dated)

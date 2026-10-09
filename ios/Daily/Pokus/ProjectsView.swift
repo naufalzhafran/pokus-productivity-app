@@ -142,8 +142,6 @@ struct ProjectTasksView: View {
                         ProjectSummaryView(model: model, id: projectID, includeFocus: true, detailed: true)
                     }
                     .padding(.vertical, 8)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
-                    .listRowBackground(Color.clear).listRowSeparator(.hidden)
                 }
             } else if !projectID.isEmpty {
                 if projectRecord.isLoading { ProgressView("Loading project") }
@@ -152,6 +150,7 @@ struct ProjectTasksView: View {
             }
             if project != nil || projectID.isEmpty || (projectRecord.value == nil && projectRecord.error == nil) {
                 Section {
+                    taskControls.listRowSeparator(.hidden)
                     if showingSearch { taskSearchField.listRowSeparator(.hidden) }
                     PagedRows(model: model, query: LibraryReadQueries.searchedTasks(search, project: projectID, status: status, priority: priority, category: category, sort: sort), identity: queryID, search: search,
                               emptyTitle: emptyTitle, symbol: "checklist", emptyDescription: emptyDescription,
@@ -186,21 +185,19 @@ struct ProjectTasksView: View {
                             }
                     }
                 } header: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        if !compactControls {
+                    Group {
+                        if compactControls { taskHeading }
+                        else {
                             ViewThatFits(in: .horizontal) {
                                 HStack { taskHeading; Spacer(); newTaskButton }
                                 VStack(alignment: .leading, spacing: 4) { taskHeading; newTaskButton }
                             }
                         }
-                        taskControls
-                    }
-                    .padding(.vertical, 8).textCase(nil)
-                    .background(Color(uiColor: .systemBackground))
+                    }.textCase(nil)
                 }
                 .id("projectTaskControls")
             }
-        }.listStyle(.plain)
+        }.listStyle(.insetGrouped)
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("projectTaskList")
             .navigationTitle(projectID.isEmpty ? "Unassigned tasks" : "Project")
