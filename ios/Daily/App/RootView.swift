@@ -105,7 +105,7 @@ struct RootView: View {
             }
             if phase == .active {
                 refreshDate()
-                Task { await reminders.refreshAuthorization(); await pokus.tick(forceSurfaces: true); await pokus.refreshIfNeeded(); await captureReminders.refresh(model: pokus) }
+                Task { await reminders.refreshAuthorization(); await pokus.tick(forceSurfaces: true); await importSharedCaptures(); await pokus.refreshIfNeeded(); await captureReminders.refresh(model: pokus) }
             }
         }
         .task {
@@ -117,6 +117,9 @@ struct RootView: View {
             pokus.cancelCaptureReminderAlerts = { owner, captureID in await captureReminders.cancel(owner: owner, captureID: captureID) }
             await reminders.setAccountAvailable(pokus.account != nil || localPreview)
             await reminders.refreshAuthorization()
+        }
+        .task(id: "\(pokus.account?.id ?? "")-\(pokus.storageReady)-\(pokus.replicaStatus.ready)") {
+            await importSharedCaptures()
         }
         .task(id: "\(pokus.queryIdentity)-\(pokus.isOnline)-\(pokus.storageReady)-\(timeRevision)") {
             await captureReminders.refresh(model: pokus)
@@ -159,6 +162,11 @@ struct RootView: View {
     private func refreshDate() {
         let newDay = DayKey()
         if today != newDay { today = newDay }
+    }
+    private func importSharedCaptures() async {
+        guard scenePhase == .active else { return }
+        let count = await pokus.importSharedCaptures()
+        if count > 0 { savedNotice = count == 1 ? "Shared item saved to Captures" : "\(count) shared items saved to Captures" }
     }
     /// Opens what an App Intent, widget, or link asked for.
     private func handleRequest() async {

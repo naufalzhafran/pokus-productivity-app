@@ -8,6 +8,7 @@ import WidgetKit
 struct PokusActivityBundle: WidgetBundle {
     var body: some Widget {
         PokusFocusActivity()
+        PokusTodayWidget()
         if #available(iOSApplicationExtension 18.0, *) { PokusTimerControl() }
     }
 }

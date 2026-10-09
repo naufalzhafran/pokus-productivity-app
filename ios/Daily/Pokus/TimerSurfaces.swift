@@ -13,6 +13,7 @@ final class TimerSurfaces: TimerSurfaceClient {
     private static let prefix = "pokus.focus."
     func clear() async {
         guard !ProcessInfo.processInfo.arguments.contains("-ui-testing") else { return }
+        FocusWidgetSync.clear()
         generation = UUID(); let current = generation
         await removeTimerNotifications(generation: current)
         guard generation == current else { return }
@@ -31,6 +32,7 @@ final class TimerSurfaces: TimerSurfaceClient {
     }
     func update(_ session: FocusSession?) async {
         guard !ProcessInfo.processInfo.arguments.contains("-ui-testing") else { return }
+        FocusWidgetSync.update(session: session)
         generation = UUID(); let current = generation
         await removeTimerNotifications(generation: current)
         guard generation == current else { return }

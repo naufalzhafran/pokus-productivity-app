@@ -14,6 +14,8 @@
 		A00000000000000000000005 /* PokusNetworking in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000015 /* PokusNetworking */; };
 		A00000000000000000000006 /* PokusCore in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000016 /* PokusCore */; };
 		A00000000000000000000007 /* PokusActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C00000000000000000000004 /* PokusActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000008 /* PokusShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C00000000000000000000005 /* PokusShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000009 /* PokusCore in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000017 /* PokusCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +40,13 @@
 			remoteGlobalIDString = D00000000000000000000004;
 			remoteInfo = PokusActivity;
 		};
+		B00000000000000000000004 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D00000000000000000000005;
+			remoteInfo = PokusShare;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -48,6 +57,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				A00000000000000000000007 /* PokusActivity.appex in Embed Foundation Extensions */,
+				A00000000000000000000008 /* PokusShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -59,6 +69,7 @@
 		C00000000000000000000002 /* DailyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C00000000000000000000003 /* DailyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C00000000000000000000004 /* PokusActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PokusActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C00000000000000000000005 /* PokusShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PokusShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -85,6 +96,11 @@
 		C00000000000000000000015 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000016 /* PokusShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PokusShare;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -124,6 +140,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E00000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000009 /* PokusCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -135,6 +159,7 @@
 				C00000000000000000000013 /* DailyUITests */,
 				C00000000000000000000014 /* PokusActivity */,
 				C00000000000000000000015 /* Shared */,
+				C00000000000000000000016 /* PokusShare */,
 				C00000000000000000000022 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -146,6 +171,7 @@
 				C00000000000000000000002 /* DailyTests.xctest */,
 				C00000000000000000000003 /* DailyUITests.xctest */,
 				C00000000000000000000004 /* PokusActivity.appex */,
+				C00000000000000000000005 /* PokusShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -166,6 +192,7 @@
 			);
 			dependencies = (
 				B00000000000000000000013 /* PBXTargetDependency */,
+				B00000000000000000000014 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C00000000000000000000011 /* Daily */,
@@ -253,6 +280,29 @@
 			productReference = C00000000000000000000004 /* PokusActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		D00000000000000000000005 /* PokusShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F00000000000000000000016 /* Build configuration list for PBXNativeTarget "PokusShare" */;
+			buildPhases = (
+				E00000000000000000000015 /* Sources */,
+				E00000000000000000000005 /* Frameworks */,
+				E00000000000000000000025 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C00000000000000000000016 /* PokusShare */,
+			);
+			name = PokusShare;
+			packageProductDependencies = (
+				A00000000000000000000017 /* PokusCore */,
+			);
+			productName = PokusShare;
+			productReference = C00000000000000000000005 /* PokusShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -297,6 +347,7 @@
 				D00000000000000000000002 /* DailyTests */,
 				D00000000000000000000003 /* DailyUITests */,
 				D00000000000000000000004 /* PokusActivity */,
+				D00000000000000000000005 /* PokusShare */,
 			);
 		};
 /* End PBXProject section */
@@ -324,6 +375,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E00000000000000000000024 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E00000000000000000000025 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -361,6 +419,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E00000000000000000000015 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -378,6 +443,11 @@
 			isa = PBXTargetDependency;
 			target = D00000000000000000000004 /* PokusActivity */;
 			targetProxy = B00000000000000000000003 /* PBXContainerItemProxy */;
+		};
+		B00000000000000000000014 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D00000000000000000000005 /* PokusShare */;
+			targetProxy = B00000000000000000000004 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -487,6 +557,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Pokus.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WXU7MR8GB6;
@@ -518,6 +589,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Pokus.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WXU7MR8GB6;
@@ -603,6 +675,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PokusActivity.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WXU7MR8GB6;
@@ -626,6 +699,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PokusActivity.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WXU7MR8GB6;
@@ -638,6 +712,54 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.centaurwarrunner.Daily.PokusActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		F00000000000000000000031 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PokusShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WXU7MR8GB6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "PokusShare-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centaurwarrunner.Daily.PokusShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		F00000000000000000000032 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PokusShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WXU7MR8GB6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "PokusShare-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.centaurwarrunner.Daily.PokusShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
@@ -693,6 +815,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		F00000000000000000000016 /* Build configuration list for PBXNativeTarget "PokusShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F00000000000000000000031 /* Debug */,
+				F00000000000000000000032 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -724,6 +855,10 @@
 			productName = PokusNetworking;
 		};
 		A00000000000000000000016 /* PokusCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PokusCore;
+		};
+		A00000000000000000000017 /* PokusCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PokusCore;
 		};

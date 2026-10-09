@@ -16,7 +16,9 @@ extension PokusModel {
     /// Reloads whenever records sync or the timer changes.
     var statisticsIdentity: String { "\(queryIdentity)-\(focus.timer.revision)" }
     func focusStatistics(today: DayKey = DayKey()) async throws -> FocusStatistics {
-        try await readAPI().focusStatistics(today: today, local: displayedHistory)
+        let statistics = try await readAPI().focusStatistics(today: today, local: displayedHistory)
+        if today == DayKey() { FocusWidgetSync.update(todaySeconds: statistics.today, session: session) }
+        return statistics
     }
 }
 

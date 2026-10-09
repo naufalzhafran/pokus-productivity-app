@@ -847,6 +847,19 @@ Implements `notes/review/ios-ux-review.md`.
   `FocusIntentBridge`). Stop from the Live Activity saves the elapsed time.
   `pokus://timer`, `pokus://start`, and `pokus://capture` route the same way.
 
+- **Share extension and Home Screen widget.** The app, PokusActivity, and the new
+  PokusShare extension share the App Group `group.com.centaurwarrunner.Daily`
+  (`Pokus.entitlements`, `PokusActivity.entitlements`, `PokusShare.entitlements`).
+  Sharing a link or text writes one file per item to the group's
+  `SharedCaptures` folder (`SharedCaptureInbox`); when the app is active and can
+  edit, it saves each item as a capture through `RecordReplica`, using the item
+  ID as the capture ID, and removes the file only after the save. The "Today's
+  focus" widget (small and medium) reads `FocusWidgetSnapshot` from the group's
+  defaults, which the app updates when statistics load and on every timer
+  change; Start opens `pokus://start`. Device builds need the App Group
+  registered for the team; Xcode's automatic signing registers it when the
+  account can, otherwise add it in the developer portal.
+
 No simulator runtime was installed on the build machine, so simulator UI tests
 were not run and `Docs/Screenshots` was not refreshed. `swift test` and the
 generic iOS Simulator build pass.
