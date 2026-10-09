@@ -82,6 +82,11 @@
 			path = PokusActivity;
 			sourceTree = "<group>";
 		};
+		C00000000000000000000015 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -129,6 +134,7 @@
 				C00000000000000000000012 /* DailyTests */,
 				C00000000000000000000013 /* DailyUITests */,
 				C00000000000000000000014 /* PokusActivity */,
+				C00000000000000000000015 /* Shared */,
 				C00000000000000000000022 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -163,6 +169,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				C00000000000000000000011 /* Daily */,
+				C00000000000000000000015 /* Shared */,
 			);
 			name = Daily;
 			packageProductDependencies = (
@@ -236,6 +243,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				C00000000000000000000014 /* PokusActivity */,
+				C00000000000000000000015 /* Shared */,
 			);
 			name = PokusActivity;
 			packageProductDependencies = (

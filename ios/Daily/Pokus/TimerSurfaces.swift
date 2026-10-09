@@ -8,6 +8,8 @@ final class TimerSurfaces: TimerSurfaceClient {
     private let center = UNUserNotificationCenter.current()
     private var generation = UUID()
     private var completionID: String?
+    /// Looks up the linked task's title for the Live Activity.
+    var taskTitle: ((String) async -> String?)?
     private static let prefix = "pokus.focus."
     func clear() async {
         guard !ProcessInfo.processInfo.arguments.contains("-ui-testing") else { return }
@@ -65,13 +67,17 @@ final class TimerSurfaces: TimerSurfaceClient {
         }
         guard generation == current else { return }
         let content = ActivityContent(state: FocusActivityAttributes.ContentState(deadline: session.deadline, remainingSeconds: remaining, paused: !session.isActive), staleDate: session.isActive ? session.deadline : nil)
-        await Self.updateActivity(session, content: content)
+        let title = session.task.isEmpty || Activity<FocusActivityAttributes>.activities.contains(where: { $0.attributes.sessionID == session.id })
+            ? nil : await taskTitle?(session.task)
+        guard generation == current else { return }
+        await Self.updateActivity(session, content: content, taskTitle: title)
     }
 
-    private nonisolated static func updateActivity(_ session: FocusSession, content: ActivityContent<FocusActivityAttributes.ContentState>) async {
+    private nonisolated static func updateActivity(_ session: FocusSession, content: ActivityContent<FocusActivityAttributes.ContentState>, taskTitle: String?) async {
         if let activity = Activity<FocusActivityAttributes>.activities.first(where: { $0.attributes.sessionID == session.id }) { await activity.update(content) }
         else if ActivityAuthorizationInfo().areActivitiesEnabled {
-            _ = try? Activity.request(attributes: FocusActivityAttributes(sessionID: session.id, durationMinutes: session.durationMinutes), content: content, pushType: nil)
+            let attributes = FocusActivityAttributes(sessionID: session.id, durationMinutes: session.durationMinutes, taskTitle: taskTitle)
+            _ = try? Activity.request(attributes: attributes, content: content, pushType: nil)
         }
     }
 }

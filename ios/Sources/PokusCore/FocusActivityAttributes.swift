@@ -13,6 +13,10 @@ public struct FocusActivityAttributes: ActivityAttributes {
     }
     public var sessionID: String
     public var durationMinutes: Int
-    public init(sessionID: String, durationMinutes: Int) { self.sessionID = sessionID; self.durationMinutes = durationMinutes }
+    /// The linked task's title; absent for untasked sessions and activities started by older versions.
+    public var taskTitle: String?
+    public init(sessionID: String, durationMinutes: Int, taskTitle: String? = nil) {
+        self.sessionID = sessionID; self.durationMinutes = durationMinutes; self.taskTitle = taskTitle
+    }
 }
 #endif

@@ -6,7 +6,7 @@ import UserNotifications
 @main
 struct DailyApp: App {
     @UIApplicationDelegateAdaptor(NotificationDelegate.self) private var appDelegate
-    @State private var bootstrap = AppBootstrap()
+    @State private var bootstrap = AppBootstrap.shared
 
     var body: some Scene {
         WindowGroup {
@@ -19,13 +19,16 @@ struct DailyApp: App {
 @MainActor
 @Observable
 final class AppBootstrap {
+    /// One per process, so App Intents run while the app is in the background reach the same model.
+    static let shared = AppBootstrap()
     var store: HabitStore?
     var errorMessage: String?
     /// App-level so a background refresh can sync without any window.
     let pokus = PokusModel()
 
-    init() {
+    private init() {
         BackgroundRefresh.model = pokus
+        installIntentHandler()
         load()
     }
 

@@ -6,6 +6,8 @@ import PokusCore
 import PokusNetworking
 import PokusPersistence
 
+enum AppRequest: Equatable, Sendable { case timer, startFocus, newCapture }
+
 @MainActor @Observable
 final class PokusModel {
     private(set) var authentication: Authentication?
@@ -26,6 +28,8 @@ final class PokusModel {
     var syncError: String?
     var selectedTaskID = ""
     var openTimer: (() -> Void)?
+    /// Set by App Intents, widgets, and links; the root view handles it and clears it.
+    var request: AppRequest?
     var requestCaptureReminderAlerts: (() async -> Void)?
     var captureReminderNotice: String?
     var captureReminderPermissionDenied = false
@@ -136,6 +140,7 @@ final class PokusModel {
         batchesCacheWrites = startAutomatically
         storageReady = store != nil
         configureReadCache()
+        (self.surfaces as? TimerSurfaces)?.taskTitle = { [weak self] id in await self?.taskTitle(id) }
         guard startAutomatically else { return }
         monitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor in
@@ -319,6 +324,15 @@ final class PokusModel {
     func start(minutes: Int) async {
         guard account != nil, session == nil || session?.mode == .complete else { return }
         await transition(FocusSession(task: selectedTaskID, durationMinutes: minutes, now: .now))
+    }
+    func taskTitle(_ id: String) async -> String? {
+        if let task = workspace.tasks.first(where: { $0.id == id }) { return task.title }
+        let task: FocusTask? = try? await readAPI().record("tasks", id: id)
+        return task?.title
+    }
+    /// Lets intents launched in the background wait for the saved timer to load.
+    func waitUntilReady() async {
+        for _ in 0..<50 where !storageReady { try? await Task.sleep(for: .milliseconds(100)) }
     }
     /// Whether a session is counting down or paused; its linked task can't change until it ends.
     var hasRunningSession: Bool { session?.mode == .running }

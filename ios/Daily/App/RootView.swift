@@ -10,6 +10,7 @@ struct RootView: View {
     let retryHabits: () -> Void
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("pokus.appearance") private var appearance = "system"
+    @AppStorage("pokus.duration") private var duration = 25
     @State private var today = DayKey()
     @State private var selectedTab = 0
     @State private var creating: Creation?
@@ -87,7 +88,16 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openDailyToday)) { _ in routeNotification() }
         .onReceive(NotificationCenter.default.publisher(for: .openPokusTimer)) { _ in routeNotification(); Task { await pokus.tick() } }
         .onReceive(NotificationCenter.default.publisher(for: .openPokusCalendar)) { _ in routeNotification() }
-        .onOpenURL { url in if url.scheme == "pokus", url.host == "timer" { selectedTab = 0; Task { await pokus.tick() } } }
+        .onOpenURL { url in
+            guard url.scheme == "pokus" else { return }
+            switch url.host {
+            case "timer": pokus.request = .timer
+            case "start": pokus.request = .startFocus
+            case "capture": pokus.request = .newCapture
+            default: break
+            }
+        }
+        .onChange(of: pokus.request) { _, _ in Task { await handleRequest() } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background {
                 BackgroundRefresh.schedule()
@@ -100,6 +110,7 @@ struct RootView: View {
         }
         .task {
             routeNotification()
+            await handleRequest()
             pokus.openTimer = { selectedTab = 0 }
             pokus.requestCaptureReminderAlerts = { await captureReminders.refresh(model: pokus, requestPermission: true) }
             pokus.refreshCaptureReminderAlerts = { await captureReminders.refresh(model: pokus) }
@@ -148,6 +159,25 @@ struct RootView: View {
     private func refreshDate() {
         let newDay = DayKey()
         if today != newDay { today = newDay }
+    }
+    /// Opens what an App Intent, widget, or link asked for.
+    private func handleRequest() async {
+        guard let request = pokus.request else { return }
+        pokus.request = nil
+        switch request {
+        case .timer:
+            creating = nil; selectedTab = 0
+            await pokus.tick()
+        case .startFocus:
+            creating = nil; selectedTab = 0
+            await pokus.waitUntilReady()
+            if pokus.account != nil, !pokus.hasRunningSession {
+                if pokus.session?.mode == .complete { await pokus.reset() }
+                await pokus.start(minutes: duration)
+            } else { await pokus.tick() }
+        case .newCapture:
+            if pokus.account != nil { creating = .capture } else { selectedTab = 0 }
+        }
     }
     private func routeNotification() {
         guard let route = NotificationLaunchRoute.consume(owner: pokus.account?.id, localHabits: localPreview) else { return }
