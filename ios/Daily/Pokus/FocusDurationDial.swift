@@ -1,3 +1,4 @@
+import PokusCore
 import SwiftUI
 
 struct FocusDurationDial<Content: View>: View {
@@ -56,7 +57,7 @@ struct FocusDurationDial<Content: View>: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(progress == nil ? "Focus duration" : "Focus timer")
         .accessibilityValue(progress == nil ? "\(minutes) minutes" : spokenValue)
-        .accessibilityHint(progress == nil ? "Drag around the ring or swipe up and down to adjust minutes." : "")
+        .accessibilityHint(progress == nil ? "Drag around the ring in 5-minute steps, or swipe up and down to adjust by one minute." : "")
         .accessibilityIdentifier(progress == nil ? "focusDurationDial" : "focusProgressDial")
     }
 
@@ -77,6 +78,8 @@ struct FocusDurationDial<Content: View>: View {
             dragAngle = min(turn, max(0, dragAngle))
         }
         previousAngle = angle
-        minutes = min(60, max(1, Int((dragAngle / turn * 60).rounded())))
+        // Dragging moves in 5-minute steps; VoiceOver and the presets still allow any minute.
+        let snapped = FocusDuration.snapped(dragAngle / turn * 60)
+        if snapped != minutes { minutes = snapped }
     }
 }

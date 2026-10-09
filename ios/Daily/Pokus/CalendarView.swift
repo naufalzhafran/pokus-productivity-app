@@ -353,7 +353,18 @@ private struct CalendarAgendaRow: View {
                     .accessibilityLabel("\(item.isComplete ? "Reopen" : "Complete") \(item.title)")
                     .accessibilityValue(save.isSaving ? "Saving" : item.isComplete ? "Completed" : "Not completed")
             }
-        }.saveAlert(save)
+        }
+        .swipeActions(edge: .leading) {
+            if item.kind == .task && !item.isComplete { FocusTaskButton(model: model, taskID: item.sourceID).tint(.accentColor) }
+        }
+        .contextMenu {
+            if item.kind == .task && !item.isComplete { FocusTaskButton(model: model, taskID: item.sourceID) }
+            if item.kind != .project {
+                Button(item.isComplete ? "Reopen" : "Complete", systemImage: item.isComplete ? "arrow.uturn.backward" : "checkmark.circle") { toggle() }
+                    .disabled(!model.canEdit || save.isSaving)
+            }
+        }
+        .saveAlert(save)
     }
     private var detail: String {
         var labels = [item.kind == .project ? "Project deadline" : item.kind == .task ? "Task" : "Reminder"]

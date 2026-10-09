@@ -203,6 +203,16 @@ public enum RecordQueries {
         if sort == "alphabetical" { query.alphabeticalTitle = { $0.title } }
         return query
     }
+    /// Open tasks for the timer's task picker: due today or overdue first (earliest due first), then the newest.
+    public static func timerTasks(today: String, search: String = "") -> RecordQuery<FocusTask> {
+        var query = tasks(status: "open", sort: "newest", search: search, timer: true)
+        let day = RecordFilters.literal(today)
+        query.segments = [
+            RecordSegment(filter: "isDone = false && dueDate != '' && dueDate <= \(day)", sort: "dueDate,-created,id"),
+            RecordSegment(filter: "isDone = false && (dueDate = '' || dueDate > \(day))", sort: "-created,id")
+        ]
+        return query
+    }
     public static func captures(project: String? = nil, stage: String = "all", kind: String = "all", search: String = "", ids: [String]? = nil) -> RecordQuery<Capture> {
         let state = stage == "processed" ? "isProcessed = true" : stage == "in_progress" ? RecordFilters.inProgress : stage == "inbox" ? "isProcessed = false && projects_via_captures.id = '' && knowledge_via_sources.id = ''" : ""
         let filter = RecordFilters.and([state, kind == "all" ? "" : "kind = \(RecordFilters.literal(kind))",

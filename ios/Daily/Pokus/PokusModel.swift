@@ -320,6 +320,17 @@ final class PokusModel {
         guard account != nil, session == nil || session?.mode == .complete else { return }
         await transition(FocusSession(task: selectedTaskID, durationMinutes: minutes, now: .now))
     }
+    /// Whether a session is counting down or paused; its linked task can't change until it ends.
+    var hasRunningSession: Bool { session?.mode == .running }
+    /// Links the next session to a task and opens the timer. A running session keeps its task,
+    /// so this only opens the timer then and returns false.
+    @discardableResult func focus(on taskID: String) -> Bool {
+        guard !hasRunningSession else { openTimer?(); return false }
+        selectedTaskID = taskID
+        if session?.mode == .complete { Task { await reset() } }
+        openTimer?()
+        return true
+    }
     func toggle() async { if let session { await transition(engine.toggle(session)) } }
     func stop(save: Bool) async { if let session { await transition(engine.finish(session, save: save)) } }
     func reset() async { if session?.mode != .running { await transition(nil) } }

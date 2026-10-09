@@ -176,6 +176,14 @@ struct ProjectTasksView: View {
                             }.accessibilityLabel(task.title)
                                 .accessibilityValue([task.isDone ? "Completed" : "Open", taskMetadata(task)].filter { !$0.isEmpty }.joined(separator: ", "))
                         }.swipeActions { Button(task.isDone ? "Reopen" : "Complete", systemImage: "checkmark") { toggle(task) }.disabled(!model.canEdit || save.isSaving) }
+                            .swipeActions(edge: .leading) {
+                                if !task.isDone { FocusTaskButton(model: model, taskID: task.id).tint(.accentColor) }
+                            }
+                            .contextMenu {
+                                if !task.isDone { FocusTaskButton(model: model, taskID: task.id) }
+                                Button(task.isDone ? "Reopen task" : "Complete task", systemImage: task.isDone ? "arrow.uturn.backward" : "checkmark.circle") { toggle(task) }
+                                    .disabled(!model.canEdit || save.isSaving)
+                            }
                     }
                 } header: {
                     VStack(alignment: .leading, spacing: 4) {
@@ -455,12 +463,19 @@ struct TaskDetailView: View {
             .task(id: "\(model.queryIdentity)-\(taskID)-\(retry)") { await record.load { try await model.readAPI().record("tasks", id: taskID) } }
             .safeAreaInset(edge: .bottom) {
                 if let task {
-                    Button { model.selectedTaskID = task.id; model.openTimer?() } label: {
-                        Label("Focus on this task", systemImage: "timer")
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                        .buttonStyle(.borderedProminent).padding().background(.bar)
-                        .disabled(model.account == nil || !model.storageReady || save.isSaving)
+                    VStack(spacing: 6) {
+                        if model.hasRunningSession {
+                            Text(model.session?.task == task.id ? "This task's session is running." : "A focus session is already running. Finish it to focus on this task.")
+                                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                                .accessibilityIdentifier("sessionAlreadyRunning")
+                        }
+                        Button { model.focus(on: task.id) } label: {
+                            Label(model.hasRunningSession ? "Open timer" : "Focus on this task", systemImage: "timer")
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(model.account == nil || !model.storageReady || save.isSaving)
+                    }.padding().background(.bar)
                 }
             }
             .toolbar {
@@ -478,5 +493,16 @@ struct TaskDetailView: View {
                 }
             } message: { Text("Focus session history is preserved.") }
             .saveAlert(save)
+    }
+}
+
+/// Starts focusing on a task, or opens the timer when a session is already running.
+struct FocusTaskButton: View {
+    let model: PokusModel
+    let taskID: String
+    var body: some View {
+        Button(model.hasRunningSession ? "Open timer" : "Focus", systemImage: "timer") { model.focus(on: taskID) }
+            .disabled(model.account == nil || !model.storageReady)
+            .accessibilityHint(model.hasRunningSession ? "A focus session is already running." : "Links this task to your next focus session.")
     }
 }

@@ -351,7 +351,8 @@ import XCTest
         app.buttons["Reopen task"].tap()
         app.buttons["Focus on this task"].tap()
         XCTAssertTrue(app.buttons["startFocus"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["An actionable task"].exists)
+        XCTAssertTrue(app.buttons["chooseTask"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["chooseTask"].label, "An actionable task")
     }
     func testProjectSwipeActionsEditArchiveAndRestore() {
         let app = launchConfirmationApp()
