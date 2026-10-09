@@ -9,6 +9,7 @@ struct PokusTimerView: View {
     @AppStorage("pokus.duration") private var duration = 25
     @State private var stopping = false
     @State private var choosingTask = false
+    @State private var statistics = ReadState<FocusStatistics>()
     @State private var taskSave = SaveAction()
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
@@ -91,10 +92,17 @@ struct PokusTimerView: View {
             let id = model.session?.task ?? model.selectedTaskID, scope = model.scope
             guard !id.isEmpty else { model.workspaceState.value.tasks = []; return }
             do {
-                let task: FocusTask? = try await model.readAPI().record("tasks", id: id)
+                var task: FocusTask? = try await model.readAPI().record("tasks", id: id)
                 guard model.scope == scope, !Task.isCancelled else { return }
+                // After a sync the server's total arrives before the device copy catches up; keep the newer, larger one.
+                if model.session?.mode == .complete, let current = model.workspaceState.value.tasks.first(where: { $0.id == id }),
+                   let loaded = task, current.focusedSeconds > loaded.focusedSeconds { task = current }
                 model.workspaceState.value.tasks = task.map { [$0] } ?? []
             } catch { }
+        }
+        .task(id: "\(model.statisticsIdentity)-\(model.session?.mode == .complete)") {
+            guard model.account != nil, model.session?.mode == .complete else { return }
+            await statistics.load { try await model.focusStatistics() }
         }
     }
 
@@ -108,14 +116,33 @@ struct PokusTimerView: View {
                             .font(.system(size: min(56, geometry.size.height / 3))).foregroundStyle(DailyTheme.accent)
                             .accessibilityHidden(true)
                         Text(compact ? "Complete" : "Session complete").font(compact ? .headline : .title2)
-                        Text(WorkspaceRules.focused(session.creditedSeconds)).foregroundStyle(.secondary)
+                        Text("This session · \(FocusStatistics.duration(session.creditedSeconds))").foregroundStyle(.secondary)
+                        if !compact || geometry.size.height > 160 { completionTotals(session) }
                     }
                     .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("sessionComplete")
                 } else {
                     countdown(diameter: diameter, compact: compact)
                         .frame(width: diameter, height: diameter)
                 }
             }.frame(width: geometry.size.width, height: geometry.size.height)
+        }
+    }
+
+    /// The linked task's new total and today's total after a session ends.
+    @ViewBuilder
+    private func completionTotals(_ session: FocusSession) -> some View {
+        if !session.task.isEmpty, let task = selectedTask, task.id == session.task {
+            let pending = model.focus.timer.operations.contains { $0.session.id == session.id }
+            let total = FocusStatistics.taskTotal(recorded: task.focusedSeconds, session: session, task: task.id, pending: pending)
+            Text("\(task.title) · \(FocusStatistics.duration(total)) focused")
+                .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
+                .accessibilityIdentifier("completionTaskTotal")
+        }
+        if let today = statistics.value?.today {
+            Text("Today · \(FocusStatistics.duration(today)) focused")
+                .font(.subheadline).foregroundStyle(.secondary)
+                .accessibilityIdentifier("completionTodayTotal")
         }
     }
 

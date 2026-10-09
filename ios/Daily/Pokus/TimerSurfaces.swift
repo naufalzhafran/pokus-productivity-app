@@ -40,7 +40,9 @@ final class TimerSurfaces: TimerSurfaceClient {
             guard generation == current else { return }
             if let session, session.mode == .complete, completionID != session.id {
                 completionID = session.id
-                if UIApplication.shared.applicationState == .active { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+                if UIApplication.shared.applicationState == .active && TimerPreferences.completionHaptic {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
             }
             return
         }
@@ -52,7 +54,7 @@ final class TimerSurfaces: TimerSurfaceClient {
             let content = UNMutableNotificationContent()
             content.title = "Focus session complete"
             content.body = "You made room for \(session.durationMinutes) minutes of focus."
-            content.sound = .default; content.userInfo = ["pokusTimer": true]
+            content.sound = TimerPreferences.completionSound ? .default : nil; content.userInfo = ["pokusTimer": true]
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, session.deadline.timeIntervalSinceNow), repeats: false)
             try? await center.add(UNNotificationRequest(identifier: Self.prefix + session.id, content: content, trigger: trigger))
             guard generation == current else { return }

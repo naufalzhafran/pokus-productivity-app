@@ -95,6 +95,8 @@ final class NotificationDelegate: NSObject, UIApplicationDelegate, UNUserNotific
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        let timer = notification.request.content.userInfo["pokusTimer"] as? Bool == true
+        let sound = !timer || UserDefaults.standard.object(forKey: "pokus.completionSound") as? Bool ?? true
+        completionHandler(sound ? [.banner, .sound] : [.banner])
     }
 }

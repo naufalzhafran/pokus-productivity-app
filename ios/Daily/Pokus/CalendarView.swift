@@ -202,6 +202,9 @@ struct PokusCalendarView: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+            if let openTimer {
+                Section { FocusTodayCard(model: model, today: today, openTimer: openTimer) }
+            }
             if window.value == nil && window.error == nil {
                 Section { ProgressView("Loading your day") }
             }

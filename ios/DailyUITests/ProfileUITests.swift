@@ -5,6 +5,15 @@ import XCTest
         continueAfterFailure = false
     }
 
+    func testProfileShowsFocusStatisticsAndTimerPreferences() {
+        let app = launchProfile()
+        XCTAssertTrue(app.staticTexts["This week"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Streak"].exists)
+        reveal(app.switches["completionSound"], in: app, list: "profileList")
+        XCTAssertTrue(app.switches["completionHaptic"].exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "defaultDuration").firstMatch.exists)
+    }
+
     func testProfileDestinationsAndDataMaintenance() {
         let app = launchProfile(replica: true)
         capture("Profile", in: app)

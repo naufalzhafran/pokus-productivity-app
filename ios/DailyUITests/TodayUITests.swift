@@ -132,6 +132,17 @@ import XCTest
         }
     }
 
+    func testTodayFocusCardOpensTheTimer() {
+        let app = launchToday()
+        let start = app.buttons["todayStartFocus"]
+        XCTAssertTrue(start.waitForExistence(timeout: 10))
+        for _ in 0..<4 where !start.isHittable { app.collectionViews["calendarAgenda"].swipeDown() }
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "todayFocusCard").firstMatch.exists)
+        start.tap()
+        XCTAssertTrue(app.buttons["startFocus"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Focus"].isSelected)
+    }
+
     private func launchToday(accessibilityText: Bool = false) -> XCUIApplication {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()

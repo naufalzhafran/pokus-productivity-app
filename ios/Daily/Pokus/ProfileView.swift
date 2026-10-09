@@ -38,6 +38,7 @@ struct PokusProfileView: View {
             }
             if model.account != nil {
                 Section("Focus") {
+                    ProfileFocusStatistics(model: model)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Total focus time").font(.subheadline).foregroundStyle(.secondary)
                         if let value = total.value {
@@ -53,6 +54,7 @@ struct PokusProfileView: View {
                     NavigationLink("Session history") { FocusHistoryView(model: model) }
                 }
             }
+            TimerPreferencesSection()
             Section("Preferences") {
                 Picker("Appearance", selection: $appearance) {
                     Text("System").tag("system")
