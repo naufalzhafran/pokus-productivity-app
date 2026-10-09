@@ -98,8 +98,18 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
           <span>{stats?.completedCount ?? 0}/{taskCount} {taskCount === 1 ? "task" : "tasks"} done</span>
           {stats?.focusedSeconds ? <span>{formatFocused(stats.focusedSeconds)}</span> : null}
         </div>
-        {taskCount ? <div className="h-1.5 max-w-md overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Project progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div> : null}
-        {project?.description ? <div className="max-w-3xl"><Suspense fallback={null}><RichTextContent html={project.description} /></Suspense></div> : null}
+        {taskCount ? (
+          <div className="flex max-w-md items-center gap-3">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Project progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div>
+            <span aria-hidden="true" className="text-xs font-medium tabular-nums text-muted-foreground">{progress}%</span>
+          </div>
+        ) : null}
+        {project?.description ? (
+          <section aria-label="Project description" className="max-w-3xl rounded-xl border bg-card px-4 py-3 text-sm shadow-xs">
+            <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</h2>
+            <Suspense fallback={null}><RichTextContent html={project.description} /></Suspense>
+          </section>
+        ) : null}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         {archived ? <p className="text-sm text-muted-foreground">This project is archived. Restore it to focus on its tasks again.</p> : null}
       </header>
