@@ -122,8 +122,8 @@ import XCTest
         calendar.timeZone = .current
         let yesterday = calendar.date(byAdding: .day, value: -1, to: .now)!
         let components = calendar.dateComponents([.year, .month, .day], from: yesterday)
-        if components.month != calendar.component(.month, from: .now) {
-            app.buttons["Previous month"].tap()
+        if components.year != calendar.component(.year, from: .now) {
+            app.buttons["Previous year"].tap()
         }
         let date = String(format: "%04d-%02d-%02d", components.year!, components.month!, components.day!)
         let square = app.buttons["day-\(date)"]
@@ -166,7 +166,7 @@ import XCTest
         XCTAssertFalse(app.switches["history-Move your body"].exists)
     }
 
-    func testMonthNavigationKeepsCurrentMonthBounded() {
+    func testYearNavigationKeepsCurrentYearBounded() {
         let app = launch(history: true)
         app.segmentedControls.buttons["Progress"].tap()
         let month = app.staticTexts["activityMonth"]
@@ -174,8 +174,8 @@ import XCTest
         XCTAssertTrue(app.buttons["addHabit"].isHittable)
         XCTAssertTrue(app.navigationBars.buttons["BackButton"].isHittable)
         let initialMonth = month.label
-        let previous = app.buttons["Previous month"]
-        let next = app.buttons["Next month"]
+        let previous = app.buttons["Previous year"]
+        let next = app.buttons["Next year"]
         XCTAssertTrue(previous.isEnabled)
         XCTAssertFalse(next.isEnabled)
         previous.tap()
