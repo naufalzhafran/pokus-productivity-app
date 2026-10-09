@@ -89,12 +89,12 @@ Their editors offer an explicit plain-text replacement, with a formatting warnin
 Project metadata edits omit capture links; dedicated filing actions use relation
 modifiers to preserve unrelated links.
 
-The bottom bar contains Pocus, Today, Capture, Library, and Profile. Its center
-Capture tab opens a single multiline input for a link or thought; saving returns
-to the previous tab. There is no Cancel button in this tab, and switching tabs
-preserves the draft. New captures detect link types automatically
-and keep accompanying text as the note. Saved captures retain the detailed editor
-for titles, types, links, authors, and notes. Projects are reached through Library.
+The bottom bar contains Focus, Today, Library, and Profile. New captures open as
+a sheet from the + button on Focus and the Add menu on Today (which also offers
+New task), from Library's Create menu, and from the New Capture shortcut. New
+captures detect link types automatically and keep accompanying text as the note.
+Saved captures retain the detailed editor for titles, types, links, authors, and
+notes. Projects are reached through Library.
 
 Library contains projects, a capture inbox, project filing, link previews, Knowledge notes,
 source links, and scheduled reviews. Quick capture accepts text or HTTP(S) links.
@@ -805,3 +805,49 @@ The Calendar tab is now Today: it shows only today's agenda (overdue items,
 dated projects and tasks, habits, reminders, and completed items) without the
 month grid. The full month Calendar, including Unscheduled, moved to
 Library > Calendar. Capture reminder notifications open the capture from Today.
+
+## UI/UX review changes, October 9, 2026
+
+Implements `notes/review/ios-ux-review.md`.
+
+- **Focus tab.** The tab and title are Focus (was Pocus). The idle timer has
+  15/25/45/60 minute presets and a "Choose a task" chip that opens a searchable
+  sheet of open tasks, due today or overdue first, then newest
+  (`RecordQueries.timerTasks`). Dragging the ring snaps to 5 minutes
+  (`FocusDuration`); VoiceOver still adjusts by 1 minute. The ring uses the
+  accent color. Stop always offers "Save elapsed time", including untasked
+  sessions, which count toward history and totals. The completion screen shows
+  the session, the task's new total (adding a completion PocketBase hasn't
+  counted yet), and today's total.
+- **Task actions.** Task rows in projects and Today have a Focus swipe and
+  context-menu action. While a session runs, Focus and "Focus on this task"
+  open the timer and say a session is already running instead of changing the
+  linked task (`PokusModel.focus(on:)`).
+- **Capture and new tasks.** The Capture tab is gone; see the bottom bar notes
+  above. New task (unassigned by default) is in Library's Create menu and
+  Today's Add menu.
+- **Today.** A card at the top shows today's focus time, the streak, and Start,
+  which opens Focus.
+- **Profile.** Focus shows today, this week, the daily streak, and a seven-day
+  Swift Charts bar chart. Timer preferences set the default length (the timer's
+  `pokus.duration`), completion sound, and completion haptic; `TimerSurfaces`
+  and the notification delegate apply them. Statistics come from
+  `FocusStatistics` in PokusCore over sessions read through `RecordReplica`
+  (the device keeps 90 days) plus unsynced local completions. A session counts
+  on the local day it ended; a streak survives until a day without focus ends.
+- **Calendar.** Weeks start on `Calendar.current.firstWeekday` with localized
+  very short weekday symbols (`DayKey.weekdayIndex(firstWeekday:)`,
+  `DayKey.weeks`, `HabitCalendarMonth`). Month markers no longer include the
+  always-on habit marker and scale with Dynamic Type.
+- **System surfaces.** `StartFocusIntent` and `NewCaptureIntent` are App
+  Shortcuts for Siri and Shortcuts. `ios/Shared/FocusIntents.swift` is compiled
+  into both the app and PokusActivity: an iOS 18 Control Center control opens the
+  timer, and the Live Activity shows the linked task, a progress bar, and
+  Pause/Resume and Stop buttons (`LiveActivityIntent`, run in the app through
+  `FocusIntentBridge`). Stop from the Live Activity saves the elapsed time.
+  `pokus://timer`, `pokus://start`, and `pokus://capture` route the same way.
+
+No simulator runtime was installed on the build machine, so simulator UI tests
+were not run and `Docs/Screenshots` was not refreshed. `swift test` and the
+generic iOS Simulator build pass.
+
