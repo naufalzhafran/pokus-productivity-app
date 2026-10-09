@@ -54,9 +54,13 @@ struct FocusTodayCard: View {
             .accessibilityValue(accessibilityValue)
             Button(action: openTimer) {
                 Label(running ? "Open timer" : "Start", systemImage: running ? "timer" : "play.fill")
-                    .frame(minWidth: 44, minHeight: 44)
+                    .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
             }
             .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .controlSize(.regular)
+            .fixedSize()
             .accessibilityHint(running ? "A focus session is running." : "Opens the Focus tab.")
             .accessibilityIdentifier("todayStartFocus")
         }

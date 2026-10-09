@@ -86,6 +86,7 @@ final class PokusModel {
     @ObservationIgnored private var workspaceVersion = 0
     @ObservationIgnored private var epoch = UUID()
     @ObservationIgnored private var retryAt = Date.distantPast
+    @ObservationIgnored private var dataRetryTask: Task<Void, Never>?
     @ObservationIgnored private var failedAttempts = 0
     @ObservationIgnored private var lastSurfaceSession: FocusSession?
     @ObservationIgnored private let testing = ProcessInfo.processInfo.arguments.contains("-ui-testing")
@@ -537,6 +538,7 @@ final class PokusModel {
                 let pulled = pull || !replicaStatus.ready ? try await replica.pull(api, reconcile: reconcile) : false
                 guard epoch == generation else { return }
                 dataFailures = 0; dataRetryAt = .distantPast; dataSyncError = nil
+                dataRetryTask?.cancel(); dataRetryTask = nil
                 await refreshReplicaStatus()
                 // The first full download replaces the older saved-response copies.
                 if !wasReady && replicaStatus.ready { await readCache.invalidate() }
@@ -548,10 +550,21 @@ final class PokusModel {
                 dataSyncError = (error as? APIError)?.status == 401
                     ? "Sign in again to sync your changes. They're saved on this iPhone."
                     : "Couldn't sync right now. Your changes are saved on this iPhone and will sync when connected."
+                if (error as? APIError)?.status != 401 { scheduleDataRetry() }
                 await refreshReplicaStatus()
                 return
             }
         } while dataSyncAgain && epoch == generation && isOnline
+    }
+    /// Retries on its own once the backoff passes, so a brief server or network failure heals without a manual refresh.
+    private func scheduleDataRetry() {
+        dataRetryTask?.cancel()
+        let delay = max(1, dataRetryAt.timeIntervalSinceNow)
+        dataRetryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            await self?.syncData()
+        }
     }
     /// After an edit only the queue is sent; downloads happen on refresh, reconnect, and foreground.
     private func scheduleDataSync(pull: Bool = false) {
