@@ -52,7 +52,10 @@ struct PokusProjectsView: View {
             }
             .sheet(isPresented: $creating) { ProjectEditorView(model: model, original: nil, onSaved: { _ in confirmation = "Project saved" }) }
             .sheet(item: $editing) { project in
-                ProjectEditorView(model: model, original: project, onSaved: { _ in confirmation = "Project saved" })
+                // List rows leave out the description; the editor needs the full record to edit it.
+                RemoteRecord<Project, ProjectEditorView>(model: model, collection: "projects", id: project.id) {
+                    ProjectEditorView(model: model, original: $0, onSaved: { _ in confirmation = "Project saved" })
+                }
             }
             .sheet(isPresented: $showingFilters) {
                 LibraryFilterSheet(title: "Filter projects", reset: { filter = "all" }) {
@@ -461,13 +464,17 @@ struct TaskDetailView: View {
             .safeAreaInset(edge: .bottom) {
                 if let task {
                     VStack(spacing: 6) {
-                        if model.hasRunningSession {
+                        if model.canLinkRunningSession {
+                            Text("A focus session without a task is running. Link it to count its time toward this task.")
+                                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                                .accessibilityIdentifier("sessionAlreadyRunning")
+                        } else if model.hasRunningSession {
                             Text(model.session?.task == task.id ? "This task's session is running." : "A focus session is already running. Finish it to focus on this task.")
                                 .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                                 .accessibilityIdentifier("sessionAlreadyRunning")
                         }
                         Button { model.focus(on: task.id) } label: {
-                            Label(model.hasRunningSession ? "Open timer" : "Focus on this task", systemImage: "timer")
+                            Label(model.canLinkRunningSession ? "Link to running session" : model.hasRunningSession ? "Open timer" : "Focus on this task", systemImage: "timer")
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
                             .buttonStyle(.borderedProminent)
@@ -493,13 +500,15 @@ struct TaskDetailView: View {
     }
 }
 
-/// Starts focusing on a task, or opens the timer when a session is already running.
+/// Starts focusing on a task, links it to a running session that has no task, or opens the timer
+/// when the running session already has one.
 struct FocusTaskButton: View {
     let model: PokusModel
     let taskID: String
     var body: some View {
-        Button(model.hasRunningSession ? "Open timer" : "Focus", systemImage: "timer") { model.focus(on: taskID) }
+        Button(model.canLinkRunningSession ? "Link to session" : model.hasRunningSession ? "Open timer" : "Focus", systemImage: "timer") { model.focus(on: taskID) }
             .disabled(model.account == nil || !model.storageReady)
-            .accessibilityHint(model.hasRunningSession ? "A focus session is already running." : "Links this task to your next focus session.")
+            .accessibilityHint(model.canLinkRunningSession ? "Counts the running session's time toward this task."
+                : model.hasRunningSession ? "A focus session is already running." : "Links this task to your next focus session.")
     }
 }

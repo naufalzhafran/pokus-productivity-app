@@ -1,3 +1,4 @@
+import DailyCore
 import UserNotifications
 import XCTest
 @testable import Daily
@@ -8,6 +9,7 @@ private final class FakeReminderClient: ReminderClient {
     var grantsPermission = true
     var permissionRequests = 0
     var scheduled: [(Int, Int)] = []
+    var skipped: [DayKey?] = []
     var cancellations = 0
     var failsSchedule = false
     enum Failure: Error { case scheduling }
@@ -18,9 +20,9 @@ private final class FakeReminderClient: ReminderClient {
         status = grantsPermission ? .authorized : .denied
         return grantsPermission
     }
-    func schedule(hour: Int, minute: Int) async throws {
+    func schedule(hour: Int, minute: Int, skipping: DayKey?) async throws {
         if failsSchedule { throw Failure.scheduling }
-        scheduled.append((hour, minute))
+        scheduled.append((hour, minute)); skipped.append(skipping)
     }
     func cancel() { cancellations += 1 }
 }
@@ -95,6 +97,30 @@ final class ReminderTests: XCTestCase {
         XCTAssertFalse(manager.enabled)
         XCTAssertEqual(client.cancellations, 1)
     }
+    @MainActor
+    func testCompletedDaySkipsOnlyTodaysReminder() async {
+        let client = FakeReminderClient(); client.status = .authorized
+        let (manager, defaults, suite) = makeManager(client)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        await manager.updateSchedule(allHabitsComplete: true)
+        XCTAssertTrue(client.scheduled.isEmpty, "A disabled reminder is never scheduled")
+        await manager.setEnabled(true)
+        XCTAssertEqual(client.skipped.last ?? nil, DayKey())
+        await manager.updateSchedule(allHabitsComplete: false)
+        XCTAssertNil(client.skipped.last ?? nil)
+        // A completion recorded on an earlier day doesn't skip today's reminder.
+        await manager.updateSchedule(allHabitsComplete: true, today: DayKey().adding(days: -1))
+        XCTAssertNil(client.skipped.last ?? nil)
+        await manager.updateSchedule(allHabitsComplete: true)
+        XCTAssertEqual(client.skipped.last ?? nil, DayKey())
+        let date = Calendar.current.date(from: DateComponents(year: 2001, month: 1, day: 1, hour: 7, minute: 15))!
+        await manager.setTime(date)
+        XCTAssertEqual(client.scheduled.last?.0, 7)
+        XCTAssertEqual(client.skipped.last ?? nil, DayKey())
+        XCTAssertEqual(defaults.object(forKey: "reminder.hour") as? Int, 7)
+        XCTAssertTrue(defaults.bool(forKey: "reminder.enabled"))
+    }
+
     @MainActor
     func testSignOutCancelsReminderWithoutErasingPreference() async {
         let client = FakeReminderClient(); client.status = .authorized

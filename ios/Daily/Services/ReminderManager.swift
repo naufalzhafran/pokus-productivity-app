@@ -1,3 +1,4 @@
+import DailyCore
 import Foundation
 import Observation
 import UserNotifications
@@ -6,7 +7,8 @@ import UserNotifications
 protocol ReminderClient {
     func authorizationStatus() async -> UNAuthorizationStatus
     func requestPermission() async throws -> Bool
-    func schedule(hour: Int, minute: Int) async throws
+    /// Replaces the scheduled reminders with one per day for the next week, leaving out `skipping`.
+    func schedule(hour: Int, minute: Int, skipping: DayKey?) async throws
     func cancel()
 }
 
@@ -23,23 +25,32 @@ final class SystemReminderClient: ReminderClient {
         try await center.requestAuthorization(options: [.alert, .sound])
     }
 
-    func schedule(hour: Int, minute: Int) async throws {
+    func schedule(hour: Int, minute: Int, skipping: DayKey?) async throws {
+        // Delivered alerts stay in Notification Center; only upcoming requests are replaced.
+        center.removePendingNotificationRequests(withIdentifiers: Self.knownIdentifiers)
         let content = UNMutableNotificationContent()
         content.title = "A little, every day."
         content.body = "Take a moment to check in with your habits."
         content.sound = .default
-        // No fixed timezone: follow the device's local wall-clock time.
-        var components = DateComponents()
-        components.hour = hour
-        components.minute = minute
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-        // The stable identifier replaces the previous request without creating duplicates.
-        try await center.add(UNNotificationRequest(identifier: Self.identifier, content: content, trigger: trigger))
+        // One request per day, so a day whose habits are already done can be left out. Components
+        // carry no time zone: each follows the device's local wall-clock time.
+        for occurrence in DailyReminderSchedule.occurrences(after: .now, hour: hour, minute: minute, skipping: skipping) {
+            let trigger = UNCalendarNotificationTrigger(dateMatching: occurrence.components, repeats: false)
+            try await center.add(UNNotificationRequest(identifier: Self.dailyIdentifier(for: occurrence.day), content: content, trigger: trigger))
+        }
     }
 
+    /// Removes every scheduled habit reminder, including the repeating one older versions scheduled.
     func cancel() {
-        center.removePendingNotificationRequests(withIdentifiers: [Self.identifier])
-        center.removeDeliveredNotifications(withIdentifiers: [Self.identifier])
+        center.removePendingNotificationRequests(withIdentifiers: Self.knownIdentifiers)
+        center.removeDeliveredNotifications(withIdentifiers: Self.knownIdentifiers)
+    }
+
+    static func dailyIdentifier(for day: DayKey) -> String { "\(Self.identifier).\(day.rawValue)" }
+    /// The legacy repeating request plus every day a schedule made in the last week can cover.
+    private static var knownIdentifiers: [String] {
+        let today = DayKey()
+        return [identifier] + (-2...(DailyReminderSchedule.days + 1)).map { dailyIdentifier(for: today.adding(days: $0)) }
     }
 }
 
@@ -47,7 +58,7 @@ final class SystemReminderClient: ReminderClient {
 private final class UITestReminderClient: ReminderClient {
     func authorizationStatus() async -> UNAuthorizationStatus { .authorized }
     func requestPermission() async throws -> Bool { true }
-    func schedule(hour: Int, minute: Int) async throws {}
+    func schedule(hour: Int, minute: Int, skipping: DayKey?) async throws {}
     func cancel() {}
 }
 
@@ -61,6 +72,8 @@ final class ReminderManager {
     private(set) var isUpdating = false
     var errorMessage: String?
     private var accountAvailable = true
+    /// The day whose habits were all complete when last checked; its reminder is left out.
+    private var completedDay: DayKey?
     @ObservationIgnored private let client: any ReminderClient
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -87,11 +100,24 @@ final class ReminderManager {
         if !available { client.cancel() }
         else if enabled {
             do {
-                try await client.schedule(hour: hour, minute: minute)
+                try await client.schedule(hour: hour, minute: minute, skipping: skippedDay)
                 if !accountAvailable { client.cancel() }
             }
             catch { errorMessage = "The reminder couldn't be scheduled. \(error.localizedDescription)" }
         }
+    }
+
+    private var skippedDay: DayKey? { completedDay == DayKey() ? completedDay : nil }
+
+    /// Records whether today's habits are all done and reschedules the next week, so the reminder
+    /// skips a finished day and never runs out while the app is used.
+    func updateSchedule(allHabitsComplete: Bool, today: DayKey = DayKey()) async {
+        completedDay = allHabitsComplete ? today : nil
+        guard enabled, accountAvailable, !isUpdating else { return }
+        do {
+            try await client.schedule(hour: hour, minute: minute, skipping: skippedDay)
+            if !accountAvailable || !enabled { client.cancel() }
+        } catch { errorMessage = "The reminder couldn't be scheduled. \(error.localizedDescription)" }
     }
 
     func refreshAuthorization() async {
@@ -124,7 +150,7 @@ final class ReminderManager {
                 authorization = await client.authorizationStatus()
             }
             guard authorization == .authorized || authorization == .provisional || authorization == .ephemeral else { return }
-            try await client.schedule(hour: hour, minute: minute)
+            try await client.schedule(hour: hour, minute: minute, skipping: skippedDay)
             enabled = true
             defaults.set(true, forKey: "reminder.enabled")
         } catch {
@@ -140,7 +166,7 @@ final class ReminderManager {
         errorMessage = nil
         defer { isUpdating = false }
         do {
-            if enabled && accountAvailable { try await client.schedule(hour: nextHour, minute: nextMinute) }
+            if enabled && accountAvailable { try await client.schedule(hour: nextHour, minute: nextMinute, skipping: skippedDay) }
             hour = nextHour
             minute = nextMinute
             defaults.set(hour, forKey: "reminder.hour")

@@ -401,4 +401,59 @@ struct ReplicaTests {
         try await reopened.push(harness.remote)
         #expect(await harness.server.row("tasks", "task0000000001")?["title"] == .string("Keep me"))
     }
+
+    @Test func recentProjectsListActiveProjectsByLastChangeOffline() async throws {
+        let harness = Harness(); defer { try? FileManager.default.removeItem(at: harness.directory) }
+        #expect(try await harness.remote.isWorkspaceEmpty())
+        await harness.seedWorkspace()
+        await harness.server.seed("projects", [
+            ["id": .string("project0000003"), "title": .string("Planned"), "isDone": .bool(false), "status": .string("planned")],
+            ["id": .string("project0000004"), "title": .string("Newer"), "isDone": .bool(false), "status": .string("active")],
+            ["id": .string("project0000005"), "title": .string("Legacy"), "isDone": .bool(false), "status": .string("")]
+        ])
+        let replica = harness.replica()
+        try await replica.pull(harness.remote)
+        let offline = harness.local(replica, online: false)
+        #expect(try await offline.isWorkspaceEmpty() == false)
+        #expect(try await offline.recentProjects().map(\.title) == ["Legacy", "Newer", "Active"])
+        _ = try await offline.save(.projects, id: "project0000001", creationID: nil, fields: ["title": .string("Active edited")], owner: "owner")
+        #expect(try await offline.recentProjects(limit: 2).map(\.title) == ["Active edited", "Legacy"])
+    }
+
+    @Test func exportIncludesEveryCollectionAndUnsyncedSessions() async throws {
+        let harness = Harness(); defer { try? FileManager.default.removeItem(at: harness.directory) }
+        await harness.seedWorkspace()
+        await harness.server.seed("categories", [["id": .string("category000001"), "name": .string("Work"), "color": .string("blue")]])
+        await harness.server.seed("habits", [["id": .string("habit000000001"), "name": .string("Read"), "kind": .string("check"), "startDay": .string("2026-01-01")]])
+        await harness.server.seed("habit_entries", [["id": .string("entry000000001"), "habit": .string("habit000000001"), "day": .string("2026-01-02"), "value": .number(1)]])
+        await harness.server.seed("pomodoro_sessions", [
+            ["id": .string("session0000001"), "mode": .string("complete"), "durationMinutes": .number(25), "remainingSeconds": .number(0),
+             "lastTick": .number(1_000_000), "task": .string("task0000000001")],
+            ["id": .string("session0000002"), "mode": .string("running"), "durationMinutes": .number(25), "remainingSeconds": .number(1500),
+             "lastTick": .number(2_000_000)]
+        ])
+        let started = FocusSession(id: "session0000003", durationMinutes: 10, now: Date(timeIntervalSince1970: 3000))
+        let local = SessionEngine(now: { Date(timeIntervalSince1970: 3600) }).finish(started, save: true)
+        let data = try await WorkspaceExport.data(from: harness.remote, account: Account(id: "owner", email: "me@example.com"),
+                                                  unsyncedSessions: [local, started], exportedAt: Date(timeIntervalSince1970: 0))
+        let document = try JSONDecoder().decode([String: JSONValue].self, from: data)
+        func rows(_ key: String) -> [[String: JSONValue]] {
+            guard case .array(let items)? = document[key] else { return [] }
+            return items.compactMap { if case .object(let row) = $0 { return row } else { return nil } }
+        }
+        #expect(document["format"] == .string("pokus-export"))
+        #expect(document["exportedAt"] == .string("1970-01-01T00:00:00Z"))
+        #expect(rows("projects").count == 2)
+        #expect(rows("tasks").count == 1)
+        #expect(rows("captures").count == 2)
+        #expect(rows("notes").first?["body"] == .string("<p>Original</p>"))
+        #expect(rows("categories").count == 1)
+        #expect(rows("habits").count == 1)
+        #expect(rows("habitEntries").count == 1)
+        #expect(rows("habitTargets").isEmpty)
+        #expect(rows("focusSessions").compactMap { $0["id"] } == [.string("session0000003"), .string("session0000001")])
+        #expect(rows("projects").allSatisfy { $0["collectionId"] == nil && $0["expand"] == nil })
+        let name = WorkspaceExport.fileName()
+        #expect(name.hasPrefix("Pokus export ") && name.hasSuffix(".json"))
+    }
 }

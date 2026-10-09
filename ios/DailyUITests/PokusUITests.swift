@@ -197,6 +197,8 @@ import XCTest
         app.buttons["New task"].tap()
         XCTAssertTrue(app.navigationBars["New task"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["No project"].exists)
+        // A task added from Today is dated today so it shows there.
+        XCTAssertEqual(app.switches["Due date"].value as? String, "1")
     }
     func testLibrarySearchOpensRecordsAndRetainsQueryOnReturn() {
         let app = launchConfirmationApp()

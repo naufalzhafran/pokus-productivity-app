@@ -5,7 +5,8 @@ import PokusNetworking
 /// Editors submit domain values; wire field names and validation live at this boundary.
 extension PokusModel {
     func saveProject(original: Project?, creationID: String, title: String, description: String,
-                     status: ProjectStatus, dueDate: Date?, captureID: String?) async throws -> Bool {
+                     status: ProjectStatus, dueDate: Date?, captureID: String?,
+                     replacementDescription: String? = nil) async throws -> Bool {
         let clean = try WorkspaceRules.validateTitle(title, maximum: 120)
         var fields: [String: JSONValue] = ["title": .string(clean), "status": .string(status.rawValue),
             "dueDate": .string(dueDate.map(WorkspaceRules.dayKey) ?? "")]
@@ -13,12 +14,16 @@ extension PokusModel {
             fields["description"] = .string(WorkspaceRules.paragraphHTML(description))
             fields["isDone"] = .bool(false)
             if let captureID { fields["captures"] = .array([.string(captureID)]) }
+        } else if let replacementDescription {
+            // Stored HTML, written only when the plain-text description was edited.
+            fields["description"] = .string(replacementDescription)
         }
         return await write(collection: .projects, id: original?.id, creationID: creationID, fields: fields)
     }
 
     func saveTask(original: FocusTask?, creationID: String, title: String, description: String,
-                  projectID: String, priority: Priority, category: String, dueDate: Date? = nil) async throws -> Bool {
+                  projectID: String, priority: Priority, category: String, dueDate: Date? = nil,
+                  replacementDescription: String? = nil) async throws -> Bool {
         let clean = try WorkspaceRules.validateTitle(title, maximum: 160, original: original?.title)
         var fields: [String: JSONValue] = ["title": .string(clean), "project": .string(projectID),
             "priority": .string(priority.rawValue), "category": .string(category),
@@ -26,6 +31,9 @@ extension PokusModel {
         if original == nil {
             fields["description"] = .string(WorkspaceRules.paragraphHTML(description))
             fields["isDone"] = .bool(false); fields["focusedSeconds"] = .number(0)
+        } else if let replacementDescription {
+            // Stored HTML, written only when the plain-text description was edited.
+            fields["description"] = .string(replacementDescription)
         }
         return await write(collection: .tasks, id: original?.id, creationID: creationID, fields: fields)
     }
@@ -92,6 +100,22 @@ extension PokusModel {
         }
         return await write(collection: .knowledge, id: original?.id, creationID: creationID, fields: fields)
     }
+
+    /// Writes everything the account keeps to one JSON file for sharing, from the device copy
+    /// where it has the records. Sessions saved on this iPhone but not yet synced are included.
+    func exportData() async throws -> URL {
+        guard let account, let scope else { throw PokusError.message("Sign in to export your data.") }
+        let data = try await WorkspaceExport.data(from: readAPI(), account: account, unsyncedSessions: displayedHistory)
+        guard self.scope == scope else { throw PokusError.message("Your account changed. Export again.") }
+        let directory = Self.exportDirectory
+        try? FileManager.default.removeItem(at: directory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = directory.appendingPathComponent(WorkspaceExport.fileName())
+        try data.write(to: file, options: [.atomic, .completeFileProtection])
+        return file
+    }
+    /// Where the last export waits for the share sheet; removed on sign-out.
+    static var exportDirectory: URL { FileManager.default.temporaryDirectory.appendingPathComponent("PokusExport", isDirectory: true) }
 
     func saveCapture(original: Capture?, creationID: String, projectID: String?, kind: CaptureKind,
                      title: String, url: String, author: String, replacementNote: String?) async throws -> Bool {

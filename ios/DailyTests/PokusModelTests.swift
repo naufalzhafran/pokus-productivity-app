@@ -411,6 +411,19 @@ private actor ModelServer {
         XCTAssertEqual(model.workspace.projects.first?.captures, original.captures)
         XCTAssertEqual(model.workspace.projects.first?.title, "Renamed")
     }
+    func testPlainTextDescriptionEditReplacesStoredHTMLOnlyWhenChanged() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let server = ModelServer()
+        let model = try model(server, root: root)
+        let original = try JSONDecoder().decode(Project.self, from: Data(#"{"id":"testproject0001","title":"Test project","description":"<p><strong>Plan</strong></p>","isDone":false,"captures":["testcapture0001"],"created":"2026-01-01"}"#.utf8))
+        XCTAssertNil(WorkspaceRules.replacementDescription("Plan", original: original.description))
+        let result = try await model.saveProject(original: original, creationID: "unused", title: "Test project", description: "New plan",
+                                                status: .active, dueDate: nil, captureID: nil,
+                                                replacementDescription: WorkspaceRules.replacementDescription("New plan", original: original.description))
+        XCTAssertTrue(result)
+        XCTAssertEqual(model.workspace.projects.first?.description, "<p>New plan</p>")
+    }
     func testHabitEntryAppliesConfirmedRecordWithoutReloadingCollections() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -1417,6 +1430,7 @@ private actor ModelServer {
         XCTAssertNil(NotificationLaunchRoute.parse(userInfo: payload, identifier: "pokus.capture.ownerB.capture1.2000000000000"))
         XCTAssertNil(NotificationLaunchRoute.parse(userInfo: payload, identifier: "pokus.calendar-verification.test"))
         XCTAssertEqual(NotificationLaunchRoute.parse(userInfo: [:], identifier: "daily.evening-check-in"), .habits)
+        XCTAssertEqual(NotificationLaunchRoute.parse(userInfo: [:], identifier: "daily.evening-check-in.2026-10-09"), .habits)
         XCTAssertEqual(NotificationLaunchRoute.parse(userInfo: ["pokusTimer": true], identifier: "pokus.focus.session1"), .timer)
         XCTAssertNil(NotificationLaunchRoute.parse(userInfo: [:], identifier: "pokus.focus.session1"))
         XCTAssertNil(NotificationLaunchRoute.parse(userInfo: ["pokusTimer": true], identifier: "unrelated"))

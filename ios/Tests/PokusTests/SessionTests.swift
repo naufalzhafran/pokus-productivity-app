@@ -55,6 +55,42 @@ struct SessionTests {
         #expect(engine.finish(session, save: true).mode == .complete)
         #expect(engine.finish(session, save: false).mode == .discarded)
     }
+    @Test func attachLinksOnlyARunningSessionWithoutATask() {
+        let start = Date(timeIntervalSince1970: 1000)
+        let engine = SessionEngine(now: { start.addingTimeInterval(60) })
+        let session = FocusSession(durationMinutes: 25, now: start)
+        let linked = engine.attach(task: "task00000000000", to: session)
+        #expect(linked?.task == "task00000000000")
+        #expect(linked?.remainingSeconds == session.remainingSeconds)
+        #expect(linked?.lastTick == session.lastTick)
+        #expect(linked?.mode == .running)
+        // Switching an already linked task stays blocked.
+        #expect(engine.attach(task: "task00000000001", to: linked!) == nil)
+        #expect(engine.attach(task: "", to: session) == nil)
+        let paused = engine.toggle(session)
+        #expect(engine.attach(task: "task00000000000", to: paused)?.isActive == false)
+        #expect(engine.attach(task: "task00000000000", to: engine.finish(session, save: true)) == nil)
+        #expect(engine.attach(task: "task00000000000", to: engine.finish(session, save: false)) == nil)
+    }
+    @Test func attachedTaskIsQueuedAndCreditedOnCompletion() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let start = Date(timeIntervalSince1970: 1000)
+        let store = try PokusStore(directory: root)
+        let session = FocusSession(durationMinutes: 25, now: start)
+        _ = try await store.transition("owner", session: session)
+        let linked = try #require(SessionEngine(now: { start.addingTimeInterval(30) }).attach(task: "task00000000000", to: session))
+        let saved = try await store.transition("owner", session: linked)
+        #expect(saved.timer.current?.task == "task00000000000")
+        #expect(saved.timer.operations.count == 1)
+        #expect(saved.timer.operations.first?.session.task == "task00000000000")
+        let reopened = try await PokusStore(directory: root).read("owner")
+        #expect(reopened.timer.current?.task == "task00000000000")
+        let finished = SessionEngine(now: { start.addingTimeInterval(120) }).finish(linked, save: true)
+        let completed = try await store.transition("owner", session: finished)
+        #expect(completed.timer.operations.last?.session.task == "task00000000000")
+        #expect(completed.timer.operations.last?.session.creditedSeconds == 120)
+    }
     @Test func terminalCannotBeResurrectedAndOldAckKeepsNewTransition() {
         let session = FocusSession(durationMinutes: 1, now: .now)
         var timer = TimerSnapshot(); timer.transition(session)
@@ -100,5 +136,20 @@ struct SessionTests {
         #expect(throws: (any Error).self) { try WorkspaceRules.validateTitle(legacy + "new", maximum: 160, original: legacy) }
         #expect(try WorkspaceRules.validateTitle("  One\n task  ", maximum: 160) == "One task")
         #expect(WorkspaceRules.paragraphHTML("<script>&\nNotes") == "<p>&lt;script&gt;&amp;</p><p>Notes</p>")
+    }
+    @Test func plainTextDescriptionEditsKeepFormattingUnlessChanged() {
+        #expect(!WorkspaceRules.hasRichFormatting(""))
+        #expect(!WorkspaceRules.hasRichFormatting("<p>One</p><p></p><P class=\"x\">Two<br/>Three</P>"))
+        #expect(!WorkspaceRules.hasRichFormatting("Plain &lt;b&gt; text"))
+        #expect(WorkspaceRules.hasRichFormatting("<p>Some <strong>bold</strong></p>"))
+        #expect(WorkspaceRules.hasRichFormatting("<ul><li>Item</li></ul>"))
+        #expect(WorkspaceRules.hasRichFormatting("<p><a href=\"https://example.com\">Link</a></p>"))
+        let rich = "<h2>Plan</h2><ul><li>Ship</li></ul>"
+        #expect(WorkspaceRules.replacementDescription(WorkspaceRules.plainText(rich), original: rich) == nil)
+        #expect(WorkspaceRules.replacementDescription("Plan\nShip it", original: rich) == "<p>Plan</p><p>Ship it</p>")
+        let plain = WorkspaceRules.paragraphHTML("First\n\nSecond & more")
+        #expect(WorkspaceRules.replacementDescription("First\n\nSecond & more", original: plain) == nil)
+        #expect(WorkspaceRules.replacementDescription("", original: plain) == "")
+        #expect(WorkspaceRules.replacementDescription("", original: "") == nil)
     }
 }

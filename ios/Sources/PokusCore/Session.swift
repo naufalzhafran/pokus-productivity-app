@@ -76,6 +76,14 @@ public struct SessionEngine {
         next.mode = save ? .complete : .discarded; next.lastTick = endTick(session)
         return next
     }
+    /// Links a task to a running session that started without one. Returns nil when the session
+    /// has ended or already has a task: a linked task can't be switched mid-session.
+    public func attach(task: String, to session: FocusSession) -> FocusSession? {
+        guard session.mode == .running, session.task.isEmpty, !task.isEmpty else { return nil }
+        var next = session
+        next.task = task
+        return next
+    }
     /// A running session that already ran out ended at its deadline, not when the app noticed.
     private func endTick(_ session: FocusSession) -> Double {
         let current = floor(now().timeIntervalSince1970 * 1000)

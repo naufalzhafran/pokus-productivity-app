@@ -83,6 +83,7 @@ struct PokusProfileView: View {
                         .padding(.vertical, 4)
                     }
                     .accessibilityIdentifier("profileDataSync")
+                    ExportDataRows(model: model)
                 }
                 Section {
                     Button("Sign out", role: .destructive) { signingOut = true }
@@ -118,6 +119,52 @@ struct PokusProfileView: View {
         return Text(version.map { "Pokus · \($0)" } ?? "Pokus")
             .frame(maxWidth: .infinity)
             .padding(.top, 8)
+    }
+}
+
+/// Profile → Export my data: one JSON file with every project, task, category, capture, note,
+/// habit, and completed focus session, offered through the share sheet.
+private struct ExportDataRows: View {
+    let model: PokusModel
+    @State private var file: URL?
+    /// The account session the file belongs to; another account never sees it.
+    @State private var exportedFor: UUID?
+    @State private var exporting = false
+    @State private var error: String?
+
+    var body: some View {
+        Button {
+            Task { await export() }
+        } label: {
+            if exporting { ProgressView("Preparing export") }
+            else { Label("Export my data", systemImage: "square.and.arrow.down") }
+        }
+        .frame(minHeight: 44)
+        .disabled(exporting || model.account == nil)
+        .accessibilityHint("Creates a JSON file with your projects, tasks, captures, notes, habits, and focus history.")
+        .accessibilityIdentifier("exportData")
+        if let file, !exporting, exportedFor != nil, exportedFor == model.scope?.generation {
+            ShareLink(item: file) {
+                Label("Share \(file.lastPathComponent)", systemImage: "square.and.arrow.up")
+            }
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("shareExport")
+        }
+        if let error {
+            Text(error).font(.footnote).foregroundStyle(.secondary)
+        }
+    }
+
+    private func export() async {
+        guard !exporting else { return }
+        exporting = true; error = nil
+        defer { exporting = false }
+        let generation = model.scope?.generation
+        do { file = try await model.exportData(); exportedFor = generation }
+        catch {
+            file = nil
+            self.error = "Couldn't export your data. \(error.localizedDescription)"
+        }
     }
 }
 

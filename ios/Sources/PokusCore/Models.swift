@@ -141,6 +141,20 @@ public enum WorkspaceRules {
     public static func plainText(_ html: String) -> String {
         HTMLText.decode(html)
     }
+    /// Whether stored HTML has formatting beyond the plain paragraphs and line breaks that
+    /// `paragraphHTML` writes, so a plain-text edit would drop it.
+    public static func hasRichFormatting(_ html: String) -> Bool {
+        let pattern = try! NSRegularExpression(pattern: "<\\s*/?\\s*([A-Za-z][A-Za-z0-9]*)")
+        let source = html as NSString
+        return pattern.matches(in: html, range: NSRange(location: 0, length: source.length)).contains { match in
+            !["p", "br"].contains(source.substring(with: match.range(at: 1)).lowercased())
+        }
+    }
+    /// The description field for a plain-text edit: nil when the text didn't change, so the stored
+    /// HTML and its formatting are kept.
+    public static func replacementDescription(_ text: String, original html: String) -> String? {
+        text == plainText(html) ? nil : paragraphHTML(text)
+    }
     public static func dayKey(_ date: Date = .now) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .autoupdatingCurrent

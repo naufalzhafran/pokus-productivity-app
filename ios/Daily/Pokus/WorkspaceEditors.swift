@@ -24,6 +24,7 @@ struct ProjectEditorView: View {
     init(model: PokusModel, original: Project?, captureID: String? = nil, suggestedTitle: String? = nil, onSaved: ((String) -> Void)? = nil) {
         self.model = model; self.original = original; self.captureID = captureID; self.onSaved = onSaved
         _title = State(initialValue: original?.title ?? suggestedTitle ?? "")
+        _description = State(initialValue: WorkspaceRules.plainText(original?.description ?? ""))
         _status = State(initialValue: original?.lifecycle ?? .active)
         _hasDueDate = State(initialValue: original?.dueDate?.isEmpty == false)
         let formatter = DateFormatter()
@@ -46,16 +47,13 @@ struct ProjectEditorView: View {
                     Toggle("Due date", isOn: $hasDueDate.animation())
                     if hasDueDate { DatePicker("Due", selection: $dueDate, displayedComponents: .date) }
                 }
-                Section("Description") {
-                    if let original, !original.description.isEmpty {
-                        RichDescription(html: original.description)
-                        Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
-                    } else if original == nil {
-                        TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
-                            .editorPrompt("Description", isShowing: description.isEmpty)
-                            .accessibilityLabel("Project description")
-                    } else {
-                        Text("No description").foregroundStyle(.secondary)
+                Section {
+                    TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
+                        .editorPrompt("Description", isShowing: description.isEmpty)
+                        .accessibilityLabel("Project description")
+                } header: { Text("Description") } footer: {
+                    if let original, WorkspaceRules.hasRichFormatting(original.description) {
+                        Text("Editing here saves plain text and replaces the description's formatting. Leave it unchanged to keep the formatting.")
                     }
                 }
             }
@@ -78,7 +76,8 @@ struct ProjectEditorView: View {
         defer { submitting = false }
         do {
             if try await model.saveProject(original: original, creationID: creationID, title: title, description: description,
-                                           status: status, dueDate: hasDueDate ? dueDate : nil, captureID: captureID) { onSaved?(original?.id ?? creationID); dismiss() }
+                                           status: status, dueDate: hasDueDate ? dueDate : nil, captureID: captureID,
+                                           replacementDescription: original.flatMap { WorkspaceRules.replacementDescription(description, original: $0.description) }) { onSaved?(original?.id ?? creationID); dismiss() }
             else { validation = model.error }
         } catch { validation = error.localizedDescription; focusedField = .title }
     }
@@ -103,15 +102,17 @@ struct TaskEditorView: View {
     private enum Field { case title, description }
     @FocusState private var focusedField: Field?
     private var draft: [String] { [title.trimmingCharacters(in: .whitespacesAndNewlines), description, projectID, priority.rawValue, category, hasDueDate ? WorkspaceRules.dayKey(dueDate) : ""] }
-    init(model: PokusModel, original: FocusTask?, projectID: String, onSaved: ((String) -> Void)? = nil) {
+    /// `initialDueDate` dates a new task, such as one created from Today or a calendar day.
+    init(model: PokusModel, original: FocusTask?, projectID: String, initialDueDate: Date? = nil, onSaved: ((String) -> Void)? = nil) {
         self.model = model; self.original = original; self.onSaved = onSaved
         _title = State(initialValue: original?.title ?? "")
+        _description = State(initialValue: WorkspaceRules.plainText(original?.description ?? ""))
         _projectID = State(initialValue: original?.project ?? projectID)
         _priority = State(initialValue: original?.priority ?? .none)
         _category = State(initialValue: original?.category ?? "")
-        _hasDueDate = State(initialValue: !(original?.dueDate ?? "").isEmpty)
+        _hasDueDate = State(initialValue: original == nil ? initialDueDate != nil : !(original?.dueDate ?? "").isEmpty)
         let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
-        _dueDate = State(initialValue: original?.dueDate.flatMap { formatter.date(from: $0) } ?? .now)
+        _dueDate = State(initialValue: original?.dueDate.flatMap { formatter.date(from: $0) } ?? initialDueDate ?? .now)
     }
     var body: some View {
         NavigationStack {
@@ -135,16 +136,13 @@ struct TaskEditorView: View {
                 } header: { Text("Schedule") } footer: {
                     if !hasDueDate && !projectID.isEmpty { Text("Uses the project's deadline when available.") }
                 }
-                Section("Description") {
-                    if let original {
-                        if let description = original.description, !description.isEmpty {
-                            RichDescription(html: description)
-                            Text("Existing descriptions are read-only on iPhone.").font(.footnote).foregroundStyle(.secondary)
-                        } else { Text("No description").foregroundStyle(.secondary) }
-                    } else {
-                        TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
-                            .editorPrompt("Description", isShowing: description.isEmpty)
-                            .accessibilityLabel("Task description")
+                Section {
+                    TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
+                        .editorPrompt("Description", isShowing: description.isEmpty)
+                        .accessibilityLabel("Task description")
+                } header: { Text("Description") } footer: {
+                    if let original, WorkspaceRules.hasRichFormatting(original.description ?? "") {
+                        Text("Editing here saves plain text and replaces the description's formatting. Leave it unchanged to keep the formatting.")
                     }
                 }
             }.disabled(submitting || model.isSaving)
@@ -166,7 +164,8 @@ struct TaskEditorView: View {
         defer { submitting = false }
         do {
             if try await model.saveTask(original: original, creationID: creationID, title: title, description: description,
-                                        projectID: projectID, priority: priority, category: category, dueDate: hasDueDate ? dueDate : nil) { onSaved?(original?.id ?? creationID); dismiss() } else { validation = model.error }
+                                        projectID: projectID, priority: priority, category: category, dueDate: hasDueDate ? dueDate : nil,
+                                        replacementDescription: original.flatMap { WorkspaceRules.replacementDescription(description, original: $0.description ?? "") }) { onSaved?(original?.id ?? creationID); dismiss() } else { validation = model.error }
         } catch { validation = error.localizedDescription; focusedField = .title }
     }
 }

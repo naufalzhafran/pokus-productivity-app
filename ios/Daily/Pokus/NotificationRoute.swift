@@ -10,7 +10,8 @@ enum NotificationLaunchRoute {
     static var pending: Destination?
 
     nonisolated static func parse(userInfo: [AnyHashable: Any], identifier: String) -> Destination? {
-        if identifier == "daily.evening-check-in" { return .habits }
+        // Habit reminders: the legacy repeating request, and one request per day in newer versions.
+        if identifier == "daily.evening-check-in" || identifier.hasPrefix("daily.evening-check-in.") { return .habits }
         let timerPrefix = "pokus.focus."
         if identifier.hasPrefix(timerPrefix), identifier.count > timerPrefix.count,
            userInfo["pokusTimer"] as? Bool == true { return .timer }

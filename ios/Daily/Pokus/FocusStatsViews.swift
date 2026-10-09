@@ -27,6 +27,8 @@ struct FocusTodayCard: View {
     let model: PokusModel
     let today: DayKey
     let openTimer: () -> Void
+    /// Starts a session at the default length; without it, Start only opens the timer.
+    var startFocus: (() -> Void)? = nil
     @State private var statistics = ReadState<FocusStatistics>()
     @Environment(\.dynamicTypeSize) private var typeSize
     private var running: Bool { model.hasRunningSession }
@@ -52,7 +54,7 @@ struct FocusTodayCard: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Today's focus")
             .accessibilityValue(accessibilityValue)
-            Button(action: openTimer) {
+            Button { if running { openTimer() } else { (startFocus ?? openTimer)() } } label: {
                 Label(running ? "Open timer" : "Start", systemImage: running ? "timer" : "play.fill")
                     .labelStyle(.titleAndIcon)
                     .lineLimit(1)
@@ -61,7 +63,9 @@ struct FocusTodayCard: View {
             .buttonBorderShape(.capsule)
             .controlSize(.regular)
             .fixedSize()
-            .accessibilityHint(running ? "A focus session is running." : "Opens the Focus tab.")
+            .accessibilityLabel(running ? "Open timer" : "Start focus")
+            .accessibilityHint(running ? "A focus session is running." : startFocus == nil ? "Opens the Focus tab." : "Starts a focus session at your default length.")
+            .disabled(!running && (model.account == nil || !model.storageReady))
             .accessibilityIdentifier("todayStartFocus")
         }
         .padding(.vertical, 4)

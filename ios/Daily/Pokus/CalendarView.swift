@@ -13,7 +13,11 @@ struct PokusCalendarView: View {
     var newCapture: (() -> Void)? = nil
     var newTask: (() -> Void)? = nil
     var openTimer: (() -> Void)? = nil
+    /// Starts a session at the default length and shows the timer.
+    var startFocus: (() -> Void)? = nil
     @State private var pickedDay: DayKey?
+    @State private var newTaskDay: DayKey?
+    @State private var showsWelcome = false
     @State private var month = DayKey()
     @State private var window = ReadState<CalendarWindow>()
     @State private var overdue = ReadState<[CalendarItem]>()
@@ -101,6 +105,14 @@ struct PokusCalendarView: View {
             await day.load { try await store.dayIndex(selectedDay) }
             if selectedDay == today { await overdue.load { try await model.readAPI().calendarOverdue(before: today) } }
         }
+        .task(id: "welcome-\(model.scope?.generation.uuidString ?? "")-\(model.storageReady)") {
+            // First run: checked once per account, so the welcome stays while its first task is added.
+            guard !showsMonth, startFocus != nil, model.account != nil, model.storageReady, !showsWelcome,
+                  !ProcessInfo.processInfo.arguments.contains("-ui-testing") else { return }
+            let scope = model.scope
+            guard let empty = try? await model.readAPI().isWorkspaceEmpty(), model.scope == scope else { return }
+            showsWelcome = empty && model.displayedHistory.isEmpty && model.session == nil
+        }
         .onAppear { month = selectedDay }
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in timeRevision += 1 }
         .onChange(of: selectedDay) { _, next in
@@ -120,6 +132,9 @@ struct PokusCalendarView: View {
         }
         .sheet(item: $entryToEdit) { selection in
             LoadedEntryEditor(store: store, habitID: selection.habitID, day: selection.day, today: today)
+        }
+        .sheet(item: $newTaskDay) { day in
+            TaskEditorView(model: model, original: nil, projectID: "", initialDueDate: day.localDate, onSaved: { _ in retry += 1 })
         }.saveAlert(save)
     }
 
@@ -202,8 +217,11 @@ struct PokusCalendarView: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+            if showsWelcome, let account = model.account, let startFocus {
+                WelcomeSection(model: model, accountID: account.id, startFocus: startFocus)
+            }
             if let openTimer {
-                Section { FocusTodayCard(model: model, today: today, openTimer: openTimer) }
+                Section { FocusTodayCard(model: model, today: today, openTimer: openTimer, startFocus: startFocus) }
             }
             if window.value == nil && window.error == nil {
                 Section { ProgressView("Loading your day") }
@@ -228,6 +246,11 @@ struct PokusCalendarView: View {
                     }
                 } else if day.isLoading { ProgressView("Loading habits") }
                 if let error = day.error { ReadError(message: error) { retry += 1 } }
+                Button { newTaskDay = selectedDay } label: {
+                    Label("New task on \(selectedDay.formatted())", systemImage: "plus.circle").frame(minHeight: 44)
+                }
+                .disabled(!model.canEdit)
+                .accessibilityIdentifier("calendarNewTask")
             }
         } else {
             if !remaining.isEmpty {
@@ -332,6 +355,13 @@ struct PokusCalendarView: View {
 
 private extension DayKey {
     var firstOfCalendarMonth: DayKey { DayKey(rawValue: String(format: "%04d-%02d-01", year, month))! }
+    /// Noon on this day in the device's time zone, for date pickers that save the local day.
+    var localDate: Date {
+        let parts = rawValue.split(separator: "-").compactMap { Int($0) }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12)) ?? date
+    }
 }
 
 private struct CalendarAgendaRow: View {
@@ -446,5 +476,104 @@ struct CalendarUnscheduledView: View {
             .sheet(item: $task) { record in
                 RemoteRecord<FocusTask, TaskEditorView>(model: model, collection: "tasks", id: record.id) { TaskEditorView(model: model, original: $0, projectID: $0.project) }
             }
+    }
+}
+
+/// First run on Today: shown while a new account has no projects, tasks, captures, or sessions,
+/// until it's dismissed or the first session starts. Dismissal is remembered per account.
+private struct WelcomeSection: View {
+    let model: PokusModel
+    let startFocus: () -> Void
+    @AppStorage private var dismissed: Bool
+    @AppStorage(TimerPreferences.durationKey) private var duration = 25
+    @State private var taskTitle = ""
+    @State private var addedTitle: String?
+    @State private var adding = false
+    @FocusState private var titleFocused: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    init(model: PokusModel, accountID: String, startFocus: @escaping () -> Void) {
+        self.model = model; self.startFocus = startFocus
+        _dismissed = AppStorage(wrappedValue: false, "pokus.welcomeDismissed.\(accountID)")
+    }
+
+    var body: some View {
+        if !dismissed && !model.hasRunningSession {
+            Section {
+                Text("Focus sessions, tasks, captures, and notes live together here. Start with one session.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Picker("Session length", selection: $duration) {
+                    ForEach(FocusDuration.presets, id: \.self) { Text("\($0) min").tag($0) }
+                    if !FocusDuration.presets.contains(duration) { Text("\(duration) min").tag(duration) }
+                }
+                .pickerStyle(.menu)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("welcomeDuration")
+                if let addedTitle {
+                    Label("Next session: \(addedTitle)", systemImage: "checklist")
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("welcomeTask")
+                } else {
+                    let layout = typeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                        : AnyLayout(HStackLayout(spacing: 12))
+                    layout {
+                        TextField("What are you working on?", text: $taskTitle)
+                            .focused($titleFocused).submitLabel(.done)
+                            .onSubmit(addTask)
+                            .frame(minHeight: 44)
+                            .accessibilityHint("Adds a task due today and links it to your first session.")
+                            .accessibilityIdentifier("welcomeTaskTitle")
+                        Button(adding ? "Adding…" : "Add", action: addTask)
+                            .buttonStyle(.bordered).frame(minHeight: 44)
+                            .disabled(!model.canEdit || adding || taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                Button {
+                    titleFocused = false
+                    dismissed = true
+                    startFocus()
+                } label: {
+                    Label(addedTitle == nil ? "Just start focusing" : "Start focusing", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!model.storageReady)
+                .accessibilityIdentifier("welcomeStart")
+            } header: {
+                HStack {
+                    Text("Welcome to Pokus").font(.headline).foregroundStyle(.primary)
+                    Spacer()
+                    Button { dismissed = true } label: {
+                        Label("Dismiss welcome", systemImage: "xmark").labelStyle(.iconOnly)
+                            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("dismissWelcome")
+                }
+            }
+            .textCase(nil)
+        }
+    }
+
+    /// Creates an unassigned task due today and links it to the next session.
+    private func addTask() {
+        let title = taskTitle
+        guard !adding, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, model.canEdit else { return }
+        let id = FocusSession.makeID()
+        titleFocused = false
+        adding = true
+        Task {
+            defer { adding = false }
+            do {
+                // A failed save reports through the app's error banner.
+                guard try await model.saveTask(original: nil, creationID: id, title: title, description: "", projectID: "",
+                                               priority: .none, category: "", dueDate: .now) else { return }
+                model.selectedTaskID = id
+                addedTitle = WorkspaceRules.normalizeTitle(title)
+                taskTitle = ""
+            } catch { model.error = error.localizedDescription }
+        }
     }
 }

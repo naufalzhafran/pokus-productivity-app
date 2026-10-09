@@ -1,6 +1,7 @@
 import Combine
 import DailyCore
 import DailyPersistence
+import PokusCore
 import SwiftUI
 
 struct RootView: View {
@@ -55,7 +56,8 @@ struct RootView: View {
                     .tabItem { Label("Focus", systemImage: "timer") }.tag(0)
                 NavigationStack {
                     PokusCalendarView(model: pokus, today: today, showsMonth: false, openHabits: openHabits, selectedCapture: $selectedCapture,
-                                      newCapture: newCapture, newTask: newTask, openTimer: { selectedTab = 0 })
+                                      newCapture: newCapture, newTask: newTask, openTimer: { selectedTab = 0 },
+                                      startFocus: { pokus.request = .startFocus })
                 }.id(pokus.scope?.generation).tabItem { Label("Today", systemImage: "sun.max") }.tag(2)
                 NavigationStack(path: $libraryPath) { PokusLibraryView(model: pokus, habitStore: habitStore, today: today, habitsProgress: $habitsProgress) }
                     .id("\(habitNavigationID)-\(pokus.scope?.generation.uuidString ?? "signedout")")
@@ -69,11 +71,18 @@ struct RootView: View {
             case .capture:
                 CaptureEditorView(model: pokus, onSaved: { _ in savedNotice = "Capture saved" })
             case .task:
-                TaskEditorView(model: pokus, original: nil, projectID: "", onSaved: { _ in savedNotice = "Task saved" })
+                // Today's New task is dated today so it stays on Today; the date can still be cleared.
+                TaskEditorView(model: pokus, original: nil, projectID: "", initialDueDate: .now, onSaved: { _ in savedNotice = "Task saved" })
             }
         }
         .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
         .onChange(of: creating) { _, next in if next != nil { savedNotice = nil } }
+        .task(id: savedNotice) {
+            // The saved notice clears itself; VoiceOver users keep it until they dismiss it.
+            guard savedNotice != nil, !UIAccessibility.isVoiceOverRunning else { return }
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
+            withAnimation { savedNotice = nil }
+        }
         .transformEnvironment(\.dynamicTypeSize) { size in
             if ProcessInfo.processInfo.arguments.contains("-ui-testing-accessibility") { size = .accessibility5 }
         }
@@ -105,7 +114,7 @@ struct RootView: View {
             }
             if phase == .active {
                 refreshDate()
-                Task { await reminders.refreshAuthorization(); await pokus.tick(forceSurfaces: true); await importSharedCaptures(); await pokus.refreshIfNeeded(); await captureReminders.refresh(model: pokus) }
+                Task { await reminders.refreshAuthorization(); await pokus.tick(forceSurfaces: true); await importSharedCaptures(); await pokus.refreshIfNeeded(); await captureReminders.refresh(model: pokus); await refreshHabitReminder() }
             }
         }
         .task {
@@ -115,8 +124,10 @@ struct RootView: View {
             pokus.requestCaptureReminderAlerts = { await captureReminders.refresh(model: pokus, requestPermission: true) }
             pokus.refreshCaptureReminderAlerts = { await captureReminders.refresh(model: pokus) }
             pokus.cancelCaptureReminderAlerts = { owner, captureID in await captureReminders.cancel(owner: owner, captureID: captureID) }
+            pokus.habitsDidChange = { await refreshHabitReminder() }
             await reminders.setAccountAvailable(pokus.account != nil || localPreview)
             await reminders.refreshAuthorization()
+            await refreshHabitReminder()
         }
         .task(id: "\(pokus.account?.id ?? "")-\(pokus.storageReady)-\(pokus.replicaStatus.ready)") {
             await importSharedCaptures()
@@ -165,8 +176,17 @@ struct RootView: View {
     }
     private func importSharedCaptures() async {
         guard scenePhase == .active else { return }
-        let count = await pokus.importSharedCaptures()
+        // Items a background refresh already saved are announced now, too.
+        let count = await pokus.importSharedCaptures() + pokus.backgroundSharedImports
+        pokus.backgroundSharedImports = 0
         if count > 0 { savedNotice = count == 1 ? "Shared item saved to Captures" : "\(count) shared items saved to Captures" }
+    }
+    /// Skips today's habit reminder once every habit is checked in, and keeps the next week scheduled.
+    private func refreshHabitReminder() async {
+        guard reminders.enabled, let habitStore else { return }
+        let day = DayKey()
+        guard let index = try? await habitStore.dayIndex(day) else { return }
+        await reminders.updateSchedule(allHabitsComplete: !index.ids.isEmpty && index.remaining.isEmpty, today: day)
     }
     /// Opens what an App Intent, widget, or link asked for.
     private func handleRequest() async {

@@ -12,6 +12,7 @@ struct PokusLibraryView: View {
     @State private var creating: Creation?
     @State private var confirmation: String?
     @State private var summary = ReadState<LibraryOverviewSummary>()
+    @State private var recentProjects = ReadState<[Project]>()
     @State private var retry = 0
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .body) private var destinationSymbolSize: CGFloat = 22
@@ -35,6 +36,16 @@ struct PokusLibraryView: View {
                 else {
                     if summary.isLoading && summary.value == nil { ProgressView("Loading library") }
                     if let error = summary.error { ReadError(message: error) { retry += 1 } }
+                    if let projects = recentProjects.value, !projects.isEmpty {
+                        Section {
+                            ForEach(projects) { project in
+                                NavigationLink(value: LibraryRoute.project(project.id)) {
+                                    searchRow(project.title, detail: project.dueDate.flatMap { $0.isEmpty ? nil : LibraryDates.due($0) } ?? "")
+                                }.accessibilityIdentifier("libraryRecentProject-\(project.id)")
+                            }
+                            NavigationLink("All projects", value: LibraryRoute.projects).frame(minHeight: 44)
+                        } header: { Text("Recent projects") }
+                    }
                     Section("Review") {
                         NavigationLink(value: LibraryRoute.review) {
                             destination((summary.value?.due ?? 0) > 0 ? "Start review" : "Review", symbol: "arrow.clockwise", detail: reviewDetail)
@@ -92,6 +103,7 @@ struct PokusLibraryView: View {
             .task(id: "\(model.queryIdentity)-\(retry)") {
                 guard model.account != nil else { return }
                 await summary.load { try await LibraryOverviewSummary.load(model.readAPI()) }
+                await recentProjects.load { try await model.readAPI().recentProjects(limit: 5) }
             }
     }
     @ViewBuilder private var searchResults: some View {

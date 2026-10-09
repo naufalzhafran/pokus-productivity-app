@@ -1,8 +1,11 @@
 # Pokus
 
 Today shows today's agenda: overdue items, project deadlines, dated tasks, daily
-habits, and capture reminders. Library > Calendar has the Monday-first month view and
-selected-day agenda. Habits now lives in Library.
+habits, and capture reminders. Its focus card's **Start** begins a session at the default
+length, and **+ → New task** creates a task due today. A new, empty account sees a short
+welcome on Today (session length, "What are you working on?", or just start). Library >
+Calendar has the Monday-first month view and selected-day agenda with **New task on <day>**.
+Library lists up to five recent active projects at the top. Habits now lives in Library.
 Tasks can have their own date or inherit the project's deadline; Unscheduled lists
 projects and tasks without a date. Capture reminders have an independent completion
 state and can be added, edited, removed, completed, and reopened from capture details.
@@ -120,7 +123,7 @@ After the Personal Team profile expires, reconnect the phone and press **⌘R** 
 - **Progress:** overall and individual year grids, current/best streaks, completion totals, and year navigation.
 - **History:** tap an activity square or use **Choose a date to edit** to correct past entries.
 - **Habits:** edit names and numeric targets, or permanently delete a habit and its entries after confirmation.
-- **Reminders:** one optional notification at a chosen local time, defaulting to 8 PM when enabled.
+- **Reminders:** one optional notification at a chosen local time, defaulting to 8 PM when enabled, skipped on days whose habits are all complete.
 - Native light/dark appearance, Dynamic Type layouts, VoiceOver descriptions, and a generated geometric app icon.
 
 ## Tracking rules
@@ -136,9 +139,11 @@ The overall heatmap shows the fraction of eligible habits completed that day. Ne
 Date identities use Gregorian `YYYY-MM-DD` values rather than UTC timestamps. Changing timezones changes what the app considers today, but never moves existing entries to another date. Calendar arithmetic handles midnight, leap years, and daylight-saving boundaries.
 
 Notifications are disabled initially. Enabling habit reminders or starting a focus
-timer can request permission. One repeating habit notification follows the phone's
-local time; changing the time replaces it, and disabling reminders cancels it.
-It is a daily prompt, including on days when all habits are already complete.
+timer can request permission. The habit reminder is scheduled as one request per day
+for the next week at the phone's local time and rescheduled whenever the app opens, a
+habit is checked in, or a background refresh runs. Once every habit is complete for
+the day, that day's request is removed. Changing the time replaces the requests, and
+disabling reminders cancels them.
 Tapping it opens Library → Habits → Today; focus notifications open Timer.
 
 ## Project structure

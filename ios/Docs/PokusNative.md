@@ -864,3 +864,51 @@ No simulator runtime was installed on the build machine, so simulator UI tests
 were not run. `swift test` and the generic iOS Simulator build pass. The outdated
 Daily screenshots in `Docs/Screenshots` were removed.
 
+
+## User flow fixes, October 9, 2026
+
+Implements the iOS items of `notes/review/user-flow-assessment.md`.
+
+- **Today.** The focus card's Start starts a session at the default length
+  through the same `AppRequest.startFocus` path as Shortcuts and `pokus://start`
+  (a completed session is reset first) and switches to Focus; a running session
+  still shows Open timer. Today's New task opens `TaskEditorView` with
+  `initialDueDate` set to today; Library's New task stays undated. An empty
+  account (no projects, tasks, captures, or completed sessions, checked once per
+  sign-in with `PocketBaseClient.isWorkspaceEmpty`) sees a welcome section with
+  the session length, "What are you working on?" (creates an unassigned task due
+  today and sets `selectedTaskID`), and Start. Dismissal is stored per account in
+  `pokus.welcomeDismissed.<account id>`.
+- **Calendar.** The selected day in Library > Calendar offers "New task on <day>".
+- **Linking a running session.** A running session without a task shows "Link a
+  task", which opens the task picker; `SessionEngine.attach(task:to:)` sets the
+  task only while the session runs and has none, and the change goes through
+  `PokusModel.transition` like pause and resume, so the queued operation and the
+  completion receipt credit the task. `PokusModel.focus(on:)` links the task in
+  that case; a session that already has a task keeps it. The Live Activity is
+  restarted to show the linked task, and the completion alert names it
+  ("25 minutes on Design review.").
+- **Shared captures.** `PokusModel.backgroundSync` also imports the Share
+  extension inbox, so shared items sync without opening the app; the next
+  foreground shows the usual "saved to Captures" notice. The saved notice under
+  the navigation bar dismisses itself after four seconds unless VoiceOver is
+  running.
+- **Library.** Up to five active, unarchived projects, most recently changed
+  first (`PocketBaseClient.recentProjects`), sit above Review.
+- **Descriptions.** Existing task and project descriptions are editable as plain
+  text. When the stored HTML has formatting beyond paragraphs and line breaks
+  (`WorkspaceRules.hasRichFormatting`), a footnote says saving replaces it; the
+  description is written only when the text changed
+  (`WorkspaceRules.replacementDescription`). The project list loads the full
+  record before opening the editor.
+- **Export.** Profile → Export my data writes one JSON file
+  (`WorkspaceExport`: projects, tasks, categories, captures, notes, habits,
+  habit targets and entries, completed focus sessions including unsynced ones)
+  from the device copy where it has the records, and offers it with `ShareLink`.
+  Older history the device doesn't keep needs a connection.
+- **Habit reminder.** `SystemReminderClient` schedules one non-repeating request
+  per day for the next seven days (`DailyReminderSchedule`, identifiers
+  `daily.evening-check-in.<day>`), removing the legacy repeating request. After a
+  habit write, on foreground, and after background refresh, Today's habits are
+  checked and the day is skipped when all are complete. The reminder preference
+  keys are unchanged.

@@ -8,7 +8,7 @@ final class TimerSurfaces: TimerSurfaceClient {
     private let center = UNUserNotificationCenter.current()
     private var generation = UUID()
     private var completionID: String?
-    /// Looks up the linked task's title for the Live Activity.
+    /// Looks up the linked task's title for the Live Activity and the completion alert.
     var taskTitle: ((String) async -> String?)?
     private static let prefix = "pokus.focus."
     func clear() async {
@@ -51,28 +51,36 @@ final class TimerSurfaces: TimerSurfaceClient {
             return
         }
         let remaining = session.remaining(at: .now)
+        let linkedTitle = session.task.isEmpty ? nil : await taskTitle?(session.task)
+        guard generation == current else { return }
         if session.isActive && remaining > 0 {
             let settings = await center.notificationSettings()
             if settings.authorizationStatus == .notDetermined { _ = try? await center.requestAuthorization(options: [.alert, .sound]) }
             guard generation == current else { return }
             let content = UNMutableNotificationContent()
             content.title = "Focus session complete"
-            content.body = "You made room for \(session.durationMinutes) minutes of focus."
+            content.body = Self.completionBody(minutes: session.durationMinutes, taskTitle: linkedTitle)
             content.sound = TimerPreferences.completionSound ? .default : nil; content.userInfo = ["pokusTimer": true]
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, session.deadline.timeIntervalSinceNow), repeats: false)
             try? await center.add(UNNotificationRequest(identifier: Self.prefix + session.id, content: content, trigger: trigger))
             guard generation == current else { return }
         }
-        for activity in Activity<FocusActivityAttributes>.activities where activity.attributes.sessionID != session.id {
+        // A task linked after the session started needs a new activity: its title is fixed when it starts.
+        for activity in Activity<FocusActivityAttributes>.activities
+        where activity.attributes.sessionID != session.id || (linkedTitle != nil && activity.attributes.taskTitle == nil) {
             guard generation == current else { return }
             await activity.end(nil, dismissalPolicy: .immediate)
         }
         guard generation == current else { return }
         let content = ActivityContent(state: FocusActivityAttributes.ContentState(deadline: session.deadline, remainingSeconds: remaining, paused: !session.isActive), staleDate: session.isActive ? session.deadline : nil)
-        let title = session.task.isEmpty || Activity<FocusActivityAttributes>.activities.contains(where: { $0.attributes.sessionID == session.id })
-            ? nil : await taskTitle?(session.task)
-        guard generation == current else { return }
-        await Self.updateActivity(session, content: content, taskTitle: title)
+        await Self.updateActivity(session, content: content, taskTitle: linkedTitle)
+    }
+
+    /// The completion alert names the linked task when there is one.
+    static func completionBody(minutes: Int, taskTitle: String?) -> String {
+        let title = taskTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let length = "\(minutes) \(minutes == 1 ? "minute" : "minutes")"
+        return title.isEmpty ? "You made room for \(length) of focus." : "\(length) on \(title)."
     }
 
     private nonisolated static func updateActivity(_ session: FocusSession, content: ActivityContent<FocusActivityAttributes.ContentState>, taskTitle: String?) async {

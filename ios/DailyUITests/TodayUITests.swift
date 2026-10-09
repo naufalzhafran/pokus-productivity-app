@@ -132,15 +132,20 @@ import XCTest
         }
     }
 
-    func testTodayFocusCardOpensTheTimer() {
+    func testTodayFocusCardStartsASession() {
         let app = launchToday()
         let start = app.buttons["todayStartFocus"]
         XCTAssertTrue(start.waitForExistence(timeout: 10))
         for _ in 0..<4 where !start.isHittable { app.collectionViews["calendarAgenda"].swipeDown() }
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "todayFocusCard").firstMatch.exists)
         start.tap()
-        XCTAssertTrue(app.buttons["startFocus"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["startFocus"].exists)
         XCTAssertTrue(app.tabBars.buttons["Focus"].isSelected)
+        XCTAssertTrue(app.buttons["linkRunningTask"].exists)
+        app.tabBars.buttons["Today"].tap()
+        XCTAssertTrue(app.buttons["todayStartFocus"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["todayStartFocus"].label, "Open timer")
     }
 
     private func launchToday(accessibilityText: Bool = false) -> XCUIApplication {

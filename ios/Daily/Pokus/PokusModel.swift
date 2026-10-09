@@ -35,6 +35,10 @@ final class PokusModel {
     var captureReminderPermissionDenied = false
     var refreshCaptureReminderAlerts: (() async -> Void)?
     var cancelCaptureReminderAlerts: ((String, String) async -> Void)?
+    /// Called after habit check-ins change, so the daily reminder can skip a finished day.
+    var habitsDidChange: (() async -> Void)?
+    /// Shared items saved by a background refresh, announced the next time the app is open.
+    var backgroundSharedImports = 0
     private(set) var dataRevision = 0
     var queryIdentity: String { "\(scope?.generation.uuidString ?? "signedout")-\(dataRevision)" }
     /// Once this account's records are on the device, every screen reads them locally;
@@ -239,6 +243,7 @@ final class PokusModel {
         await previousReplica?.removeDownloadedData()
         guard epoch == generation else { return }
         lastSurfaceSession = nil; await surfaces.clear()
+        try? FileManager.default.removeItem(at: Self.exportDirectory)
     }
     func refreshIfNeeded(now: Date = .now) async {
         if authentication?.isValid == true, let lastRefreshAt,
@@ -312,6 +317,7 @@ final class PokusModel {
             habitsState.apply(mutations)
             await invalidateReads(collections: ["habits", "habit_entries", "habit_targets"])
             scheduleDataSync()
+            if let habitsDidChange { Task { await habitsDidChange() } }
         } catch { if epoch == generation { isSaving = false }; throw error }
     }
     private func preview(_ url: URL, scope: AccountScope) async -> LinkPreview? {
@@ -337,9 +343,26 @@ final class PokusModel {
     }
     /// Whether a session is counting down or paused; its linked task can't change until it ends.
     var hasRunningSession: Bool { session?.mode == .running }
-    /// Links the next session to a task and opens the timer. A running session keeps its task,
-    /// so this only opens the timer then and returns false.
+    /// A running session that started without a task can still have one linked.
+    var canLinkRunningSession: Bool { session?.mode == .running && session?.task.isEmpty == true }
+    /// Links a task to the running session when it has none, so completing it credits the task.
+    /// Sessions that already have a task keep it.
+    @discardableResult func linkRunningSession(to taskID: String) async -> Bool {
+        guard let session, let linked = engine.attach(task: taskID, to: session) else { return false }
+        await transition(linked)
+        guard self.session?.id == linked.id, self.session?.task == taskID else { return false }
+        selectedTaskID = taskID
+        return true
+    }
+    /// Links the next session to a task and opens the timer. A running session without a task
+    /// is linked to it; one that already has a task keeps it, so this only opens the timer then
+    /// and returns false.
     @discardableResult func focus(on taskID: String) -> Bool {
+        if canLinkRunningSession {
+            Task { await linkRunningSession(to: taskID) }
+            openTimer?()
+            return true
+        }
         guard !hasRunningSession else { openTimer?(); return false }
         selectedTaskID = taskID
         if session?.mode == .complete { Task { await reset() } }
@@ -621,7 +644,14 @@ final class PokusModel {
         for _ in 0..<50 where !storageReady { try? await Task.sleep(for: .milliseconds(100)) }
         guard account != nil, !Task.isCancelled else { return }
         await refresh(reloadData: false, manual: false)
+        // Items shared from other apps reach the account without waiting for the app to open.
+        if !Task.isCancelled {
+            let imported = await importSharedCaptures()
+            backgroundSharedImports += imported
+        }
         await syncData(force: true)
+        // Keeps the next week of habit reminders scheduled and skips a finished day.
+        if !Task.isCancelled { await habitsDidChange?() }
         await flushStorage()
     }
 

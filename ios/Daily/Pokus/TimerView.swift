@@ -79,7 +79,7 @@ struct PokusTimerView: View {
                  ? "Save to credit the elapsed time to this task and your focus history."
                  : "Save to add the elapsed time to your focus history.")
         }
-        .sheet(isPresented: $choosingTask) { TimerTaskPicker(model: model) }
+        .sheet(isPresented: $choosingTask) { TimerTaskPicker(model: model, linksRunningSession: model.canLinkRunningSession) }
         .toolbar {
             if let newCapture {
                 ToolbarItem(placement: .primaryAction) {
@@ -157,6 +157,15 @@ struct PokusTimerView: View {
                         .font(.subheadline).foregroundStyle(.secondary)
                         .multilineTextAlignment(.center).lineLimit(compact ? 1 : 2)
                         .accessibilityIdentifier("focusTaskTitle")
+                } else if session.mode == .running {
+                    // A session started without a task can still be linked to one; switching tasks can't.
+                    Button { choosingTask = true } label: {
+                        Label("Link a task", systemImage: "plus.circle")
+                            .lineLimit(1).frame(minHeight: 44)
+                    }
+                    .buttonStyle(.bordered).buttonBorderShape(.capsule).tint(Color.secondary)
+                    .accessibilityHint("Credits this session's time to a task.")
+                    .accessibilityIdentifier("linkRunningTask")
                 }
                 if session.mode == .complete, let task = selectedTask {
                     if task.isDone {
@@ -315,13 +324,15 @@ struct PokusTimerView: View {
 /// Open tasks to link to the next session: due today or overdue first, then the newest.
 struct TimerTaskPicker: View {
     @Bindable var model: PokusModel
+    /// Links the picked task to the running session instead of the next one.
+    var linksRunningSession = false
     @State private var search = ""
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             List {
                 AccountNotice(model: model)
-                if !model.selectedTaskID.isEmpty {
+                if !model.selectedTaskID.isEmpty && !linksRunningSession {
                     Button { model.selectedTaskID = ""; dismiss() } label: {
                         Label("No task", systemImage: "xmark.circle").frame(minHeight: 44)
                     }
@@ -330,16 +341,24 @@ struct TimerTaskPicker: View {
                     PagedRows(model: model, query: RecordQueries.timerTasks(today: WorkspaceRules.dayKey(.now), search: search),
                               search: search, emptyTitle: search.isEmpty ? "No open tasks" : "No matching tasks", symbol: "checklist",
                               emptyDescription: search.isEmpty ? "Add a task in Library to link it to a session." : "Try another search.") { task in
-                        Button { model.selectedTaskID = task.id; dismiss() } label: { row(task) }
+                        Button { pick(task.id) } label: { row(task) }
                             .accessibilityAddTraits(task.id == model.selectedTaskID ? .isSelected : [])
                             .accessibilityIdentifier("pickTask-\(task.id)")
                     }
-                } footer: { Text("Tasks due today or overdue are listed first.") }
+                } footer: {
+                    Text(linksRunningSession ? "This session's time will count toward the task you pick. Tasks due today or overdue are listed first."
+                         : "Tasks due today or overdue are listed first.")
+                }
             }
-            .navigationTitle("Choose a task").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(linksRunningSession ? "Link a task" : "Choose a task").navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search open tasks")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         }
+    }
+    private func pick(_ id: String) {
+        if linksRunningSession { Task { await model.linkRunningSession(to: id) } }
+        else { model.selectedTaskID = id }
+        dismiss()
     }
     private func row(_ task: FocusTask) -> some View {
         HStack(spacing: 12) {
