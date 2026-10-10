@@ -40,6 +40,19 @@ function compareItems(a: CalendarSourceItem, b: CalendarSourceItem) {
   return (a.day ?? "").localeCompare(b.day ?? "") || Number(a.completed) - Number(b.completed) || (a.time ?? 0) - (b.time ?? 0) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id);
 }
 
+/** Whole days from `from` to `to`, both `YYYY-MM-DD`. */
+export function daysBetween(from: string, to: string) {
+  return Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
+}
+
+/** "Rolled over from Oct 7 · 3 days late" for a task carried to today. */
+export function rolledOverLabel(from: string, today: string) {
+  const late = daysBetween(from, today);
+  const date = new Date(`${from}T12:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  return `Rolled over from ${date} · ${late} ${late === 1 ? "day" : "days"} late`;
+}
+
+/** Open tasks past their due date are placed on `today` with `rolledOverFrom` set; `overdue` holds the rest of the open past-due items. */
 export function buildCalendarItems({ projects, tasks, habits, captures, startDay, endDay, today = localDateKey() }: {
   projects: Project[];
   tasks: Task[];
@@ -63,7 +76,10 @@ export function buildCalendarItems({ projects, tasks, habits, captures, startDay
   for (const task of tasks) {
     const project = task.projectId ? projectById.get(task.projectId) : undefined;
     if (isProjectArchived(project)) continue;
-    add({ type: "task", id: task.id, source: task, project, title: task.title, day: effectiveTaskDueDate(task, project), inheritedDate: !task.dueDate && Boolean(project?.dueDate), completed: task.isDone });
+    const due = effectiveTaskDueDate(task, project);
+    // Open past-due tasks roll over to today on screen; the saved due date stays as it is.
+    const rolledOverFrom = !task.isDone && due && validHabitDay(due) && due < today ? due : undefined;
+    add({ type: "task", id: task.id, source: task, project, title: task.title, day: rolledOverFrom ? today : due, inheritedDate: !task.dueDate && Boolean(project?.dueDate), rolledOverFrom, completed: task.isDone });
   }
   for (const capture of captures) {
     if (!validReminderAt(capture.reminderAt)) continue;

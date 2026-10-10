@@ -25,14 +25,16 @@ function props() {
 }
 
 describe("TodayPage", () => {
-  it("shows focus, overdue work, today's tasks, habits, and collapsed completed work", async () => {
+  it("shows focus, rolled-over work, today's tasks, habits, and collapsed completed work", async () => {
     const user = userEvent.setup(); const input = props();
     render(<TodayPage {...input} />);
     expect(screen.getByText("1h 5m focused today")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Start focus" }));
     expect(input.onStartFocus).toHaveBeenCalled();
-    expect(within(screen.getByRole("region", { name: "Overdue" })).getByText("Send invoice")).toBeInTheDocument();
     const work = screen.getByRole("region", { name: "Tasks and deadlines" });
+    expect(within(work).getByText("Send invoice")).toBeInTheDocument();
+    expect(within(work).getByText(/Rolled over from .* · 2 days late/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Overdue" })).not.toBeInTheDocument();
     await user.click(within(work).getByRole("button", { name: "Focus on Write the brief" }));
     expect(input.onFocusTask).toHaveBeenCalledWith("due");
     await user.click(within(screen.getByRole("region", { name: "Habits" })).getByRole("button", { name: "Complete Walk" }));

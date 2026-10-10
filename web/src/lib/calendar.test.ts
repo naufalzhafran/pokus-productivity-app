@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCalendarItems, calendarMonthDays, effectiveTaskDueDate, parseReminderLocalDateTime, reminderLocalDateTime } from "@/lib/calendar";
+import { buildCalendarItems, calendarMonthDays, daysBetween, rolledOverLabel, effectiveTaskDueDate, parseReminderLocalDateTime, reminderLocalDateTime } from "@/lib/calendar";
 import type { Capture } from "@/types/capture";
 import type { Habit } from "@/types/habit";
 import type { Project, Task } from "@/types/task";
@@ -24,12 +24,24 @@ describe("calendar projection", () => {
     const done = { ...task, id: "done", dueDate: "2026-09-01", isDone: true };
     const overdue = { ...task, id: "overdue", dueDate: "2026-09-01" };
     const result = buildCalendarItems({ ...input, tasks: [task, done, overdue] });
-    expect(result.overdue.map((item) => item.id)).toEqual(["overdue", "capture"]);
-    expect(result.items.some((item) => item.id === "overdue")).toBe(false);
+    expect(result.overdue.map((item) => item.id)).toEqual(["capture"]);
+    expect(result.items.find((item) => item.id === "overdue")).toMatchObject({ day: "2026-10-08", rolledOverFrom: "2026-09-01" });
+    expect(result.items.find((item) => item.id === "done")).toBeUndefined();
     expect(buildCalendarItems({ ...input, tasks: [{ ...task, isDone: true }] }).items.find((item) => item.type === "task")?.completed).toBe(true);
     const archived = buildCalendarItems({ ...input, projects: [{ ...project, isArchived: true }] });
     expect(archived.items.some((item) => item.type === "task" || item.type === "project")).toBe(false);
     expect(archived.unscheduled).toEqual([]);
+  });
+
+  it("rolls open past-due tasks over to today, including project deadlines they inherit", () => {
+    const inherited = buildCalendarItems({ ...input, projects: [{ ...project, dueDate: "2026-10-03" }] });
+    expect(inherited.items.find((item) => item.type === "task")).toMatchObject({ day: "2026-10-08", rolledOverFrom: "2026-10-03", inheritedDate: true });
+    expect(inherited.items.find((item) => item.type === "project")?.day).toBe("2026-10-03");
+    expect(inherited.overdue.map((item) => item.id)).toEqual(["project", "capture"]);
+    expect(buildCalendarItems({ ...input, tasks: [{ ...task, dueDate: "2026-10-03", isDone: true }] }).items.find((item) => item.type === "task")).toMatchObject({ day: "2026-10-03", completed: true, rolledOverFrom: undefined });
+    expect(buildCalendarItems({ ...input, tasks: [{ ...task, dueDate: "2026-10-03" }], startDay: "2026-11-01", endDay: "2026-11-30" }).items.some((item) => item.type === "task")).toBe(false);
+    expect(rolledOverLabel("2026-10-07", "2026-10-08")).toBe("Rolled over from Oct 7 · 1 day late");
+    expect(daysBetween("2026-02-27", "2026-03-02")).toBe(3);
   });
 
   it("uses historical habit targets and only generates occurrences from the start day", () => {

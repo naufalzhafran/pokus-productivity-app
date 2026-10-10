@@ -9,6 +9,8 @@ interface CalendarItemBase {
   completed: boolean;
   project?: Project;
   inheritedDate?: boolean;
+  /** The original due day of an open task shown on today because it is past due. */
+  rolledOverFrom?: string;
   time?: number;
 }
 
