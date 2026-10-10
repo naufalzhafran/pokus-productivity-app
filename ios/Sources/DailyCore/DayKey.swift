@@ -67,6 +67,7 @@ public struct DayKey: Hashable, Comparable, Codable, Sendable, Identifiable {
         let style: Date.FormatStyle
         switch template {
         case "MMM": style = base.month(.abbreviated)
+        case "MMM d": style = base.month(.abbreviated).day()
         case "MMMM d, yyyy": style = base.month(.wide).day().year()
         case "EEEE, MMMM d, yyyy": style = base.weekday(.wide).month(.wide).day().year()
         default: style = base.weekday(.wide).month(.wide).day()

@@ -15,13 +15,16 @@ public struct CalendarItem: Identifiable, Equatable, Sendable {
     public let projectID: String
     public let projectTitle: String
     public let inheritsProjectDate: Bool
+    /// The original due day of an open task shown on today because it is past due.
+    public let rolledOverFrom: DayKey?
     public var id: String { "\(kind.rawValue):\(sourceID)" }
 
     public init(kind: CalendarItemKind, sourceID: String, title: String, day: DayKey?, reminderAt: Double? = nil,
-                isComplete: Bool, projectID: String = "", projectTitle: String = "", inheritsProjectDate: Bool = false) {
+                isComplete: Bool, projectID: String = "", projectTitle: String = "", inheritsProjectDate: Bool = false,
+                rolledOverFrom: DayKey? = nil) {
         self.kind = kind; self.sourceID = sourceID; self.title = title; self.day = day; self.reminderAt = reminderAt
         self.isComplete = isComplete; self.projectID = projectID; self.projectTitle = projectTitle
-        self.inheritsProjectDate = inheritsProjectDate
+        self.inheritsProjectDate = inheritsProjectDate; self.rolledOverFrom = rolledOverFrom
     }
 }
 
@@ -47,6 +50,19 @@ public enum CalendarProjection {
                             day: ownDay ?? inheritedDay, isComplete: task.isDone,
                             projectID: task.project, projectTitle: task.projectTitle,
                             inheritsProjectDate: ownDay == nil && inheritedDay != nil)
+    }
+
+    /// An open task due before `today`, carried to `today` on screen. The saved due date is unchanged.
+    public static func rolledOver(_ item: CalendarItem, to today: DayKey) -> CalendarItem? {
+        guard item.kind == .task, !item.isComplete, let due = item.day, due < today else { return nil }
+        return CalendarItem(kind: .task, sourceID: item.sourceID, title: item.title, day: today, reminderAt: item.reminderAt,
+                            isComplete: false, projectID: item.projectID, projectTitle: item.projectTitle,
+                            inheritsProjectDate: item.inheritsProjectDate, rolledOverFrom: due)
+    }
+
+    /// Whole days from `start` to `end`.
+    public static func days(from start: DayKey, to end: DayKey) -> Int {
+        Int((end.date.timeIntervalSince(start.date) / 86_400).rounded())
     }
 
     public static func reminder(_ capture: Capture, timeZone: TimeZone = .autoupdatingCurrent) -> CalendarItem? {

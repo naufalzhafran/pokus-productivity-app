@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HabitDayList } from "@/components/features/HabitDayList";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
+import { rolledOverLabel } from "@/lib/calendar";
 import { projectHash } from "@/lib/routes";
 import type { CaptureStore } from "@/hooks/useCaptures";
 import type { useHabits } from "@/hooks/useHabits";
@@ -48,7 +49,7 @@ export function AgendaList({ entries, day, today, readOnly, captureStore, habitS
   const rows = (listed: CalendarSourceItem[]) => listed.length ? <ul className="divide-y rounded-xl border">{listed.map((item) => <li key={`${item.type}:${item.id}`} className="flex flex-wrap items-center gap-2 px-3 py-3">
       <div className="min-w-0 flex-1">
         {item.type === "project" ? <a href={projectHash(item.id)} className="block min-h-11 content-center rounded-sm font-medium [overflow-wrap:anywhere] hover:underline">{item.title}</a> : <Button variant="ghost" className="h-auto min-h-11 max-w-full justify-start whitespace-normal px-0 text-left" onClick={() => item.type === "capture" ? onOpenCapture(item) : onEdit({ type: "task", id: item.id })}>{item.title}</Button>}
-        <p className="text-xs text-muted-foreground">{item.type === "project" ? "Project deadline" : item.type === "task" ? item.project?.title ?? "Task · No project" : "Capture reminder"}{item.inheritedDate ? " · From project" : ""}{item.day && item.day !== day ? ` · ${item.day}` : ""}{item.time ? ` · ${new Date(item.time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""}</p>
+        <p className="text-xs text-muted-foreground">{item.type === "project" ? "Project deadline" : item.type === "task" ? item.project?.title ?? "Task · No project" : "Capture reminder"}{item.inheritedDate ? " · From project" : ""}{item.rolledOverFrom ? ` · ${rolledOverLabel(item.rolledOverFrom, today)}` : ""}{item.day && item.day !== day ? ` · ${item.day}` : ""}{item.time ? ` · ${new Date(item.time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""}</p>
       </div>
       {item.type === "task" && !item.completed && onFocus ? <Button variant="ghost" disabled={!canFocus} aria-label={`Focus on ${item.title}`} onClick={() => onFocus(item.id)}><TimerReset data-icon="inline-start" />Focus</Button> : null}
       {item.type === "project" ? <Button variant="outline" disabled={readOnly} onClick={() => onEdit({ type: "project", id: item.id })}>{item.day ? "Edit" : "Set date"}</Button> : <Button variant={item.completed ? "secondary" : "outline"} disabled={readOnly || pending.has(`${item.type}:${item.id}`)} aria-label={`${item.completed ? "Reopen" : "Complete"} ${item.title}`} aria-pressed={item.completed} onClick={() => void mutate(`${item.type}:${item.id}`, () => item.type === "task" ? onTaskDone(item.id, !item.completed) : captureStore.setCaptureReminderDone(item.id, !item.completed)).catch(() => {})}><Check data-icon="inline-start" />{item.completed ? "Done" : "Complete"}</Button>}

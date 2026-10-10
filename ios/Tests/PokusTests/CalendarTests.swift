@@ -28,6 +28,27 @@ private func calendarTask(date: String = "", projectDate: String = "2026-10-10",
         #expect(CalendarProjection.task(try calendarTask(archived: true)) == nil)
     }
 
+    @Test func openPastDueTasksRollOverToTodayKeepingTheirDueDate() throws {
+        let today = DayKey(rawValue: "2026-10-10")!
+        let late = try #require(CalendarProjection.task(try calendarTask(date: "2026-10-07")))
+        let rolled = try #require(CalendarProjection.rolledOver(late, to: today))
+        #expect(rolled.day == today)
+        #expect(rolled.rolledOverFrom?.rawValue == "2026-10-07")
+        #expect(rolled.id == late.id)
+        #expect(CalendarProjection.days(from: rolled.rolledOverFrom!, to: today) == 3)
+        let inherited = try #require(CalendarProjection.task(try calendarTask(projectDate: "2026-10-01")))
+        #expect(CalendarProjection.rolledOver(inherited, to: today)?.inheritsProjectDate == true)
+        let dueToday = try #require(CalendarProjection.task(try calendarTask(date: "2026-10-10")))
+        #expect(CalendarProjection.rolledOver(dueToday, to: today) == nil)
+        var doneTask = try calendarTask(date: "2026-10-07")
+        doneTask.isDone = true
+        let done = try #require(CalendarProjection.task(doneTask))
+        #expect(CalendarProjection.rolledOver(done, to: today) == nil)
+        let deadline = CalendarItem(kind: .project, sourceID: "p", title: "Launch", day: DayKey(rawValue: "2026-10-01"), isComplete: false)
+        #expect(CalendarProjection.rolledOver(deadline, to: today) == nil)
+        #expect(CalendarProjection.days(from: DayKey(rawValue: "2026-02-27")!, to: DayKey(rawValue: "2026-03-02")!) == 3)
+    }
+
     @Test func legacyModelsDefaultToUnscheduledAndExpandedDatesSurviveEncoding() throws {
         let legacyTask = try JSONDecoder().decode(FocusTask.self, from: Data(#"{"id":"t","title":"Old task","isDone":false,"focusedSeconds":0,"project":"","created":"2026-01-01"}"#.utf8))
         #expect(legacyTask.dueDate == nil)

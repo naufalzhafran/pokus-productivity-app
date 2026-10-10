@@ -41,9 +41,16 @@ struct PokusCalendarView: View {
     private var days: [DayKey] { DayKey.weeks(from: first, through: last) }
     private var windowStart: DayKey { showsMonth ? days[0] : today }
     private var windowEnd: DayKey { showsMonth ? days[days.count - 1] : today }
-    private var items: [CalendarItem] { window.value?.items.filter { $0.day == selectedDay } ?? [] }
+    /// Open past-due tasks leave their own day and appear on today instead.
+    private var items: [CalendarItem] {
+        window.value?.items.filter { $0.day == selectedDay && CalendarProjection.rolledOver($0, to: today) == nil } ?? []
+    }
+    private var rolledOver: [CalendarItem] {
+        selectedDay == today ? overdue.value?.compactMap { CalendarProjection.rolledOver($0, to: today) } ?? [] : []
+    }
+    private var overdueOther: [CalendarItem] { overdue.value?.filter { $0.kind != .task } ?? [] }
     private var store: AccountHabitViewStore { AccountHabitViewStore(model: model, owner: model.account?.id ?? "") }
-    private var remaining: [CalendarItem] { items.filter { !$0.isComplete && $0.kind != .reminder } }
+    private var remaining: [CalendarItem] { rolledOver + items.filter { !$0.isComplete && $0.kind != .reminder } }
     private var reminders: [CalendarItem] { items.filter { !$0.isComplete && $0.kind == .reminder } }
     private var completed: [CalendarItem] { items.filter(\.isComplete) }
 
@@ -231,8 +238,8 @@ struct PokusCalendarView: View {
                 Section { ProgressView("Checking overdue items") }
             }
         }
-        if selectedDay == today, let items = overdue.value, !items.isEmpty {
-            Section("Overdue") { ForEach(items) { CalendarAgendaRow(model: model, item: $0, showsDate: true) } }
+        if selectedDay == today, !overdueOther.isEmpty {
+            Section("Overdue") { ForEach(overdueOther) { CalendarAgendaRow(model: model, item: $0, showsDate: true) } }
                 .textCase(showsMonth ? .uppercase : nil)
         }
         if selectedDay == today, let error = overdue.error { Section { ReadError(message: error) { retry += 1 } } }
@@ -342,9 +349,10 @@ struct PokusCalendarView: View {
         save.performAsync { try await store.setValue(value, for: habit.id, on: date) }
     }
     private func markers(_ date: DayKey) -> [String] {
-        let items = window.value?.items.filter { $0.day == date } ?? []
+        let items = window.value?.items.filter { $0.day == date && CalendarProjection.rolledOver($0, to: today) == nil } ?? []
+        let hasRolledOver = date == today && overdue.value?.contains { $0.kind == .task } == true
         // Habits recur every day, so they're listed in the day's agenda rather than marked on the grid.
-        return [(items.contains { $0.kind == .project }, "folder"), (items.contains { $0.kind == .task }, "checklist"),
+        return [(items.contains { $0.kind == .project }, "folder"), (hasRolledOver || items.contains { $0.kind == .task }, "checklist"),
                 (items.contains { $0.kind == .reminder }, "bell")].filter(\.0).map(\.1)
     }
     private func markerDescription(_ date: DayKey) -> String {
@@ -415,6 +423,10 @@ private struct CalendarAgendaRow: View {
         var labels = [item.kind == .project ? "Project deadline" : item.kind == .task ? "Task" : "Reminder"]
         if !item.projectTitle.isEmpty { labels.append(item.projectTitle) }
         if item.inheritsProjectDate { labels.append("From project") }
+        if let from = item.rolledOverFrom, let day = item.day {
+            let late = CalendarProjection.days(from: from, to: day)
+            labels.append("Rolled over from \(from.formatted("MMM d")) · \(late) \(late == 1 ? "day" : "days") late")
+        }
         if showsDate, let day = item.day { labels.append(day.formatted("MMM d, yyyy")) }
         if let time = item.reminderAt { labels.append(Date(timeIntervalSince1970: time / 1000).formatted(date: .omitted, time: .shortened)) }
         return labels.joined(separator: " · ")

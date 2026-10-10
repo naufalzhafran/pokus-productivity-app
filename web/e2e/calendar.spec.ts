@@ -31,7 +31,8 @@ test("calendar shares tasks, habits and reminders with source screens", async ({
     const capture = await client.collection("captures").create({ owner: user.id, kind: "note", title: "Read this reference", note: "Keep the source", isProcessed: true });
     await page.getByRole("button", { name: "Refresh calendar" }).click();
     await expect(page.getByRole("button", { name: "Complete Inherited deadline" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Overdue", exact: true })).toContainText("Overdue work");
+    await expect(page.getByRole("region", { name: "Daily agenda", exact: true })).toContainText("Overdue work");
+    await expect(page.getByRole("region", { name: "Daily agenda", exact: true })).toContainText("1 day late");
     await page.getByRole("button", { name: "Complete Inherited deadline" }).click();
     await expect.poll(async () => (await client.collection("tasks").getOne(task.id)).isDone).toBe(true);
     await page.getByRole("button", { name: "Complete Walk outside" }).click();
@@ -79,7 +80,7 @@ test("calendar shares tasks, habits and reminders with source screens", async ({
     await page.getByRole("button", { name: "Next month" }).click();
     await page.getByRole("button", { name: "Previous month" }).click();
     await page.getByRole("button", { name: "Today", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Overdue", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Complete Overdue work" })).toBeVisible();
     await page.goto(`/#calendar/${dates.tomorrow}`);
 
     for (const width of [320, 402, 1280]) {
