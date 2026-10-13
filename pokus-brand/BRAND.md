@@ -156,11 +156,12 @@ Full Indigo, Lime and Neutral scales are in `tokens.json`.
 
 | Role | Web | iOS |
 |---|---|---|
-| **Display** | Unbounded (Google Fonts) | Unbounded, bundled from `fonts/Unbounded.ttf` |
+| **Display** | Plus Jakarta Sans (Google Fonts) | Plus Jakarta Sans, bundled from `fonts/PlusJakartaSans.ttf` |
 | **Text / UI** | Manrope (Google Fonts) | SF Pro (system), for native feel and Dynamic Type |
 
-Unbounded is wide and geometric, the same family as the wordmark. Use it for **headlines, the timer
-and big numbers only**, never for paragraphs or buttons.
+Plus Jakarta Sans is a crisp geometric sans with friendly, open forms. Use it for **headlines, the timer
+and big numbers only**, never for paragraphs or buttons. The wordmark is outlined artwork, so it doesn't
+depend on this font.
 
 | Style | Font | Size/Line (px=pt) | Weight | Tracking |
 |---|---|---|---|---|
@@ -260,5 +261,5 @@ brand/
 │  └─ PokusColors.xcassets  ← semantic colors with light + dark
 ├─ logo/svg, logo/png
 ├─ icons/ios/AppIcon.appiconset, icons/web
-└─ fonts/                   ← Unbounded.ttf, Manrope.ttf (SIL Open Font License)
+└─ fonts/                   ← PlusJakartaSans.ttf, Manrope.ttf (SIL Open Font License)
 ```

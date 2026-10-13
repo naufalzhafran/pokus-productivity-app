@@ -3,7 +3,7 @@
 //
 //  Setup:
 //  1. Drag `PokusColors.xcassets` into the Xcode project (semantic colors, auto light/dark).
-//  2. Add fonts/Unbounded.ttf to the target and list it under `UIAppFonts` in Info.plist.
+//  2. Add fonts/PlusJakartaSans.ttf to the target and list it under `UIAppFonts` in Info.plist.
 //  3. Use `Color.pk.primary`, `Font.pk.timer`, `PKSpace.m`, `PKRadius.lg` etc.
 
 import SwiftUI
@@ -50,12 +50,12 @@ extension Color {
 }
 
 // MARK: - Typography
-// Display = Unbounded (bundled). Text = SF Pro (system) so Dynamic Type works natively.
+// Display = Plus Jakarta Sans (bundled). Text = SF Pro (system) so Dynamic Type works natively.
 
 extension Font {
     enum pk {
         private static func display(_ size: CGFloat, _ weight: Font.Weight, relativeTo style: Font.TextStyle) -> Font {
-            .custom("Unbounded", size: size, relativeTo: style).weight(weight)
+            .custom("Plus Jakarta Sans", size: size, relativeTo: style).weight(weight)
         }
         static let timer     = display(72, .medium, relativeTo: .largeTitle).monospacedDigit()
         static let displayL  = display(40, .bold, relativeTo: .largeTitle)

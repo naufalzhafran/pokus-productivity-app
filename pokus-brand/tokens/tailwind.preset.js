@@ -52,7 +52,7 @@ module.exports = {
         danger: 'var(--pk-danger)',
       },
       fontFamily: {
-        display: ['Unbounded', 'Space Grotesk', 'system-ui', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
         sans: ['Manrope', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
       fontSize: {

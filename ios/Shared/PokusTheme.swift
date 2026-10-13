@@ -1,6 +1,6 @@
 //  Pokus brand tokens for SwiftUI, from `pokus-brand/ios/PokusTheme.swift`.
 //  Mirrors `pokus-brand/tokens/tokens.json`. Colors come from `PokusColors.xcassets` (`primary` is also the global accent color)
-//  (light and dark), and Unbounded is bundled from `Fonts/` and listed under `UIAppFonts`.
+//  (light and dark), and Plus Jakarta Sans is bundled from `Fonts/` and listed under `UIAppFonts`.
 //  Compiled into the app and PokusActivity, so widgets share the same tokens.
 
 import SwiftUI
@@ -47,13 +47,13 @@ extension Color {
 }
 
 // MARK: - Typography
-// Display = Unbounded (bundled) for headlines, the timer, and big numbers only.
+// Display = Plus Jakarta Sans (bundled) for headlines, the timer, and big numbers only.
 // Text = SF Pro (system) so Dynamic Type works natively.
 
 extension Font {
     enum pk {
         private static func display(_ size: CGFloat, _ weight: Font.Weight, relativeTo style: Font.TextStyle) -> Font {
-            .custom("Unbounded", size: size, relativeTo: style).weight(weight)
+            .custom("Plus Jakarta Sans", size: size, relativeTo: style).weight(weight)
         }
         static let timer     = display(72, .medium, relativeTo: .largeTitle).monospacedDigit()
         static let displayL  = display(40, .bold, relativeTo: .largeTitle)
@@ -68,7 +68,7 @@ extension Font {
 
         /// Display face at an arbitrary size, for timers that scale with their container.
         static func display(size: CGFloat, weight: Font.Weight = .medium) -> Font {
-            .custom("Unbounded", fixedSize: size).weight(weight).monospacedDigit()
+            .custom("Plus Jakarta Sans", fixedSize: size).weight(weight).monospacedDigit()
         }
     }
 }

@@ -13,11 +13,11 @@ enum PokusAppearance {
         UITabBar.appearance().unselectedItemTintColor = UIColor(named: "textSecondary")
     }
 
-    /// Unbounded is a variable font, so the weight is set on its `wght` axis.
+    /// Plus Jakarta Sans is a variable font, so the weight is set on its `wght` axis.
     private static func displayFont(size: CGFloat, weight: CGFloat, textStyle: UIFont.TextStyle) -> UIFont {
         let weightAxis = 0x7767_6874 // "wght"
         let descriptor = UIFontDescriptor(fontAttributes: [
-            .family: "Unbounded",
+            .family: "Plus Jakarta Sans",
             UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [weightAxis: weight],
         ])
         return UIFontMetrics(forTextStyle: textStyle).scaledFont(for: UIFont(descriptor: descriptor, size: size))

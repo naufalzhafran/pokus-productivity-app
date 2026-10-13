@@ -11,7 +11,7 @@ The app shows as **Pokus** but is built from the original Daily project: `Daily.
 - `Daily/` — SwiftUI app target (screens in `Daily/Pokus`, services, assets, privacy manifest).
 - `PokusActivity/` — widget extension: Live Activity, Home Screen widget, and Control Center control.
 - `PokusShare/` — Share extension that queues shared links and text for the capture inbox.
-- `Shared/` — App Intents, brand theme, colors, and the Unbounded font, compiled into both the app and PokusActivity.
+- `Shared/` — App Intents, brand theme, colors, and the Plus Jakarta Sans display font, compiled into both the app and PokusActivity.
 - `Sources/` — the local `DailyKit` Swift package:
   - `DailyCore`, `DailyPersistence` — legacy habit models and SwiftData storage.
   - `PokusCore` — PocketBase wire records, workspace rules, and the timer session engine.

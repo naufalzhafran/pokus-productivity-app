@@ -13,7 +13,7 @@
 @theme inline {
   --font-sans: 'Manrope Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-heading: var(--font-sans);
-  --font-display: 'Unbounded Variable', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
   --text-display-l: 40px; --text-display-l--line-height: 44px; --text-display-l--letter-spacing: -0.02em; --text-display-l--font-weight: 700;
   --text-display-m: 28px; --text-display-m--line-height: 34px; --text-display-m--letter-spacing: -0.01em; --text-display-m--font-weight: 700;
   --text-display-s: 22px; --text-display-s--line-height: 28px; --text-display-s--font-weight: 600;
@@ -176,7 +176,7 @@
   .focus-primary { min-height: 52px; }
   .task-picker { min-height: 48px; }
   .clock-digits { font-family: var(--font-display); font-size: clamp(2.5rem, 12vw, 3.5rem); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1; color: var(--foreground); }
-  .duration-digit, .duration-separator { display: inline-flex; justify-content: center; width: 0.78em; }
+  .duration-digit, .duration-separator { display: inline-flex; justify-content: center; width: 0.62em; }
   .duration-separator { width: 0.3em; color: var(--muted-foreground); }
   .bezel-hit-area { cursor: grab; pointer-events: stroke; touch-action: none; }
   .is-dragging .bezel-hit-area { cursor: grabbing; }

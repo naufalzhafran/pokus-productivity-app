@@ -2,7 +2,7 @@
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/manrope";
-import "@fontsource-variable/unbounded";
+import "@fontsource-variable/plus-jakarta-sans";
 import { AuthGate } from "@/components/features/AuthGate";
 import { Skeleton } from "@/components/ui/skeleton";
 import "./styles/globals.css";
