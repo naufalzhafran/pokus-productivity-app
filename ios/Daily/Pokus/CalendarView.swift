@@ -49,6 +49,10 @@ struct PokusCalendarView: View {
         selectedDay == today ? overdue.value?.compactMap { CalendarProjection.rolledOver($0, to: today) } ?? [] : []
     }
     private var overdueOther: [CalendarItem] { overdue.value?.filter { $0.kind != .task } ?? [] }
+    /// Overdue tasks and reminders that "Move all to today" reschedules. Project deadlines stay put.
+    private var movableOverdue: [CalendarItem] { rolledOver + overdueOther.filter { $0.kind == .reminder } }
+    /// The button sits on the Overdue section when it has reminders, otherwise on today's list of rolled-over tasks.
+    private var overdueHostsMoveAll: Bool { overdueOther.contains { $0.kind == .reminder } }
     private var store: AccountHabitViewStore { AccountHabitViewStore(model: model, owner: model.account?.id ?? "") }
     private var remaining: [CalendarItem] { rolledOver + items.filter { !$0.isComplete && $0.kind != .reminder } }
     private var reminders: [CalendarItem] { items.filter { !$0.isComplete && $0.kind == .reminder } }
@@ -239,13 +243,17 @@ struct PokusCalendarView: View {
             }
         }
         if selectedDay == today, !overdueOther.isEmpty {
-            Section("Overdue") { ForEach(overdueOther) { CalendarAgendaRow(model: model, item: $0, showsDate: true) } }
-                .textCase(showsMonth ? .uppercase : nil)
+            Section {
+                ForEach(overdueOther) { CalendarAgendaRow(model: model, item: $0, showsDate: true, moveTarget: today) }
+            } header: {
+                sectionHeader("Overdue", showsMoveAll: overdueHostsMoveAll)
+            }
+            .textCase(nil)
         }
         if selectedDay == today, let error = overdue.error { Section { ReadError(message: error) { retry += 1 } } }
         if showsMonth {
-            Section(selectedDay.formatted("EEEE, MMMM d")) {
-                ForEach(remaining) { CalendarAgendaRow(model: model, item: $0) }
+            Section {
+                ForEach(remaining) { CalendarAgendaRow(model: model, item: $0, moveTarget: $0.rolledOverFrom == nil ? nil : today) }
                 if let index = day.value {
                     habitRows(index.remaining, index: index)
                     if window.value != nil && remaining.isEmpty && reminders.isEmpty && index.remaining.isEmpty {
@@ -258,11 +266,18 @@ struct PokusCalendarView: View {
                 }
                 .disabled(!model.canEdit)
                 .accessibilityIdentifier("calendarNewTask")
+            } header: {
+                sectionHeader(selectedDay.formatted("EEEE, MMMM d"), showsMoveAll: !overdueHostsMoveAll && !rolledOver.isEmpty)
             }
+            .textCase(nil)
         } else {
             if !remaining.isEmpty {
-                Section("Scheduled") { ForEach(remaining) { CalendarAgendaRow(model: model, item: $0) } }
-                    .textCase(nil)
+                Section {
+                    ForEach(remaining) { CalendarAgendaRow(model: model, item: $0, moveTarget: $0.rolledOverFrom == nil ? nil : today) }
+                } header: {
+                    sectionHeader("Scheduled", showsMoveAll: !overdueHostsMoveAll && !rolledOver.isEmpty)
+                }
+                .textCase(nil)
             }
             if let index = day.value {
                 if !index.remaining.isEmpty {
@@ -312,7 +327,7 @@ struct PokusCalendarView: View {
         }
         if !reminders.isEmpty {
             Section("Reminders") { ForEach(reminders) { CalendarAgendaRow(model: model, item: $0) } }
-                .textCase(showsMonth ? .uppercase : nil)
+                .textCase(nil)
         }
         if !completed.isEmpty || day.value?.completed.isEmpty == false {
             Section {
@@ -323,6 +338,29 @@ struct PokusCalendarView: View {
             }
         }
         if showsMonth { Section { NavigationLink("Unscheduled projects and tasks") { CalendarUnscheduledView(model: model) } } }
+    }
+
+    private func sectionHeader(_ title: String, showsMoveAll: Bool) -> some View {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout())
+        return layout {
+            Text(title)
+            if showsMoveAll {
+                if !typeSize.isAccessibilitySize { Spacer() }
+                Button(save.isSaving ? "Moving…" : "Move all to today") { moveAllOverdue() }
+                    .font(.subheadline).fontWeight(.regular)
+                    .disabled(!model.canEdit || save.isSaving)
+                    .accessibilityIdentifier("calendarMoveOverdue")
+            }
+        }
+    }
+
+    private func moveAllOverdue() {
+        let items = movableOverdue
+        save.performAsync {
+            for item in items { try await model.moveCalendarItem(item, to: today) }
+        }
     }
 
     private func habitRows(_ ids: [String], index: HabitDayIndex) -> some View {
@@ -376,6 +414,8 @@ private struct CalendarAgendaRow: View {
     let model: PokusModel
     let item: CalendarItem
     var showsDate = false
+    /// Set on overdue rows: the day "Move to today" moves the item to.
+    var moveTarget: DayKey? = nil
     @State private var save = SaveAction()
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
@@ -410,8 +450,22 @@ private struct CalendarAgendaRow: View {
         .swipeActions(edge: .leading) {
             if item.kind == .task && !item.isComplete { FocusTaskButton(model: model, taskID: item.sourceID).tint(.accentColor) }
         }
+        .swipeActions(edge: .trailing) {
+            if let moveTarget, item.kind != .project {
+                Button("Tomorrow", systemImage: "arrow.right.circle") { move(to: moveTarget.adding(days: 1)) }
+                    .tint(.indigo).disabled(!model.canEdit || save.isSaving)
+                Button("Today", systemImage: "calendar") { move(to: moveTarget) }
+                    .tint(.orange).disabled(!model.canEdit || save.isSaving)
+            }
+        }
         .contextMenu {
             if item.kind == .task && !item.isComplete { FocusTaskButton(model: model, taskID: item.sourceID) }
+            if let moveTarget, item.kind != .project {
+                Button("Move to today", systemImage: "calendar") { move(to: moveTarget) }
+                    .disabled(!model.canEdit || save.isSaving)
+                Button("Move to tomorrow", systemImage: "arrow.right.circle") { move(to: moveTarget.adding(days: 1)) }
+                    .disabled(!model.canEdit || save.isSaving)
+            }
             if item.kind != .project {
                 Button(item.isComplete ? "Reopen" : "Complete", systemImage: item.isComplete ? "arrow.uturn.backward" : "checkmark.circle") { toggle() }
                     .disabled(!model.canEdit || save.isSaving)
@@ -438,7 +492,10 @@ private struct CalendarAgendaRow: View {
         case .reminder: CaptureDetailView(model: model, captureID: item.sourceID)
         }
     }
-    private func toggle() {
+    private func move(to day: DayKey) {
+        save.performAsync { try await model.moveCalendarItem(item, to: day) }
+    }
+        private func toggle() {
         save.performAsync {
             if item.kind == .reminder { try await model.setCaptureReminderDone(id: item.sourceID, done: !item.isComplete) }
             else if !(await model.write(collection: .tasks, id: item.sourceID, fields: ["isDone": .bool(!item.isComplete)])) {

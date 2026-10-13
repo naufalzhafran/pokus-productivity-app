@@ -1,4 +1,5 @@
 import Foundation
+import DailyCore
 import PokusCore
 import PokusNetworking
 
@@ -63,6 +64,23 @@ extension PokusModel {
     func setCaptureReminderDone(id: String, done: Bool) async throws {
         guard await write(collection: .captures, id: id, fields: ["reminderDone": .bool(done)]) else {
             throw PokusError.message(error ?? "Couldn't update this reminder.")
+        }
+    }
+
+    /// Moves an overdue task or reminder to `day`. Reminders keep their time of day; project deadlines are left alone.
+    func moveCalendarItem(_ item: CalendarItem, to day: DayKey) async throws {
+        switch item.kind {
+        case .task:
+            guard await write(collection: .tasks, id: item.sourceID, fields: ["dueDate": .string(day.rawValue)]) else {
+                throw PokusError.message(error ?? "Couldn't move this task.")
+            }
+        case .reminder:
+            guard let reminderAt = item.reminderAt else { return }
+            let moved = CalendarProjection.reminderAt(reminderAt, movedTo: day)
+            guard await write(collection: .captures, id: item.sourceID, fields: ["reminderAt": .number(moved), "reminderDone": .bool(false)]) else {
+                throw PokusError.message(error ?? "Couldn't move this reminder.")
+            }
+        case .project: return
         }
     }
 

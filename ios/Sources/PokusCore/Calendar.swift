@@ -91,5 +91,14 @@ public enum CalendarProjection {
         return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))!
     }
 
+    /// A reminder time moved to `day`, keeping its time of day. Used to bring overdue reminders forward.
+    public static func reminderAt(_ timestamp: Double, movedTo day: DayKey, timeZone: TimeZone = .autoupdatingCurrent) -> Double {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let time = calendar.dateComponents([.hour, .minute, .second], from: Date(timeIntervalSince1970: timestamp / 1000))
+        let moved = calendar.date(byAdding: time, to: startOfDay(day, timeZone: timeZone)) ?? startOfDay(day, timeZone: timeZone)
+        return (moved.timeIntervalSince1970 * 1000).rounded()
+    }
+
     private static func day(_ value: String?) -> DayKey? { value.flatMap(DayKey.init(rawValue:)) }
 }

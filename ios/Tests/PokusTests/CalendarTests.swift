@@ -49,6 +49,17 @@ private func calendarTask(date: String = "", projectDate: String = "2026-10-10",
         #expect(CalendarProjection.days(from: DayKey(rawValue: "2026-02-27")!, to: DayKey(rawValue: "2026-03-02")!) == 3)
     }
 
+    @Test func movedReminderKeepsItsTimeOfDay() throws {
+        let zone = try #require(TimeZone(identifier: "Asia/Jakarta"))
+        let original = CalendarProjection.startOfDay(DayKey(rawValue: "2026-10-09")!, timeZone: zone).addingTimeInterval(9 * 3600 + 30 * 60)
+        let moved = CalendarProjection.reminderAt(original.timeIntervalSince1970 * 1000, movedTo: DayKey(rawValue: "2026-10-13")!, timeZone: zone)
+        let expected = CalendarProjection.startOfDay(DayKey(rawValue: "2026-10-13")!, timeZone: zone).addingTimeInterval(9 * 3600 + 30 * 60)
+        #expect(moved == expected.timeIntervalSince1970 * 1000)
+        let reminder = try #require(CalendarProjection.reminder(try JSONDecoder().decode(Capture.self, from: Data(
+            #"{"id":"c","kind":"note","title":"Call","note":"","isProcessed":false,"created":"2026-01-01","updated":"2026-01-01","reminderAt":\#(moved)}"#.utf8)), timeZone: zone))
+        #expect(reminder.day?.rawValue == "2026-10-13")
+    }
+
     @Test func legacyModelsDefaultToUnscheduledAndExpandedDatesSurviveEncoding() throws {
         let legacyTask = try JSONDecoder().decode(FocusTask.self, from: Data(#"{"id":"t","title":"Old task","isDone":false,"focusedSeconds":0,"project":"","created":"2026-01-01"}"#.utf8))
         #expect(legacyTask.dueDate == nil)
