@@ -2,6 +2,7 @@ import CoreText
 import UIKit
 
 /// UIKit chrome that SwiftUI can't style per view: navigation titles and the tab bar.
+@MainActor
 enum PokusAppearance {
     static func apply() {
         let textPrimary = UIColor(named: "textPrimary") ?? .label
