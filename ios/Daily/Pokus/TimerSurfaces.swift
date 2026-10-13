@@ -58,7 +58,7 @@ final class TimerSurfaces: TimerSurfaceClient {
             if settings.authorizationStatus == .notDetermined { _ = try? await center.requestAuthorization(options: [.alert, .sound]) }
             guard generation == current else { return }
             let content = UNMutableNotificationContent()
-            content.title = "Focus session complete"
+            content.title = "Pokus complete"
             content.body = Self.completionBody(minutes: session.durationMinutes, taskTitle: linkedTitle)
             content.sound = TimerPreferences.completionSound ? .default : nil; content.userInfo = ["pokusTimer": true]
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, session.deadline.timeIntervalSinceNow), repeats: false)

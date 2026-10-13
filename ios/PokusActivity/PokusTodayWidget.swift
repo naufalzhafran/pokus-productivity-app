@@ -91,7 +91,7 @@ private struct TodayFocusView: View {
                 Text(timerInterval: min(entry.date, deadline)...deadline, countsDown: true).monospacedDigit()
             }.font(.caption).foregroundStyle(.secondary)
         } else if family == .systemSmall {
-            Label("Start focus", systemImage: "play.fill").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
+            Label("Start a Pokus", systemImage: "play.fill").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
         }
     }
 }

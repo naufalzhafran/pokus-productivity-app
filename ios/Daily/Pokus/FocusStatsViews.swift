@@ -63,8 +63,8 @@ struct FocusTodayCard: View {
             .buttonBorderShape(.capsule)
             .controlSize(.regular)
             .fixedSize()
-            .accessibilityLabel(running ? "Open timer" : "Start focus")
-            .accessibilityHint(running ? "A focus session is running." : startFocus == nil ? "Opens the Focus tab." : "Starts a focus session at your default length.")
+            .accessibilityLabel(running ? "Open timer" : "Start a Pokus")
+            .accessibilityHint(running ? "A Pokus is running." : startFocus == nil ? "Opens the Focus tab." : "Starts a Pokus at your default length.")
             .disabled(!running && (model.account == nil || !model.storageReady))
             .accessibilityIdentifier("todayStartFocus")
         }

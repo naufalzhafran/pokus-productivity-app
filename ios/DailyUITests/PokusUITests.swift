@@ -746,13 +746,13 @@ import XCTest
         XCTAssertTrue(app.buttons["Resume"].exists); app.buttons["Resume"].tap()
         XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
         app.buttons["Stop"].tap()
-        let alert = app.alerts["Stop this focus session?"]
+        let alert = app.alerts["Stop this Pokus?"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
         XCTAssertLessThan(abs(alert.frame.midX - app.frame.midX), 8)
         XCTAssertLessThan(abs(alert.frame.midY - app.frame.midY), 80)
         alert.buttons["Continue"].tap()
         XCTAssertTrue(app.buttons["Pause"].exists)
-        app.buttons["Stop"].tap(); alert.buttons["Discard session"].tap()
+        app.buttons["Stop"].tap(); alert.buttons["Discard"].tap()
         XCTAssertTrue(start.waitForExistence(timeout: 5))
     }
 
@@ -768,7 +768,7 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "focusProgressDial").firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(dial.exists)
         app.buttons["Stop"].tap()
-        app.alerts.buttons["Discard session"].tap()
+        app.alerts.buttons["Discard"].tap()
     }
 
     func testFocusScreenFitsWithoutScrolling() {
@@ -855,7 +855,7 @@ import XCTest
             app.buttons["Pause"].tap()
             XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
             app.buttons["Stop"].tap()
-            app.alerts.buttons["Discard session"].tap()
+            app.alerts.buttons["Discard"].tap()
         }
     }
 

@@ -318,7 +318,7 @@ private struct SessionHistoryRow: View {
     @State private var task = ReadState<String>()
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(session.task.isEmpty ? "Open focus session" : task.value ?? "Saved task")
+            Text(session.task.isEmpty ? "Open Pokus" : task.value ?? "Saved task")
             Text(WorkspaceRules.focused(session.creditedSeconds)).font(.callout)
             Text(Date(timeIntervalSince1970: session.lastTick / 1000), format: .dateTime.month().day().hour().minute()).font(.caption).foregroundStyle(.secondary)
         }.task(id: "\(model.queryIdentity)-\(session.task)") {

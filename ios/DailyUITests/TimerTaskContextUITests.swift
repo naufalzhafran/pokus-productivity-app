@@ -46,7 +46,7 @@ import XCTest
         XCTAssertTrue(taskTitle.isHittable)
 
         app.buttons["Stop"].tap()
-        let confirmation = app.alerts["Stop this focus session?"]
+        let confirmation = app.alerts["Stop this Pokus?"]
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
         confirmation.buttons["Save elapsed time"].tap()
         XCTAssertTrue(app.buttons["Focus again"].waitForExistence(timeout: 5))

@@ -3,8 +3,8 @@ import Foundation
 
 /// Starts a focus session with the default length and opens the timer.
 struct StartFocusIntent: AppIntent {
-    static let title: LocalizedStringResource = "Start Focus"
-    static let description = IntentDescription("Starts a Pokus focus session with your default length.")
+    static let title: LocalizedStringResource = "Start a Pokus"
+    static let description = IntentDescription("Starts a Pokus with your default length.")
     static let openAppWhenRun = true
     init() {}
     @MainActor func perform() async throws -> some IntentResult {
@@ -30,7 +30,7 @@ struct PokusShortcuts: AppShortcutsProvider {
         AppShortcut(intent: StartFocusIntent(), phrases: [
             "Start focus in \(.applicationName)",
             "Start a \(.applicationName) session"
-        ], shortTitle: "Start Focus", systemImageName: "timer")
+        ], shortTitle: "Start a Pokus", systemImageName: "timer")
         AppShortcut(intent: NewCaptureIntent(), phrases: [
             "New capture in \(.applicationName)",
             "Capture in \(.applicationName)"

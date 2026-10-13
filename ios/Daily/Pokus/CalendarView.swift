@@ -569,7 +569,7 @@ private struct WelcomeSection: View {
     var body: some View {
         if !dismissed && !model.hasRunningSession {
             Section {
-                Text("Focus sessions, tasks, captures, and notes live together here. Start with one session.")
+                Text("Your Pokus, tasks, captures, and notes live together here. Start with one Pokus.")
                     .font(.subheadline).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Picker("Session length", selection: $duration) {

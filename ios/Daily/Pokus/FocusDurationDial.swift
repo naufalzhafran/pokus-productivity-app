@@ -4,6 +4,8 @@ import SwiftUI
 struct FocusDurationDial<Content: View>: View {
     @Binding var minutes: Int
     var progress: Double?
+    /// Progress color: `primary` while setting up, then the session color.
+    var tint: Color = .pk.primary
     var spokenValue: String
     @ViewBuilder var content: Content
     @State private var previousAngle: Double?
@@ -34,14 +36,14 @@ struct FocusDurationDial<Content: View>: View {
             let radius = max(0, side / 2 - inset)
             let angle = fraction * 2 * Double.pi - Double.pi / 2
             ZStack {
-                Circle().stroke(Color(uiColor: .systemGray5), lineWidth: 10).padding(inset)
+                Circle().stroke(Color.pk.surfaceSunken, lineWidth: 10).padding(inset)
                 Circle().trim(from: 0, to: fraction)
-                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                    .stroke(tint, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .rotationEffect(.degrees(-90)).padding(inset)
                 content.padding(min(24, side * 0.1)).allowsHitTesting(false)
                 if progress == nil {
-                    Circle().fill(Color.accentColor).frame(width: 22, height: 22)
-                        .overlay { Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 3) }
+                    Circle().fill(Color.pk.primary).frame(width: 22, height: 22)
+                        .overlay { Circle().stroke(Color.pk.background, lineWidth: 3) }
                         .offset(x: radius * cos(angle), y: radius * sin(angle))
                         .allowsHitTesting(false)
                     Circle().stroke(.clear, lineWidth: 44)
@@ -81,5 +83,27 @@ struct FocusDurationDial<Content: View>: View {
         // Dragging moves in 5-minute steps; VoiceOver and the presets still allow any minute.
         let snapped = FocusDuration.snapped(dragAngle / turn * 60)
         if snapped != minutes { minutes = snapped }
+    }
+}
+
+/// The brand's completion moment: a Lime pulse expands from the badge once (a fade under Reduce Motion).
+struct PokusCompleteBadge: View {
+    var size: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulsed = false
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color.pk.accent)
+                .scaleEffect(pulsed || reduceMotion ? 2.2 : 1)
+                .opacity(pulsed || reduceMotion ? 0 : 0.6)
+            Circle().fill(Color.pk.accent)
+            Image(systemName: "checkmark").font(.system(size: size * 0.42, weight: .bold))
+                .foregroundStyle(Color.pk.onAccent)
+        }
+        .frame(width: size, height: size)
+        .opacity(reduceMotion && !pulsed ? 0 : 1)
+        .accessibilityHidden(true)
+        .onAppear { withAnimation(reduceMotion ? PKMotion.fast : PKMotion.slow) { pulsed = true } }
     }
 }

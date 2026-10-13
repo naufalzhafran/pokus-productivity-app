@@ -31,7 +31,7 @@ struct ToggleFocusIntent: LiveActivityIntent {
 /// Ends the running session from its Live Activity and saves the elapsed time.
 struct StopFocusIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Stop Focus"
-    static let description = IntentDescription("Ends the focus session and saves the elapsed time.")
+    static let description = IntentDescription("Ends the Pokus and saves the elapsed time.")
     static let isDiscoverable = false
     @Parameter(title: "Session") var sessionID: String
     init() {}

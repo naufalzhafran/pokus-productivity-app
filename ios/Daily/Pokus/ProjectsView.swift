@@ -465,11 +465,11 @@ struct TaskDetailView: View {
                 if let task {
                     VStack(spacing: 6) {
                         if model.canLinkRunningSession {
-                            Text("A focus session without a task is running. Link it to count its time toward this task.")
+                            Text("A Pokus without a task is running. Link it to count its time toward this task.")
                                 .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                                 .accessibilityIdentifier("sessionAlreadyRunning")
                         } else if model.hasRunningSession {
-                            Text(model.session?.task == task.id ? "This task's session is running." : "A focus session is already running. Finish it to focus on this task.")
+                            Text(model.session?.task == task.id ? "This task's Pokus is running." : "A Pokus is already running. Finish it to focus on this task.")
                                 .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
                                 .accessibilityIdentifier("sessionAlreadyRunning")
                         }
@@ -495,7 +495,7 @@ struct TaskDetailView: View {
                         guard await model.write(collection: .tasks, id: taskID, fields: [:], delete: true) else { throw PokusError.message(model.error ?? "Couldn't delete this task.") }
                     } onSuccess: { dismiss() }
                 }
-            } message: { Text("Focus session history is preserved.") }
+            } message: { Text("Pokus history is preserved.") }
             .saveAlert(save)
     }
 }
@@ -509,6 +509,6 @@ struct FocusTaskButton: View {
         Button(model.canLinkRunningSession ? "Link to session" : model.hasRunningSession ? "Open timer" : "Focus", systemImage: "timer") { model.focus(on: taskID) }
             .disabled(model.account == nil || !model.storageReady)
             .accessibilityHint(model.canLinkRunningSession ? "Counts the running session's time toward this task."
-                : model.hasRunningSession ? "A focus session is already running." : "Links this task to your next focus session.")
+                : model.hasRunningSession ? "A Pokus is already running." : "Links this task to your next Pokus.")
     }
 }

@@ -20,20 +20,20 @@ struct PokusFocusActivity: Widget {
                     Image(systemName: "timer").font(.title2).foregroundStyle(Color.accentColor).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.state.paused ? "Focus paused" : "Focusing").font(.headline)
-                        Text(context.attributes.taskTitle ?? "\(context.attributes.durationMinutes)-minute session")
+                        Text(context.attributes.taskTitle ?? "\(context.attributes.durationMinutes)-minute Pokus")
                             .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                     }
                     Spacer(minLength: 8)
                     Countdown(state: context.state)
-                        .font(.title2.monospacedDigit())
+                        .font(.pk.display(size: 20))
                         .multilineTextAlignment(.trailing)
-                        .frame(width: 96, alignment: .trailing)
+                        .frame(width: 104, alignment: .trailing)
                 }
                 FocusProgress(state: context.state, durationMinutes: context.attributes.durationMinutes)
                 FocusControls(sessionID: context.attributes.sessionID, paused: context.state.paused)
             }
             .padding()
-            .activityBackgroundTint(Color(uiColor: .secondarySystemBackground))
+            .activityBackgroundTint(Color.pk.surface)
             .activitySystemActionForegroundColor(.accentColor)
             .foregroundStyle(.primary)
             .widgetURL(URL(string: "pokus://timer"))

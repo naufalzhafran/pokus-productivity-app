@@ -13,7 +13,7 @@ struct PokusTimerView: View {
     @State private var taskSave = SaveAction()
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
-    @ScaledMetric(relativeTo: .largeTitle) private var timerFontSize = 88
+    @ScaledMetric(relativeTo: .largeTitle) private var timerFontSize = 72
 
     private var selectedTask: FocusTask? {
         model.workspace.tasks.first { $0.id == (model.session?.task ?? model.selectedTaskID) }
@@ -54,7 +54,7 @@ struct PokusTimerView: View {
                             .controlSize(.large)
                             .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, compact ? 8 : 16)
                             .frame(maxWidth: 480).frame(maxWidth: .infinity)
-                            .background(Color(uiColor: .systemBackground))
+                            .background(Color.pk.background)
                     }
                 }
                 .disabled(model.focus.isSaving || !model.storageReady)
@@ -66,14 +66,14 @@ struct PokusTimerView: View {
                 }.accessibilityIdentifier("signedOutFocus")
             }
         }
-        .background(Color(uiColor: .systemBackground))
+        .background(Color.pk.background)
         .saveAlert(taskSave)
         .navigationTitle("Focus")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Stop this focus session?", isPresented: $stopping) {
+        .alert("Stop this Pokus?", isPresented: $stopping) {
             Button("Continue", role: .cancel) { }
             Button("Save elapsed time") { Task { await model.stop(save: true) } }
-            Button("Discard session", role: .destructive) { Task { await model.stop(save: false) } }
+            Button("Discard", role: .destructive) { Task { await model.stop(save: false) } }
         } message: {
             Text(model.session?.task.isEmpty == false
                  ? "Save to credit the elapsed time to this task and your focus history."
@@ -112,11 +112,10 @@ struct PokusTimerView: View {
             Group {
                 if let session = model.session, session.mode == .complete {
                     VStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: min(56, geometry.size.height / 3))).foregroundStyle(DailyTheme.accent)
-                            .accessibilityHidden(true)
-                        Text(compact ? "Complete" : "Session complete").font(compact ? .headline : .title2)
-                        Text("This session · \(FocusStatistics.duration(session.creditedSeconds))").foregroundStyle(.secondary)
+                        PokusCompleteBadge(size: min(64, geometry.size.height / 3))
+                        Text(compact ? "Complete" : "Pokus complete").font(compact ? .pk.headline : .pk.displayS)
+                            .foregroundStyle(Color.pk.textPrimary)
+                        Text("This Pokus · \(FocusStatistics.duration(session.creditedSeconds))").foregroundStyle(Color.pk.textSecondary)
                         if !compact || geometry.size.height > 160 { completionTotals(session) }
                     }
                     .accessibilityElement(children: .combine)
@@ -274,17 +273,21 @@ struct PokusTimerView: View {
 
     private func timerDial(remaining: Int, diameter: CGFloat, compact: Bool) -> some View {
             let total = (model.session?.durationMinutes ?? duration) * 60
+            let state: PokusSessionState = model.session?.isActive == false ? .paused : .focus
             return FocusDurationDial(minutes: $duration,
                               progress: model.session == nil ? nil : Double(remaining) / Double(max(1, total)),
+                              tint: model.session == nil ? .pk.primary : state.tint,
                               spokenValue: "\(remaining / 60) minutes, \(remaining % 60) seconds\(model.session?.isActive == false ? ", paused" : "")\(compact && model.pendingCount > 0 && model.syncFailureVisible ? ", \(model.pendingCount) session updates waiting to sync" : "")") {
-                VStack(spacing: diameter < 280 ? 8 : 16) {
-                    if model.session?.isActive == false && diameter >= 240 && !compact {
-                        Text("Paused")
-                            .font(.body).foregroundStyle(.secondary)
+                VStack(spacing: diameter < 280 ? 4 : 8) {
+                    if model.session != nil && diameter >= 240 && !compact {
+                        Text(state == .paused ? "Paused" : "Focus")
+                            .font(.pk.label).foregroundStyle(Color.pk.textSecondary)
                     }
                     Text(String(format: "%02d:%02d", remaining / 60, remaining % 60))
-                        .font(.system(size: max(44, min(timerFontSize, diameter * 0.28)), weight: .light))
-                        .monospacedDigit().lineLimit(1)
+                        .font(.pk.display(size: max(40, min(timerFontSize, diameter * 0.22))))
+                        .tracking(-0.02 * min(timerFontSize, diameter * 0.22))
+                        .foregroundStyle(state == .paused ? Color.pk.textSecondary : Color.pk.textPrimary)
+                        .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .frame(maxWidth: .infinity)
                 }
@@ -296,20 +299,20 @@ struct PokusTimerView: View {
         if model.session?.mode == .complete {
             Button { Task { await model.reset() } } label: {
                 actionLabel(compact ? "Again" : "Focus again", symbol: "arrow.clockwise", iconsOnly: iconsOnly)
-            }.buttonStyle(.borderedProminent).accessibilityLabel("Focus again")
+            }.buttonStyle(.pkPrimary).accessibilityLabel("Focus again")
         } else if model.session == nil {
             Button { Task { await model.start(minutes: duration) } } label: {
-                actionLabel(compact ? "Start" : "Start focus", symbol: "play.fill", iconsOnly: iconsOnly)
-            }.buttonStyle(.borderedProminent).accessibilityIdentifier("startFocus").accessibilityLabel("Start focus")
+                actionLabel(compact ? "Start" : "Start a Pokus", symbol: "play.fill", iconsOnly: iconsOnly)
+            }.buttonStyle(.pkPrimary).accessibilityIdentifier("startFocus").accessibilityLabel("Start a Pokus")
         } else {
             let layout = typeSize.isAccessibilitySize && !iconsOnly ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 12))
             layout {
                 Button { Task { await model.toggle() } } label: {
                     actionLabel(model.session?.isActive == true ? "Pause" : "Resume", symbol: model.session?.isActive == true ? "pause.fill" : "play.fill", iconsOnly: iconsOnly)
-                }.buttonStyle(.borderedProminent).accessibilityLabel(model.session?.isActive == true ? "Pause" : "Resume")
+                }.buttonStyle(.pkPrimary).accessibilityLabel(model.session?.isActive == true ? "Pause" : "Resume")
                 Button(role: .destructive) { stopping = true } label: {
                     actionLabel("Stop", symbol: "stop.fill", iconsOnly: iconsOnly)
-                }.buttonStyle(.plain).accessibilityLabel("Stop")
+                }.buttonStyle(.pkSecondary).foregroundStyle(Color.pk.danger).accessibilityLabel("Stop")
             }
         }
     }
