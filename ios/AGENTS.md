@@ -11,7 +11,7 @@ The app shows as **Pokus** but is built from the original Daily project: `Daily.
 - `Daily/` — SwiftUI app target (screens in `Daily/Pokus`, services, assets, privacy manifest).
 - `PokusActivity/` — widget extension: Live Activity, Home Screen widget, and Control Center control.
 - `PokusShare/` — Share extension that queues shared links and text for the capture inbox.
-- `Shared/` — App Intents compiled into both the app and PokusActivity.
+- `Shared/` — App Intents, brand theme, colors, and the Unbounded font, compiled into both the app and PokusActivity.
 - `Sources/` — the local `DailyKit` Swift package:
   - `DailyCore`, `DailyPersistence` — legacy habit models and SwiftData storage.
   - `PokusCore` — PocketBase wire records, workspace rules, and the timer session engine.
@@ -25,7 +25,7 @@ The app shows as **Pokus** but is built from the original Daily project: `Daily.
 - Put logic in the Swift package rather than the app target so it is covered by `swift test`, and add tests there for new logic.
 - The app is offline first: screens read from `RecordReplica`, and writes apply locally then sync through its outbox. Route new reads and writes through it instead of calling PocketBase directly.
 - Do not add third-party dependencies, analytics, or CloudKit sync.
-- Use standard iOS colors and support Dynamic Type, dark mode, and VoiceOver.
+- Use the brand tokens in `Shared/PokusTheme.swift` (`Color.pk.*`, `Font.pk.*`, `PKSpace`, `PKRadius`) backed by `Shared/PokusColors.xcassets`; `primary` is the global accent color. Keep SF Symbols and the system text font, and support Dynamic Type, dark mode, and VoiceOver.
 - Do not change signing settings or the development team in the project file.
 
 ## Checks
