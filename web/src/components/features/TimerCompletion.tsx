@@ -67,7 +67,7 @@ export function TimerCompletion({
             tabIndex={-1}
             className="rounded-sm outline-none"
           >
-            Session complete
+            Pokus complete
           </h2>
         </CardTitle>
         <CardDescription>

@@ -29,7 +29,7 @@ describe("TodayPage", () => {
     const user = userEvent.setup(); const input = props();
     render(<TodayPage {...input} />);
     expect(screen.getByText("1h 5m focused today")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Start focus" }));
+    await user.click(screen.getByRole("button", { name: "Start a Pokus" }));
     expect(input.onStartFocus).toHaveBeenCalled();
     const work = screen.getByRole("region", { name: "Tasks and deadlines" });
     expect(within(work).getByText("Send invoice")).toBeInTheDocument();

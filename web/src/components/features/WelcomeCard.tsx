@@ -15,7 +15,7 @@ export function WelcomeCard({ canEdit, onCreateTask, onDismiss }: WelcomeCardPro
   return <Card size="sm" className="w-full" aria-labelledby="welcome-title">
     <CardHeader>
       <CardTitle id="welcome-title" className="text-lg">Welcome to Pokus</CardTitle>
-      <CardDescription>One calm focus session at a time. Here’s how to start.</CardDescription>
+      <CardDescription>Turn intention into focused time, one Pokus at a time. Here’s how to start.</CardDescription>
       <CardAction><Button variant="ghost" size="icon-sm" aria-label="Dismiss welcome" onClick={onDismiss}><X /></Button></CardAction>
     </CardHeader>
     <CardContent>

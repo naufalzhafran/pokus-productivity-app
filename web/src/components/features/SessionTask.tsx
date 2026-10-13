@@ -17,7 +17,7 @@ export function SessionTask({ title, isComplete = false }: SessionTaskProps) {
       />
       <p className="min-w-0 text-lg font-medium md:text-2xl">
         <span className="sr-only">
-          {isComplete ? "Completed Pomodoro for task: " : "Current task: "}
+          {isComplete ? "Completed Pokus for task: " : "Current task: "}
         </span>
         <span className="line-clamp-2 whitespace-pre-wrap [overflow-wrap:anywhere]">
           {title}

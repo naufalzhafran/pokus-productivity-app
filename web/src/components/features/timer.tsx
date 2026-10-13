@@ -128,11 +128,14 @@ export function Timer({
           max={durationMinutes * 60}
           onChange={() => undefined}
           size={540}
-          strokeWidth={12}
+          strokeWidth={10}
           readOnly
           className="size-full"
         >
-          <ClockDigits value={formatTime(remainingSeconds)} />
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-label text-muted-foreground" aria-hidden="true">{isActive ? "Focus" : "Paused"}</span>
+            <ClockDigits value={formatTime(remainingSeconds)} />
+          </div>
         </CircularDurationInput>
       </div>
 
@@ -144,7 +147,7 @@ export function Timer({
           className="focus-primary w-full"
           disabled={isSaving}
           onClick={onToggle}
-          aria-label={isActive ? "Pause Pomodoro timer" : "Resume Pomodoro timer"}
+          aria-label={isActive ? "Pause timer" : "Resume timer"}
         >
           {isActive ? (
             <Pause data-icon="inline-start" className="fill-current" />
@@ -160,7 +163,7 @@ export function Timer({
           className="w-full"
           disabled={isSaving}
           onClick={() => setShowConfirm(true)}
-          aria-label="Stop Pomodoro timer"
+          aria-label="Stop timer"
         >
           <Square data-icon="inline-start" className="fill-current" />
           Stop
@@ -170,7 +173,7 @@ export function Timer({
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Stop Pomodoro?</AlertDialogTitle>
+            <AlertDialogTitle>Stop this Pokus?</AlertDialogTitle>
             <AlertDialogDescription>
               {elapsedSeconds > 0
                 ? `You focused for ${formatElapsed(elapsedSeconds)}${conciseTitle ? ` on ${conciseTitle}` : ""}. Save this time to your history or discard it?`
@@ -178,12 +181,12 @@ export function Timer({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel aria-label="Continue Pomodoro timer">
+            <AlertDialogCancel aria-label="Keep going">
               Continue
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              aria-label="Discard this focus session"
+              aria-label="Discard this Pokus"
               onClick={() => onStop({ saveElapsedTime: false, elapsedSeconds })}
             >
               Discard

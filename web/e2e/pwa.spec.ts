@@ -50,7 +50,7 @@ test("phone controls, sheets, themes, and responsive layouts", async ({ page }, 
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  const start = page.getByRole("button", { name: "Start focus", exact: true });
+  const start = page.getByRole("button", { name: "Start a Pokus", exact: true });
   await expect(start).toBeVisible();
   const bounds = await start.boundingBox();
   expect(bounds!.y + bounds!.height).toBeLessThan(785);
@@ -97,15 +97,15 @@ test("an update waits for a paused session and an open editor", async ({ page, r
   await page.goto("/");
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
-  await expect(page.getByRole("button", { name: "Start focus" })).toBeVisible();
-  await page.getByRole("button", { name: "Start focus" }).click();
-  await page.getByRole("button", { name: "Pause Pomodoro timer" }).click();
+  await expect(page.getByRole("button", { name: "Start a Pokus" })).toBeVisible();
+  await page.getByRole("button", { name: "Start a Pokus" }).click();
+  await page.getByRole("button", { name: "Pause timer" }).click();
   await request.get("/__pokus_test_network?version=2");
   await page.evaluate(async () => { await (await navigator.serviceWorker.ready).update(); });
   const update = page.getByRole("button", { name: "Update app" });
   await expect(update).toBeDisabled();
-  await page.getByRole("button", { name: "Stop Pomodoro timer", exact: true }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Discard this focus session", exact: true }).click();
+  await page.getByRole("button", { name: "Stop timer", exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Discard this Pokus", exact: true }).click();
   await expect(update).toBeEnabled();
   await openTasks(page);
   await page.getByRole("button", { name: "New task", exact: true }).click();
@@ -119,19 +119,19 @@ test("an update waits for a paused session and an open editor", async ({ page, r
 
 test("offline relaunch restores a paused timer and opens precached routes", async ({ page, context, request, browserName }) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Start focus" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start a Pokus" })).toBeVisible();
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
   await openTasks(page);
   await expect(page.getByRole("button", { name: "Open details for Plan the next release" })).toBeVisible();
   await tab(page, "Timer");
-  await page.getByRole("button", { name: "Start focus" }).click();
-  await page.getByRole("button", { name: "Pause Pomodoro timer" }).click();
-  await expect(page.getByRole("button", { name: "Resume Pomodoro timer" })).toBeEnabled();
+  await page.getByRole("button", { name: "Start a Pokus" }).click();
+  await page.getByRole("button", { name: "Pause timer" }).click();
+  await expect(page.getByRole("button", { name: "Resume timer" })).toBeEnabled();
   await setOffline(page, context, request, browserName, true);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Resume Pomodoro timer" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Resume timer" })).toBeVisible();
   await openTasks(page);
   await expect(page.getByRole("button", { name: "Open details for Plan the next release" })).toBeVisible();
   await expect(page.getByRole("button", { name: "New task", exact: true })).toBeDisabled();
@@ -148,8 +148,8 @@ test("offline completion is saved and synced once after reconnecting", async ({ 
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
   await page.getByRole("button", { name: "Open details for Plan the next release" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Focus on Plan the next release" }).click();
-  await page.getByRole("button", { name: "Start focus" }).click();
-  await expect(page.getByRole("button", { name: "Pause Pomodoro timer" })).toBeVisible();
+  await page.getByRole("button", { name: "Start a Pokus" }).click();
+  await expect(page.getByRole("button", { name: "Pause timer" })).toBeVisible();
   await setOffline(page, context, request, browserName, true);
   await page.evaluate(async () => {
     const auth = JSON.parse(localStorage.getItem("pocketbase_auth")!);
@@ -165,12 +165,12 @@ test("offline completion is saved and synced once after reconnecting", async ({ 
     });
   });
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Session complete", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pokus complete", exact: true })).toBeVisible();
   await expect(page.getByText(/Saved on this device. Waiting to sync/)).toBeVisible();
   await setOffline(page, context, request, browserName, false);
   await expect(page.getByText(/Saved to your history/)).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Session complete", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pokus complete", exact: true })).toBeVisible();
   await tab(page, "Profile");
   await expect(page.getByText("25m", { exact: true }).first()).toBeVisible();
 });

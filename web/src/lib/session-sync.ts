@@ -86,7 +86,7 @@ function explainSyncError(error: unknown) {
     if (error.status === 401) return "Sign in again to sync your saved sessions.";
     if (error.status === 403 || error.status === 400 || error.status === 404) return "Sync needs attention. Check the PocketBase schema and batch settings, then retry. Your sessions are saved on this device.";
   }
-  return error instanceof Error && !(error instanceof ClientResponseError) ? error.message : "Could not connect. Your sessions are saved on this device and will sync when connected.";
+  return error instanceof Error && !(error instanceof ClientResponseError) ? error.message : "Couldn't sync. Your Pokus are saved on this device, and we'll retry.";
 }
 
 export function syncTimers(owner: string, force = false): Promise<void> {

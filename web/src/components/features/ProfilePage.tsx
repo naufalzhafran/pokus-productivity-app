@@ -108,7 +108,7 @@ const HistoryEntryRow = memo(function HistoryEntryRow({
                 {taskTitle}
               </button>
             ) : (
-              <p className="font-medium">Open focus session</p>
+              <p className="font-medium">Open Pokus</p>
             )}
             <p className="text-xs text-muted-foreground">
               <time dateTime={completedDate.toISOString()}>
@@ -208,11 +208,11 @@ export function ProfilePage({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <History aria-hidden="true" />
-            Pomodoro history
+            Pokus history
           </CardTitle>
           <CardDescription>
             {isLoading
-              ? "Loading your completed focus sessions…"
+              ? "Loading your completed Pokus…"
               : formatSessionCount(history.length)}
           </CardDescription>
         </CardHeader>
@@ -246,9 +246,9 @@ export function ProfilePage({
                 <EmptyMedia variant="icon">
                   <Clock3 />
                 </EmptyMedia>
-                <EmptyTitle>No sessions yet</EmptyTitle>
+                <EmptyTitle>No Pokus yet</EmptyTitle>
                 <EmptyDescription>
-                  Complete a Pomodoro or save an interrupted task session and it
+                  Finish a Pokus or save an interrupted one and it
                   will appear here.
                 </EmptyDescription>
               </EmptyHeader>
@@ -296,7 +296,7 @@ export function ProfilePage({
         open={Boolean(openTask)}
         onOpenChange={(open) => !open && onOpenTask(null)}
         title="Task details"
-        description="Task text from this focus session."
+        description="Task text from this Pokus."
       >
         {openTask ? (
           <div className="flex flex-col gap-4">

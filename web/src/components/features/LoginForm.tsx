@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ClientResponseError } from "pocketbase";
-import { Badge } from "@/components/ui/badge";
+import { PokusLogo } from "@/components/features/PokusLogo";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -61,12 +61,12 @@ export function LoginForm() {
       <div className="screen-panel flex w-full max-w-sm flex-col gap-5">
         <PwaUpdate />
         <div className="text-center">
-          <Badge>Pokus</Badge>
-          <h1 className="mt-3 font-heading text-3xl font-semibold tracking-tight">
+          <PokusLogo variant="mark" className="h-14" />
+          <h1 className="mt-4 font-display text-display-m">
             Welcome to Pokus
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Turn the work in front of you into one calm focus session.
+            Turn intention into focused time, one Pokus at a time.
           </p>
         </div>
 
@@ -74,8 +74,8 @@ export function LoginForm() {
           <CardHeader>
             <CardTitle>Sign in</CardTitle>
             <CardDescription>
-              Continue with Google to save tasks and focus history across
-              sessions.
+              Continue with Google to keep your tasks and Pokus history across
+              devices.
             </CardDescription>
           </CardHeader>
           <CardContent>

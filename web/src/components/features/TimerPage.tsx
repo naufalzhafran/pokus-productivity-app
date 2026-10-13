@@ -57,21 +57,21 @@ export function TimerPage({ session, sessionTask, selectedTask, tasks, projects,
   if (session?.mode === "running") return <div className="focus-screen mx-auto w-full max-w-xl text-center">
     <div className="mb-5 flex flex-col gap-2">
       <p className="text-sm text-muted-foreground">{session.isActive ? "Time to focus" : "Take a breath"} · {session.durationMinutes} min</p>
-      {sessionTask ? <SessionTask title={sessionTask.title} /> : <h2 className="text-xl font-medium">Open focus session</h2>}
+      {sessionTask ? <SessionTask title={sessionTask.title} /> : <h2 className="text-xl font-medium">Open Pokus</h2>}
       {!session.taskId && onLinkTask ? <Button variant="outline" size="sm" className="self-center" disabled={isSaving} onClick={() => setPickerOpen(true)}><Link2 data-icon="inline-start" />Link a task</Button> : null}
     </div>
     <Timer durationMinutes={session.durationMinutes} remainingSeconds={remainingSeconds}
-      isActive={session.isActive} isSaving={isSaving} sessionTitle={sessionTask?.title ?? "Focus session"}
+      isActive={session.isActive} isSaving={isSaving} sessionTitle={sessionTask?.title ?? "Pokus"}
       taskTitle={sessionTask?.title ?? (session.taskId ? "Your task" : undefined)} onToggle={onToggle} onStop={onStop} />
     {picker}
   </div>;
   return <div className="focus-screen mx-auto flex w-full max-w-md flex-col items-center gap-4 md:gap-6">
     {welcome}
-    <div className="text-center"><h2 className="text-xl font-medium md:text-2xl">Make room for focus.</h2><p className="mt-1 text-sm text-muted-foreground">{todaySeconds ? `${formatFocusDuration(todaySeconds)} focused today. One thing at a time.` : "One session. One thing at a time."}</p></div>
+    <div className="text-center"><h2 className="font-display text-display-s">Ready for a Pokus?</h2><p className="mt-1 text-sm text-muted-foreground">{todaySeconds ? `${formatFocusDuration(todaySeconds)} focused today. One thing at a time.` : "One Pokus. One thing at a time."}</p></div>
     <div className="focus-dial setup-dial relative aspect-square">
       <CircularDurationInput value={duration} onChange={onDurationChange} min={1} max={60} size={540} strokeWidth={10}
-        ariaLabel="Pomodoro duration in minutes" ariaValueText={`${duration} minutes`}>
-        <div className="flex flex-col items-center gap-2"><span className="clock-digits">{String(duration).padStart(2, "0")}:00</span><span className="text-sm text-muted-foreground">minutes of focus</span></div>
+        ariaLabel="Pokus length in minutes" ariaValueText={`${duration} minutes`}>
+        <div className="flex flex-col items-center gap-2"><span className="clock-digits">{String(duration).padStart(2, "0")}:00</span><span className="text-label text-muted-foreground">minutes of focus</span></div>
       </CircularDurationInput>
     </div>
     <Button variant="outline" className="task-picker w-full justify-start" onClick={() => setPickerOpen(true)} disabled={isSaving}>
@@ -79,12 +79,12 @@ export function TimerPage({ session, sessionTask, selectedTask, tasks, projects,
     </Button>
     <div className="flex w-full items-center gap-2">
       <Button variant="ghost" size="icon" aria-label="Decrease duration" disabled={duration <= 1 || isSaving} onClick={() => onDurationChange(duration - 1)}><Minus /></Button>
-      <ToggleGroup variant="outline" value={[String(duration)]} onValueChange={(values) => values[0] && onDurationChange(Number(values[0]))} aria-label="Pomodoro duration presets" className="grid flex-1 grid-cols-4">
+      <ToggleGroup variant="outline" value={[String(duration)]} onValueChange={(values) => values[0] && onDurationChange(Number(values[0]))} aria-label="Pokus length presets" className="grid flex-1 grid-cols-4">
         {[15, 25, 45, 60].map((preset) => <ToggleGroupItem key={preset} value={String(preset)} disabled={isSaving} aria-label={`${preset} minutes`}>{preset}</ToggleGroupItem>)}
       </ToggleGroup>
       <Button variant="ghost" size="icon" aria-label="Increase duration" disabled={duration >= 60 || isSaving} onClick={() => onDurationChange(duration + 1)}><Plus /></Button>
     </div>
-    <Button size="lg" className="focus-primary w-full" disabled={isSaving} onClick={onStart}><Play data-icon="inline-start" />{isSaving ? "Saving…" : "Start focus"}</Button>
+    <Button size="lg" className="focus-primary w-full" disabled={isSaving} onClick={onStart}><Play data-icon="inline-start" />{isSaving ? "Saving…" : "Start a Pokus"}</Button>
     {picker}
   </div>;
 }

@@ -46,17 +46,17 @@ describe("Timer", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Session complete" }),
+      screen.getByRole("heading", { name: "Pokus complete" }),
     ).toHaveFocus();
   });
   it("offers to save or discard elapsed time without a task", async () => {
     const user = userEvent.setup();
     const onStop = vi.fn();
     render(<Timer {...baseProps} remainingSeconds={1200} onStop={onStop} />);
-    await user.click(screen.getByRole("button", { name: "Stop Pomodoro timer" }));
+    await user.click(screen.getByRole("button", { name: "Stop timer" }));
     const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveTextContent("You focused for 5m 0s. Save this time");
-    expect(within(dialog).getByRole("button", { name: "Discard this focus session" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Discard this Pokus" })).toBeEnabled();
     await user.click(within(dialog).getByRole("button", { name: "Save focused time and stop" }));
     expect(onStop).toHaveBeenCalledWith({ saveElapsedTime: true, elapsedSeconds: 300 });
   });

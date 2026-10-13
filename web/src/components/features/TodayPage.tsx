@@ -58,8 +58,8 @@ export function TodayPage({ projects, tasks, categories, captureStore, habitStor
   const list = (entries: CalendarSourceItem[]) => <AgendaList entries={entries} day={today} today={today} readOnly={readOnly} captureStore={captureStore} habitStore={habitStore}
     onTaskDone={onTaskDone} onEdit={setEditor} onOpenCapture={(item) => { window.location.hash = calendarHash(item.day ?? today, item.id); }} onFocus={onFocusTask} canFocus={canFocus} />;
 
-  const focusTitle = session?.mode === "complete" ? "Session complete" : session ? session.isActive ? `Focusing · ${clock(remainingSeconds)} left` : `Paused · ${clock(remainingSeconds)} left` : "Focus";
-  const focusDetail = session ? sessionTask?.title ?? "Open focus session" : selectedTask ? `Next: ${selectedTask.title}` : todaySeconds ? "Keep going, one session at a time." : "No focus yet today.";
+  const focusTitle = session?.mode === "complete" ? "Pokus complete" : session ? session.isActive ? `Focusing · ${clock(remainingSeconds)} left` : `Paused · ${clock(remainingSeconds)} left` : "Focus";
+  const focusDetail = session ? sessionTask?.title ?? "Open Pokus" : selectedTask ? `Next: ${selectedTask.title}` : todaySeconds ? "Keep going, one session at a time." : "No focus yet today.";
 
   return <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -76,7 +76,7 @@ export function TodayPage({ projects, tasks, categories, captureStore, habitStor
         <CardDescription className="line-clamp-2 [overflow-wrap:anywhere]">{focusDetail}</CardDescription>
         <CardAction className="flex flex-col gap-2 sm:flex-row">
           {session ? <Button onClick={onOpenTimer}><TimerReset data-icon="inline-start" />{session.mode === "complete" ? "View" : "Open timer"}</Button>
-            : <><Button disabled={isSaving} onClick={onStartFocus}><Play data-icon="inline-start" />Start focus</Button><a href="#timer" onClick={onOpenTimer} className={buttonVariants({ variant: "ghost" })}>Set up timer</a></>}
+            : <><Button disabled={isSaving} onClick={onStartFocus}><Play data-icon="inline-start" />Start a Pokus</Button><a href="#timer" onClick={onOpenTimer} className={buttonVariants({ variant: "ghost" })}>Set up timer</a></>}
         </CardAction>
       </CardHeader>
     </Card>

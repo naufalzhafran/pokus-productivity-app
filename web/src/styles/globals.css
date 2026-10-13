@@ -175,13 +175,23 @@
   .focus-dial { width: min(76vw, 34svh, 300px); }
   .focus-primary { min-height: 52px; }
   .task-picker { min-height: 48px; }
-  .clock-digits { font-size: clamp(2.75rem, 13vw, 3.75rem); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.045em; line-height: 1; color: var(--foreground); }
-  .duration-digit, .duration-separator { display: inline-flex; justify-content: center; width: 0.65em; }
+  .clock-digits { font-family: var(--font-display); font-size: clamp(2.5rem, 12vw, 3.5rem); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1; color: var(--foreground); }
+  .duration-digit, .duration-separator { display: inline-flex; justify-content: center; width: 0.78em; }
   .duration-separator { width: 0.3em; color: var(--muted-foreground); }
   .bezel-hit-area { cursor: grab; pointer-events: stroke; touch-action: none; }
   .is-dragging .bezel-hit-area { cursor: grabbing; }
   .setup-dial svg:focus-visible { border-radius: 50%; outline: 2px solid var(--ring); outline-offset: 2px; }
+  .timer-stage .circular-progress { stroke: var(--pk-session-focus); }
+  .timer-stage[data-active="false"] .circular-progress { stroke: var(--pk-session-paused); }
   .timer-stage[data-active="false"] .clock-digits { color: var(--muted-foreground); }
+  /* Brand "Pokus chip": session color at 14% behind a dot in the full color. */
+  .pokus-chip { --chip-color: var(--pk-session-focus); background: color-mix(in srgb, var(--chip-color) 14%, transparent); }
+  .pokus-chip[data-state="paused"] { --chip-color: var(--pk-session-paused); }
+  .pokus-chip[data-state="break"] { --chip-color: var(--pk-session-break); }
+  /* Signature completion moment: a Lime pulse from the center (cross-fade under reduced motion). */
+  .complete-banner { position: relative; }
+  .complete-banner::before { content: ""; position: absolute; left: 50%; top: 2.5rem; width: 1rem; height: 1rem; margin: -0.5rem; border-radius: 9999px; background: var(--pk-accent); opacity: 0; pointer-events: none; animation: pokus-pulse 400ms var(--ease-standard) 1; }
+  @keyframes pokus-pulse { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(14); } }
   .rich-text-content { overflow-wrap: anywhere; }
   .rich-text-content > * + * { @apply mt-3; }
   .rich-text-content h2 { @apply text-lg font-semibold; }
@@ -193,7 +203,7 @@
   .rich-text-content .is-editor-empty:first-child::before { @apply pointer-events-none float-left h-0 text-muted-foreground; content: attr(data-placeholder); }
   @media (min-width: 768px) {
     .focus-dial { width: min(42svh, 400px); }
-    .clock-digits { font-size: 4.5rem; }
+    .clock-digits { font-size: 4.5rem; line-height: 1; }
     .app-main { padding-left: max(2rem, env(safe-area-inset-left)); padding-right: max(2rem, env(safe-area-inset-right)); }
   }
   @media (prefers-reduced-motion: reduce) {

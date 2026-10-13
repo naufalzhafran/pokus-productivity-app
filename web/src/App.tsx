@@ -276,8 +276,8 @@ export default function App() {
       if (!saved) return false;
       if (preferences.sound) playCompletionSound();
       notifyCompletion(completed.taskId ? `${completed.durationMinutes} minutes of focus saved.` : "Time for a break.");
-      toast.success("Pomodoro complete.", { action: { label: "View", onClick: () => { window.location.hash = "#timer"; } } });
-      setAppFeedback({ kind: "status", message: "Pomodoro complete." });
+      toast.success("Pokus complete.", { action: { label: "View", onClick: () => { window.location.hash = "#timer"; } } });
+      setAppFeedback({ kind: "status", message: "Pokus complete." });
       return true;
     },
     [preferences.sound, setSession],
@@ -331,7 +331,7 @@ export default function App() {
     // The task now belongs to the session; Focus again or a discard brings it back.
     setSelectedTaskId(null);
     void navigator.storage?.persist?.().catch(() => undefined);
-    setAppFeedback({ kind: "status", message: "Pomodoro started." });
+    setAppFeedback({ kind: "status", message: "Pokus started." });
     navigate("timer");
   }, [navigate, preferences.sound, selectedTask?.id, setSession, viewState.lastDuration]);
 
@@ -379,7 +379,7 @@ export default function App() {
     if (!saved) return;
     setAppFeedback({
       kind: "status",
-      message: currentSession.isActive ? "Pomodoro paused." : "Pomodoro resumed.",
+      message: currentSession.isActive ? "Pokus paused." : "Pokus resumed.",
     });
   }, [currentSession, preferences.sound, remainingSeconds, setSession]);
 
@@ -400,12 +400,12 @@ export default function App() {
       if (!saved) return;
       setAppFeedback({
         kind: "status",
-        message: "Focused time saved on this device. Session complete.",
+        message: "Focused time saved on this device. Pokus complete.",
       });
     } else {
       if (!(await setSession(null))) return;
       if (currentSession.taskId) setSelectedTaskId(currentSession.taskId);
-      setAppFeedback({ kind: "status", message: "Pomodoro stopped." });
+      setAppFeedback({ kind: "status", message: "Pokus stopped." });
     }
   }, [currentSession, setSession]);
 
@@ -562,7 +562,7 @@ export default function App() {
     >
       <PwaUpdate hasSession={currentSession?.mode === "running"} saving={isSaving} />
       {!online || !canEdit || pending.length > 0 || syncState.error || sessionLoadError ? <div className="app-notice" role="status">
-        <p>{sessionLoadError ?? syncState.error ?? (!online ? "Offline. Timers work; your saved workspace is read-only." : !canEdit ? "Sign in again from Profile to sync and edit. Your timer still works." : syncState.syncing ? "Syncing your focus sessions…" : "Focus sessions saved on this device, waiting to sync.")}</p>
+        <p>{sessionLoadError ?? syncState.error ?? (!online ? "Offline. Timers work; your saved workspace is read-only." : !canEdit ? "Sign in again from Profile to sync and edit. Your timer still works." : syncState.syncing ? "Syncing your Pokus…" : "Pokus saved on this device. We'll sync when you're back online.")}</p>
         {online && pending.length > 0 ? <Button variant="ghost" size="sm" disabled={syncState.syncing} onClick={retrySync}>Retry sync</Button> : null}
       </div> : null}
       {wakeError ? <p className="mb-3 text-sm text-muted-foreground" role="status">{wakeError}</p> : null}
@@ -596,13 +596,13 @@ export default function App() {
               <CardHeader>
                 <CardTitle>
                   {timerMode === "complete"
-                    ? "Session complete"
+                    ? "Pokus complete"
                     : currentSession.isActive
-                      ? "Pomodoro running"
-                      : "Pomodoro paused"}
+                      ? "Pokus running"
+                      : "Pokus paused"}
                 </CardTitle>
                 <CardDescription className="line-clamp-2 whitespace-pre-wrap break-words">
-                  {sessionTask?.title ?? "Open focus session"}
+                  {sessionTask?.title ?? "Open Pokus"}
                 </CardDescription>
                 <CardAction>
                   <Button type="button" onClick={() => navigate("timer")}>

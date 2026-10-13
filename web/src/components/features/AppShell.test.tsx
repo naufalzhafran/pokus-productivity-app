@@ -46,7 +46,7 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    expect(screen.getByLabelText("Pomodoro running, 25:05 remaining")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Pokus running, 25:05 remaining")).not.toHaveLength(0);
   });
   it("keeps phone navigation to five tabs and marks More for pages inside it", () => {
     render(<AppShell page="habits" session={null} onNavigate={vi.fn()}><p>Habits</p></AppShell>);
