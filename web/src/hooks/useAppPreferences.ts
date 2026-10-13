@@ -29,7 +29,7 @@ export function applyAppearance() {
   document.documentElement.style.colorScheme = dark ? "dark" : "light";
   // Either OS media query may match when the user explicitly overrides appearance.
   document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
-    meta.setAttribute("content", dark ? "#191d1b" : "#f6f5f0");
+    meta.setAttribute("content", dark ? "#0E0E22" : "#F7F7FB");
   });
 }
 export function watchAppearance() {

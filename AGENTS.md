@@ -10,6 +10,12 @@ Pokus is a focus timer and personal workspace. Two clients share one PocketBase 
 
 Run web commands from `web/`, Swift package commands from `ios/`, and everything else from the repository root.
 
+## Brand
+
+- `pokus-brand/BRAND.md` is the brand source of truth (tokens in `pokus-brand/tokens/tokens.json`). Use semantic tokens, not hex values: the `--pk-*` variables and their Tailwind aliases on web, `Color.pk.*` and `Font.pk.*` on iOS. When a token is missing, add it to `tokens.json` first, then mirror it on both clients.
+- Use the supplied logo files. Don't redraw or recolor the logo.
+- Copy: the unit is "a Pokus" (plural "Pokus"), sentence case, and no "pomodoro" or "work session" in UI copy.
+
 ## Production Safety
 
 - The production backend is `https://pb1.madebynz.xyz`. Never write to it, import schema into it, or point tests or scripts at it.

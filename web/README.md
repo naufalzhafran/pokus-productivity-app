@@ -194,6 +194,6 @@ Use a separate local server for tests; never point integration tests at producti
 ## Verification
 
 Run `npm run lint`, `npm test`, and `npm run build` for the standard checks.
-`npm run icons` regenerates install icons from the existing concentric-circle mark.
+Install icons, logos, and fonts follow the brand kit in `../pokus-brand/` (see `BRAND.md`).
 See [PWA verification](docs/pwa-verification.md) for browser checks, isolated
 PocketBase test setup, and the remaining physical iPhone checklist.

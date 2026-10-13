@@ -1,0 +1,144 @@
+/* Pokus design tokens — web. Mirrors tokens/tokens.json (source of truth).
+   Usage: import once at app root. Theme follows OS by default;
+   force with <html data-theme="light|dark">. */
+
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Unbounded:wght@500;600;700&display=swap");
+
+:root {
+  /* Brand */
+  --pk-night: #14143C;
+  --pk-indigo: #4B3BFF;
+  --pk-lime: #D7FF3E;
+  --pk-paper: #F1F0FF;
+
+  /* Indigo scale */
+  --pk-indigo-50: #F1F0FF; --pk-indigo-100: #E3E0FF; --pk-indigo-200: #C8C2FF;
+  --pk-indigo-300: #A69CFF; --pk-indigo-400: #8B7DFF; --pk-indigo-500: #4B3BFF;
+  --pk-indigo-600: #3A2AE6; --pk-indigo-700: #2E20B8; --pk-indigo-800: #231A8A;
+  --pk-indigo-900: #1A155C; --pk-indigo-950: #14143C;
+
+  /* Lime scale */
+  --pk-lime-200: #F0FFC2; --pk-lime-300: #E7FF8A; --pk-lime-400: #D7FF3E;
+  --pk-lime-500: #BDE620; --pk-lime-600: #93B50F; --pk-lime-700: #6B840A;
+
+  /* Neutral scale (cool, indigo-tinted) */
+  --pk-neutral-0: #FFFFFF; --pk-neutral-50: #F7F7FB; --pk-neutral-100: #EEEEF5;
+  --pk-neutral-200: #DEDEEA; --pk-neutral-300: #C4C4D6; --pk-neutral-400: #9A9AB3;
+  --pk-neutral-500: #6E6E8A; --pk-neutral-600: #50506B; --pk-neutral-700: #383852;
+  --pk-neutral-800: #24243D; --pk-neutral-900: #191930; --pk-neutral-950: #0E0E22;
+
+  /* Semantic — light */
+  --pk-background: #F7F7FB;
+  --pk-surface: #FFFFFF;
+  --pk-surface-raised: #FFFFFF;
+  --pk-surface-sunken: #EEEEF5;
+  --pk-border: #DEDEEA;
+  --pk-text-primary: #14143C;
+  --pk-text-secondary: #50506B;
+  --pk-primary: #4B3BFF;
+  --pk-primary-pressed: #3A2AE6;
+  --pk-on-primary: #FFFFFF;
+  --pk-accent: #D7FF3E;
+  --pk-on-accent: #14143C;
+  --pk-focus-ring: #4B3BFF;
+  --pk-session-focus: #4B3BFF;
+  --pk-session-break: #BDE620;
+  --pk-session-paused: #9A9AB3;
+  --pk-success: #1A7F45;
+  --pk-warning: #A35F00;
+  --pk-danger: #D93036;
+
+  /* Type */
+  --pk-font-display: "Unbounded", "Space Grotesk", system-ui, sans-serif;
+  --pk-font-text: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Spacing (4pt grid) */
+  --pk-space-1: 4px; --pk-space-2: 8px; --pk-space-3: 12px; --pk-space-4: 16px;
+  --pk-space-5: 20px; --pk-space-6: 24px; --pk-space-8: 32px; --pk-space-10: 40px;
+  --pk-space-12: 48px; --pk-space-16: 64px; --pk-space-20: 80px;
+
+  /* Radius */
+  --pk-radius-xs: 6px; --pk-radius-sm: 10px; --pk-radius-md: 14px;
+  --pk-radius-lg: 20px; --pk-radius-xl: 28px; --pk-radius-full: 9999px;
+
+  /* Shadow */
+  --pk-shadow-sm: 0 1px 2px rgba(20,20,60,.06), 0 1px 1px rgba(20,20,60,.04);
+  --pk-shadow-md: 0 4px 12px rgba(20,20,60,.08), 0 1px 3px rgba(20,20,60,.06);
+  --pk-shadow-lg: 0 16px 40px rgba(20,20,60,.14), 0 4px 10px rgba(20,20,60,.06);
+
+  /* Motion */
+  --pk-duration-fast: 150ms; --pk-duration-base: 250ms; --pk-duration-slow: 400ms;
+  --pk-ease-standard: cubic-bezier(.2,.8,.2,1);
+  --pk-ease-exit: cubic-bezier(.4,0,1,1);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pk-background: #0E0E22;
+    --pk-surface: #191930;
+    --pk-surface-raised: #24243D;
+    --pk-surface-sunken: #0A0A1A;
+    --pk-border: #383852;
+    --pk-text-primary: #F1F0FF;
+    --pk-text-secondary: #9A9AB3;
+    --pk-primary: #8B7DFF;
+    --pk-primary-pressed: #A69CFF;
+    --pk-on-primary: #0E0E22;
+    --pk-focus-ring: #D7FF3E;
+    --pk-session-focus: #8B7DFF;
+    --pk-session-break: #D7FF3E;
+    --pk-session-paused: #6E6E8A;
+    --pk-success: #4ADE80;
+    --pk-warning: #FFB224;
+    --pk-danger: #FF6369;
+    --pk-shadow-sm: none; --pk-shadow-md: none; --pk-shadow-lg: none;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --pk-background: #0E0E22;
+  --pk-surface: #191930;
+  --pk-surface-raised: #24243D;
+  --pk-surface-sunken: #0A0A1A;
+  --pk-border: #383852;
+  --pk-text-primary: #F1F0FF;
+  --pk-text-secondary: #9A9AB3;
+  --pk-primary: #8B7DFF;
+  --pk-primary-pressed: #A69CFF;
+  --pk-on-primary: #0E0E22;
+  --pk-focus-ring: #D7FF3E;
+  --pk-session-focus: #8B7DFF;
+  --pk-session-break: #D7FF3E;
+  --pk-session-paused: #6E6E8A;
+  --pk-success: #4ADE80;
+  --pk-warning: #FFB224;
+  --pk-danger: #FF6369;
+  --pk-shadow-sm: none; --pk-shadow-md: none; --pk-shadow-lg: none;
+  color-scheme: dark;
+}
+
+/* Base */
+body {
+  background: var(--pk-background);
+  color: var(--pk-text-primary);
+  font-family: var(--pk-font-text);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+:focus-visible { outline: 2px solid var(--pk-focus-ring); outline-offset: 2px; }
+
+/* Type roles */
+.pk-timer      { font: 500 72px/72px var(--pk-font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.pk-display-l  { font: 700 40px/44px var(--pk-font-display); letter-spacing: -0.02em; }
+.pk-display-m  { font: 700 28px/34px var(--pk-font-display); letter-spacing: -0.01em; }
+.pk-display-s  { font: 600 22px/28px var(--pk-font-display); }
+.pk-title      { font: 700 20px/28px var(--pk-font-text); letter-spacing: -0.01em; }
+.pk-headline   { font: 700 17px/24px var(--pk-font-text); }
+.pk-body       { font: 500 16px/24px var(--pk-font-text); }
+.pk-body-small { font: 500 14px/20px var(--pk-font-text); }
+.pk-label      { font: 700 13px/18px var(--pk-font-text); letter-spacing: 0.01em; }
+.pk-caption    { font: 600 12px/16px var(--pk-font-text); letter-spacing: 0.02em; }

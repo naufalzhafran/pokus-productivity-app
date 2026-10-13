@@ -27,7 +27,7 @@ export function requestCompletionNotifications() {
 export function notifyCompletion(body: string) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted" || document.visibilityState === "visible") return;
   try {
-    const notification = new Notification("Pomodoro complete", { body, tag: "pokus-timer", icon: "/pwa-192.png" });
+    const notification = new Notification("Pomodoro complete", { body, tag: "pokus-timer", icon: "/icon-192.png" });
     notification.onclick = () => { window.focus(); notification.close(); };
   } catch { /* Some browsers only allow notifications from a service worker. */ }
 }

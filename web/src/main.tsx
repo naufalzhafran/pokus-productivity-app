@@ -1,7 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/inter";
+import "@fontsource-variable/manrope";
+import "@fontsource-variable/unbounded";
 import { AuthGate } from "@/components/features/AuthGate";
 import { Skeleton } from "@/components/ui/skeleton";
 import "./styles/globals.css";
