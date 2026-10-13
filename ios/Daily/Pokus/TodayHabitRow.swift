@@ -25,12 +25,12 @@ struct TodayHabitRow: View {
                             name
                             Text(isComplete ? "Completed" : "Tap to complete")
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.pk.textSecondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 28, weight: .regular))
-                            .foregroundStyle(isComplete ? DailyTheme.accent : Color.secondary)
+                            .foregroundStyle(isComplete ? DailyTheme.accent : Color.pk.textSecondary)
                             .frame(width: 48, height: 48)
                     }
                     .frame(minHeight: 60)
@@ -53,7 +53,7 @@ struct TodayHabitRow: View {
                                 Text(total)
                                     .font(.subheadline)
                                     .monospacedDigit()
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.pk.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                                 if !isComplete {
                                     ProgressView(value: habit.fraction(on: day))
@@ -85,11 +85,11 @@ struct TodayHabitRow: View {
                         Button(action: increment) {
                             Text("+1")
                                 .font(.headline)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color.pk.textPrimary)
                                 .frame(minWidth: 52, minHeight: 48)
                                 .padding(.horizontal, 2)
-                                .background(Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 14))
-                                .contentShape(RoundedRectangle(cornerRadius: 14))
+                                .background(Color.pk.surfaceSunken, in: RoundedRectangle(cornerRadius: PKRadius.md, style: .continuous))
+                                .contentShape(RoundedRectangle(cornerRadius: PKRadius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Add one to \(habit.name)")
@@ -108,7 +108,7 @@ struct TodayHabitRow: View {
     private var name: some View {
         Text(habit.name)
             .font(.body.weight(.semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(Color.pk.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

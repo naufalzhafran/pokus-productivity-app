@@ -59,7 +59,7 @@ struct HabitEditorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section("The small thing you'll do") {
                     TextField("Habit name", text: $name)
                         .focused($focusedField, equals: .name)
@@ -90,7 +90,7 @@ struct HabitEditorView: View {
                                     .accessibilityLabel("Daily target")
                                     .accessibilityIdentifier("habitTarget")
                                 if existing != nil && !unit.isEmpty {
-                                    Text(unit).foregroundStyle(.secondary)
+                                    Text(unit).foregroundStyle(Color.pk.textSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
@@ -115,7 +115,7 @@ struct HabitEditorView: View {
                         }
                     }
                 }
-            }.disabled(save.isSaving)
+            }.pkRowBackground() }.pkScreenBackground().disabled(save.isSaving)
             .keyboardDoneButton(isEditing: focusedField != nil) { focusedField = nil }
             .onAppear { if initialDraft == nil { initialDraft = draft } }
             .navigationTitle(existing == nil ? "New habit" : "Edit habit")
@@ -176,7 +176,7 @@ struct EntryEditorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 if let habit = loaded ?? store.history(id: habitID) {
                     Section {
                         TextField("Daily total", text: $amount)
@@ -192,10 +192,10 @@ struct EntryEditorView: View {
                     }
                     Section {
                         Label(day.formatted(), systemImage: "calendar")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.pk.textSecondary)
                     }
                 }
-            }.disabled(save.isSaving)
+            }.pkRowBackground() }.pkScreenBackground().disabled(save.isSaving)
             .keyboardDoneButton(isEditing: editingAmount) { editingAmount = false }
             .onAppear { if initialAmount == nil { initialAmount = amount } }
             .navigationTitle("Daily total")

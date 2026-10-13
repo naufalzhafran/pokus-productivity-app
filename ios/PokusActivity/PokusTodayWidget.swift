@@ -8,10 +8,10 @@ struct PokusTodayWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "PokusTodayFocus", provider: TodayFocusProvider()) { entry in
             TodayFocusView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(Color.pk.surface, for: .widget)
         }
         .configurationDisplayName("Today's focus")
-        .description("See today's focus time and start a session.")
+        .description("See today's focus time and start a Pokus.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -56,9 +56,9 @@ private struct TodayFocusView: View {
 
     var body: some View {
         let content = VStack(alignment: .leading, spacing: 6) {
-            Label("Today", systemImage: "timer").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Label("Today", systemImage: "timer").font(.caption.weight(.semibold)).foregroundStyle(Color.pk.textSecondary)
             Text(FocusStatistics.duration(entry.todaySeconds))
-                .font(.system(.title, design: .rounded, weight: .semibold)).monospacedDigit()
+                .font(.pk.display(size: 28, weight: .bold))
                 .minimumScaleFactor(0.6).lineLimit(1)
             Spacer(minLength: 0)
             status
@@ -75,7 +75,7 @@ private struct TodayFocusView: View {
                 Link(destination: URL(string: running ? "pokus://timer" : "pokus://start")!) {
                     Label(running ? "Open timer" : "Start", systemImage: running ? "timer" : "play.fill")
                         .font(.headline).padding(.horizontal, 16).frame(minHeight: 44)
-                        .background(Color.accentColor, in: Capsule()).foregroundStyle(.white)
+                        .background(Color.pk.primary, in: Capsule()).foregroundStyle(Color.pk.onPrimary)
                 }
             }
         }
@@ -84,12 +84,12 @@ private struct TodayFocusView: View {
     @ViewBuilder private var status: some View {
         if entry.paused {
             Text("Paused · \(String(format: "%02d:%02d", entry.remainingSeconds / 60, entry.remainingSeconds % 60))")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(Color.pk.textSecondary)
         } else if let deadline = entry.deadline {
             HStack(spacing: 4) {
                 Text("Focusing")
                 Text(timerInterval: min(entry.date, deadline)...deadline, countsDown: true).monospacedDigit()
-            }.font(.caption).foregroundStyle(.secondary)
+            }.font(.caption).foregroundStyle(Color.pk.textSecondary)
         } else if family == .systemSmall {
             Label("Start a Pokus", systemImage: "play.fill").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
         }

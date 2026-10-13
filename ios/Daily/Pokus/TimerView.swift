@@ -135,12 +135,12 @@ struct PokusTimerView: View {
             let pending = model.focus.timer.operations.contains { $0.session.id == session.id }
             let total = FocusStatistics.taskTotal(recorded: task.focusedSeconds, session: session, task: task.id, pending: pending)
             Text("\(task.title) · \(FocusStatistics.duration(total)) focused")
-                .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
+                .font(.subheadline).foregroundStyle(Color.pk.textSecondary).multilineTextAlignment(.center).lineLimit(2)
                 .accessibilityIdentifier("completionTaskTotal")
         }
         if let today = statistics.value?.today {
             Text("Today · \(FocusStatistics.duration(today)) focused")
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                 .accessibilityIdentifier("completionTodayTotal")
         }
     }
@@ -153,7 +153,7 @@ struct PokusTimerView: View {
             } else if let session = model.session {
                 if !session.task.isEmpty {
                     Text(selectedTask?.title ?? "Linked task")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                         .multilineTextAlignment(.center).lineLimit(compact ? 1 : 2)
                         .accessibilityIdentifier("focusTaskTitle")
                 } else if session.mode == .running {
@@ -162,8 +162,8 @@ struct PokusTimerView: View {
                         Label("Link a task", systemImage: "plus.circle")
                             .lineLimit(1).frame(minHeight: 44)
                     }
-                    .buttonStyle(.bordered).buttonBorderShape(.capsule).tint(Color.secondary)
-                    .accessibilityHint("Credits this session's time to a task.")
+                    .buttonStyle(.bordered).buttonBorderShape(.capsule).tint(Color.pk.textSecondary)
+                    .accessibilityHint("Credits this Pokus to a task.")
                     .accessibilityIdentifier("linkRunningTask")
                 }
                 if session.mode == .complete, let task = selectedTask {
@@ -175,7 +175,7 @@ struct PokusTimerView: View {
                                 Label("Task complete", systemImage: "checkmark.circle").font(.subheadline)
                             }
                         }
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.pk.textSecondary)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Task complete")
                         .accessibilityIdentifier("focusTaskCompleted")
@@ -200,10 +200,10 @@ struct PokusTimerView: View {
                     }
                 }
             }
-            if model.focus.isSaving { ProgressView("Saving session") }
+            if model.focus.isSaving { ProgressView("Saving Pokus") }
             if model.pendingCount > 0 && model.syncFailureVisible && !compact {
                 Text("\(model.pendingCount) session updates waiting to sync")
-                    .font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+                    .font(.footnote).foregroundStyle(Color.pk.textSecondary).lineLimit(2)
             }
         }
     }
@@ -217,7 +217,7 @@ struct PokusTimerView: View {
                     Text("\(minutes)m").monospacedDigit().frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.bordered).buttonBorderShape(.capsule)
-                .tint(duration == minutes ? Color.accentColor : Color.secondary)
+                .tint(duration == minutes ? Color.accentColor : Color.pk.textSecondary)
                 .accessibilityLabel("\(minutes) minutes")
                 .accessibilityAddTraits(duration == minutes ? .isSelected : [])
                 .accessibilityIdentifier("durationPreset-\(minutes)")
@@ -244,17 +244,17 @@ struct PokusTimerView: View {
                 Label(title, systemImage: hasTask ? "checklist" : "plus.circle")
                     .lineLimit(compact ? 1 : 2).frame(minHeight: 44)
             }
-            .buttonStyle(.bordered).buttonBorderShape(.capsule).tint(hasTask ? Color.accentColor : Color.secondary)
+            .buttonStyle(.bordered).buttonBorderShape(.capsule).tint(hasTask ? Color.accentColor : Color.pk.textSecondary)
             .accessibilityLabel(title)
-            .accessibilityValue(hasTask ? "Linked to the next session" : "")
-            .accessibilityHint(hasTask ? "Choose a different task." : "Link the next session to a task.")
+            .accessibilityValue(hasTask ? "Linked to the next Pokus" : "")
+            .accessibilityHint(hasTask ? "Choose a different task." : "Link the next Pokus to a task.")
             .accessibilityIdentifier("chooseTask")
             if hasTask {
                 Button { model.selectedTaskID = "" } label: {
                     Image(systemName: "xmark")
                         .font(.subheadline)
                         .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                }.buttonStyle(.plain).foregroundStyle(.secondary)
+                }.buttonStyle(.plain).foregroundStyle(Color.pk.textSecondary)
                     .accessibilityLabel("Clear selected task")
             }
         }
@@ -333,7 +333,7 @@ struct TimerTaskPicker: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 AccountNotice(model: model)
                 if !model.selectedTaskID.isEmpty && !linksRunningSession {
                     Button { model.selectedTaskID = ""; dismiss() } label: {
@@ -343,16 +343,16 @@ struct TimerTaskPicker: View {
                 Section {
                     PagedRows(model: model, query: RecordQueries.timerTasks(today: WorkspaceRules.dayKey(.now), search: search),
                               search: search, emptyTitle: search.isEmpty ? "No open tasks" : "No matching tasks", symbol: "checklist",
-                              emptyDescription: search.isEmpty ? "Add a task in Library to link it to a session." : "Try another search.") { task in
+                              emptyDescription: search.isEmpty ? "Add a task in Library to link it to a Pokus." : "Try another search.") { task in
                         Button { pick(task.id) } label: { row(task) }
                             .accessibilityAddTraits(task.id == model.selectedTaskID ? .isSelected : [])
                             .accessibilityIdentifier("pickTask-\(task.id)")
                     }
                 } footer: {
-                    Text(linksRunningSession ? "This session's time will count toward the task you pick. Tasks due today or overdue are listed first."
+                    Text(linksRunningSession ? "This Pokus will count toward the task you pick. Tasks due today or overdue are listed first."
                          : "Tasks due today or overdue are listed first.")
                 }
-            }
+            }.pkRowBackground() }.pkScreenBackground()
             .navigationTitle(linksRunningSession ? "Link a task" : "Choose a task").navigationBarTitleDisplayMode(.inline)
             .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search open tasks")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
@@ -366,10 +366,10 @@ struct TimerTaskPicker: View {
     private func row(_ task: FocusTask) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(task.title).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                Text(task.title).foregroundStyle(Color.pk.textPrimary).fixedSize(horizontal: false, vertical: true)
                 let detail = [task.projectTitle, task.dueDate.flatMap { $0.isEmpty ? nil : LibraryDates.due($0) } ?? ""].filter { !$0.isEmpty }
                 if !detail.isEmpty {
-                    Text(detail.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
+                    Text(detail.joined(separator: " · ")).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                 }
             }
             Spacer(minLength: 0)
@@ -402,7 +402,7 @@ struct AccountNotice: View {
                     : "Offline. Previously opened records and your timer are saved on this iPhone. Connect to refresh or edit.")
         } else if model.authentication?.isValid == false {
             VStack(alignment: .leading, spacing: 12) {
-                if !compact { Text(waiting > 0 ? "Sign in again to sync \(changes(waiting))." : "Sign in again to sync.").font(.footnote).foregroundStyle(.secondary) }
+                if !compact { Text(waiting > 0 ? "Sign in again to sync \(changes(waiting))." : "Sign in again to sync.").font(.footnote).foregroundStyle(Color.pk.textSecondary) }
                 GoogleSignInButton(isConnecting: model.isSigningIn) { Task { await model.signIn() } }
             }
         } else if !compact, !model.replicaStatus.failed.isEmpty {

@@ -8,6 +8,8 @@ struct DailyApp: App {
     @UIApplicationDelegateAdaptor(NotificationDelegate.self) private var appDelegate
     @State private var bootstrap = AppBootstrap.shared
 
+    init() { PokusAppearance.apply() }
+
     var body: some Scene {
         WindowGroup {
             RootView(store: bootstrap.store, pokus: bootstrap.pokus, habitError: bootstrap.errorMessage, retryHabits: bootstrap.load)

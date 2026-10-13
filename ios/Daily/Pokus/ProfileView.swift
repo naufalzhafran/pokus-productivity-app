@@ -15,16 +15,16 @@ struct PokusProfileView: View {
         return model.account != nil || args.contains("-preview-data") || (args.contains("-ui-testing") && args.contains("-ui-testing-local-habits"))
     }
     var body: some View {
-        List {
+        List { Group {
             Section {
                 if let account = model.account {
                     VStack(alignment: .leading, spacing: 4) {
                         let name = account.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                         let email = account.email?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                         Text(name.isEmpty ? (email.isEmpty ? "Pokus account" : email) : name)
-                            .font(.title3.weight(.semibold))
+                            .font(.pk.title)
                         if !email.isEmpty, !name.isEmpty, name != email {
-                            Text(email).font(.subheadline).foregroundStyle(.secondary)
+                            Text(email).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                         }
                     }
                     .padding(.vertical, 6)
@@ -40,10 +40,10 @@ struct PokusProfileView: View {
                 Section("Focus") {
                     ProfileFocusStatistics(model: model)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Total focus time").font(.subheadline).foregroundStyle(.secondary)
+                        Text("Total focus time").font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                         if let value = total.value {
                             Text(WorkspaceRules.focused(value))
-                                .font(.system(.title2, design: .rounded, weight: .semibold))
+                                .font(.pk.displayS)
                         } else if let error = total.error {
                             ReadError(message: error) { totalRetry += 1 }
                         } else {
@@ -51,7 +51,7 @@ struct PokusProfileView: View {
                         }
                     }
                     .padding(.vertical, 4)
-                    NavigationLink("Session history") { FocusHistoryView(model: model) }
+                    NavigationLink("Pokus history") { FocusHistoryView(model: model) }
                 }
             }
             TimerPreferencesSection()
@@ -78,7 +78,7 @@ struct PokusProfileView: View {
                             Text("Data & sync")
                             ProfileSyncStatus(model: model)
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.pk.textSecondary)
                         }
                         .padding(.vertical, 4)
                     }
@@ -95,7 +95,7 @@ struct PokusProfileView: View {
             } else {
                 Section { } footer: { appVersion }
             }
-        }
+        }.pkRowBackground() }.pkScreenBackground()
         .listStyle(.insetGrouped)
         .accessibilityIdentifier("profileList")
         .navigationTitle("Profile")
@@ -151,7 +151,7 @@ private struct ExportDataRows: View {
             .accessibilityIdentifier("shareExport")
         }
         if let error {
-            Text(error).font(.footnote).foregroundStyle(.secondary)
+            Text(error).font(.footnote).foregroundStyle(Color.pk.textSecondary)
         }
     }
 
@@ -201,7 +201,7 @@ private struct ProfileDataSyncView: View {
     private var isSyncing: Bool { model.isLoading || model.isSyncing || model.isSyncingData }
 
     var body: some View {
-        List {
+        List { Group {
             if model.account != nil {
                 Section {
                     if model.authentication?.isValid == false { AccountNotice(model: model) }
@@ -210,7 +210,7 @@ private struct ProfileDataSyncView: View {
                     if let synced = model.replicaStatus.lastSynced {
                         TimelineView(.periodic(from: .now, by: 60)) { _ in
                             Text("Last synced \(synced, format: .relative(presentation: .named))")
-                                .font(.subheadline).foregroundStyle(.secondary)
+                                .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                         }
                     }
                     if model.pendingCount > 0 {
@@ -219,8 +219,8 @@ private struct ProfileDataSyncView: View {
                     if model.replicaStatus.pendingChanges > 0 {
                         Text("\(model.replicaStatus.pendingChanges) \(model.replicaStatus.pendingChanges == 1 ? "change" : "changes") waiting to sync")
                     }
-                    if let error = model.syncError { Text(error).font(.footnote).foregroundStyle(.secondary) }
-                    if let error = model.dataSyncError { Text(error).font(.footnote).foregroundStyle(.secondary) }
+                    if let error = model.syncError { Text(error).font(.footnote).foregroundStyle(Color.pk.textSecondary) }
+                    if let error = model.dataSyncError { Text(error).font(.footnote).foregroundStyle(Color.pk.textSecondary) }
                     Button("Sync now") { Task { await model.refresh() } }
                         .disabled(isSyncing || !model.isOnline || model.authentication?.isValid != true)
                         .frame(minHeight: 44)
@@ -232,7 +232,7 @@ private struct ProfileDataSyncView: View {
                         ForEach(model.replicaStatus.failed) { change in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(change.summary)
-                                Text(change.message).font(.footnote).foregroundStyle(.secondary)
+                                Text(change.message).font(.footnote).foregroundStyle(Color.pk.textSecondary)
                                 Button("Discard change", role: .destructive) { discarding = change }.frame(minHeight: 44)
                             }.accessibilityElement(children: .contain)
                         }
@@ -268,16 +268,16 @@ private struct ProfileDataSyncView: View {
                 Section("Offline access") {
                     Text("Your workspace stays on this iPhone so you can browse and edit offline.")
                     Text("Older history and the full text of older finished items load when you're connected.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.pk.textSecondary)
                     DisclosureGroup("What stays on this iPhone?") {
-                        Text("Projects, tasks, captures, notes, and habits are saved after the first sync. Focus sessions older than 90 days, habit entries before last year, and the full text of older finished items load online.")
+                        Text("Projects, tasks, captures, notes, and habits are saved after the first sync. Pokus older than 90 days, habit entries before last year, and the full text of older finished items load online.")
                         Text("Signing out removes downloaded copies. Your timer and changes that haven't synced stay saved for this account.")
                     }
                 }
             } else {
                 AccountNotice(model: model)
             }
-        }
+        }.pkRowBackground() }.pkScreenBackground()
         .listStyle(.insetGrouped)
         .accessibilityIdentifier("profileDataSyncList")
         .navigationTitle("Data & sync")
@@ -297,19 +297,19 @@ private struct ProfileDataSyncView: View {
 private struct FocusHistoryView: View {
     let model: PokusModel
     var body: some View {
-        List {
+        List { Group {
             let local = model.displayedHistory
             if !local.isEmpty {
-                Section("Recent sessions on this iPhone") {
+                Section("Recent Pokus on this iPhone") {
                     ForEach(local) { SessionHistoryRow(model: model, session: $0) }
                 }
             }
-            Section("Saved sessions") {
-                PagedRows(model: model, query: RecordQueries.history(), emptyTitle: "No sessions yet", symbol: "timer", excluding: Set(local.map(\.id))) {
+            Section("Saved Pokus") {
+                PagedRows(model: model, query: RecordQueries.history(), emptyTitle: "No Pokus yet", symbol: "timer", excluding: Set(local.map(\.id))) {
                     SessionHistoryRow(model: model, session: $0)
                 }
             }
-        }.navigationTitle("Focus history").refreshable { await model.refresh() }
+        }.pkRowBackground() }.pkScreenBackground().navigationTitle("Focus history").refreshable { await model.refresh() }
     }
 }
 private struct SessionHistoryRow: View {
@@ -320,7 +320,7 @@ private struct SessionHistoryRow: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(session.task.isEmpty ? "Open Pokus" : task.value ?? "Saved task")
             Text(WorkspaceRules.focused(session.creditedSeconds)).font(.callout)
-            Text(Date(timeIntervalSince1970: session.lastTick / 1000), format: .dateTime.month().day().hour().minute()).font(.caption).foregroundStyle(.secondary)
+            Text(Date(timeIntervalSince1970: session.lastTick / 1000), format: .dateTime.month().day().hour().minute()).font(.caption).foregroundStyle(Color.pk.textSecondary)
         }.task(id: "\(model.queryIdentity)-\(session.task)") {
             guard !session.task.isEmpty else { return }
             await task.load {

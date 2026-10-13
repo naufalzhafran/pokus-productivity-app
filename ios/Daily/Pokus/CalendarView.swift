@@ -65,16 +65,17 @@ struct PokusCalendarView: View {
                 else if !showsMonth {
                     List { agenda }
                         .listStyle(.insetGrouped)
+                        .pkScreenBackground()
                         .contentMargins(.top, 0)
                         .accessibilityIdentifier("calendarAgenda")
                 }
                 else if geometry.size.width >= 760 && !typeSize.isAccessibilitySize {
                     HStack(alignment: .top, spacing: 0) {
                         ScrollView { monthGrid.padding() }.frame(width: geometry.size.width * 0.46)
-                        List { agenda }.listStyle(.insetGrouped).accessibilityIdentifier("calendarAgenda")
+                        List { agenda }.listStyle(.insetGrouped).pkScreenBackground().accessibilityIdentifier("calendarAgenda")
                     }
                 } else {
-                    List { Section { monthGrid }.listRowBackground(Color.clear); agenda }.listStyle(.insetGrouped).accessibilityIdentifier("calendarAgenda")
+                    List { Section { monthGrid }.listRowBackground(Color.clear); agenda }.listStyle(.insetGrouped).pkScreenBackground().accessibilityIdentifier("calendarAgenda")
                 }
             }.background(DailyTheme.background)
         }
@@ -161,7 +162,7 @@ struct PokusCalendarView: View {
             VStack(spacing: 5) {
                 HStack(spacing: 0) {
                     ForEach(Array(DayKey.weekdaySymbols().enumerated()), id: \.offset) { _, title in
-                        Text(title).font(.caption).foregroundStyle(.secondary)
+                        Text(title).font(.caption).foregroundStyle(Color.pk.textSecondary)
                             .frame(maxWidth: .infinity).accessibilityHidden(true)
                     }
                 }
@@ -178,7 +179,7 @@ struct PokusCalendarView: View {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) { markerLegend }
                 VStack(alignment: .leading, spacing: 4) { markerLegend }
-            }.font(.caption).foregroundStyle(.secondary)
+            }.font(.caption).foregroundStyle(Color.pk.textSecondary)
         }
     }
 
@@ -199,8 +200,8 @@ struct PokusCalendarView: View {
                     }
                 }.frame(minHeight: min(markerSize, 16) + 2).accessibilityHidden(true)
             }.frame(maxWidth: .infinity, minHeight: 44)
-                .background(date == selectedDay ? DailyTheme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 9))
-                .foregroundStyle(date == selectedDay ? Color.white : date.month == month.month ? Color.primary : Color.secondary)
+                .background(date == selectedDay ? DailyTheme.accent : Color.clear, in: RoundedRectangle(cornerRadius: PKRadius.sm, style: .continuous))
+                .foregroundStyle(date == selectedDay ? Color.pk.onPrimary : date.month == month.month ? Color.pk.textPrimary : Color.pk.textSecondary)
                 .contentShape(Rectangle())
         }.buttonStyle(.plain)
             .accessibilityLabel(date.formatted("EEEE, MMMM d, yyyy"))
@@ -210,134 +211,139 @@ struct PokusCalendarView: View {
     }
 
     @ViewBuilder private var agenda: some View {
-        if showsMonth {
-            Section {
-                AccountNotice(model: model)
-                if let notice = model.captureReminderNotice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
-                Text("Web reminder changes reach iPhone alerts after this app next syncs.").font(.caption).foregroundStyle(.secondary)
-            }
-        } else {
+        // The date header sits on the screen background; every other agenda row uses the brand surface.
+        if !showsMonth {
             Section {
                 Text(today.formatted("EEEE, MMMM d"))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.pk.textSecondary)
                     .padding(.vertical, 4)
                 AccountNotice(model: model)
-                if let notice = model.captureReminderNotice { Text(notice).font(.footnote).foregroundStyle(.secondary) }
+                if let notice = model.captureReminderNotice { Text(notice).font(.footnote).foregroundStyle(Color.pk.textSecondary) }
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-            if showsWelcome, let account = model.account, let startFocus {
-                WelcomeSection(model: model, accountID: account.id, startFocus: startFocus)
-            }
-            if let openTimer {
-                Section { FocusTodayCard(model: model, today: today, openTimer: openTimer, startFocus: startFocus) }
-            }
-            if window.value == nil && window.error == nil {
-                Section { ProgressView("Loading your day") }
-            }
-            if let error = window.error { Section { ReadError(message: error) { retry += 1 } } }
-            if day.value != nil && overdue.value == nil && overdue.error == nil {
-                Section { ProgressView("Checking overdue items") }
-            }
         }
-        if selectedDay == today, !overdueOther.isEmpty {
-            Section {
-                ForEach(overdueOther) { CalendarAgendaRow(model: model, item: $0, showsDate: true, moveTarget: today) }
-            } header: {
-                sectionHeader("Overdue", showsMoveAll: overdueHostsMoveAll)
-            }
-            .textCase(nil)
-        }
-        if selectedDay == today, let error = overdue.error { Section { ReadError(message: error) { retry += 1 } } }
-        if showsMonth {
-            Section {
-                ForEach(remaining) { CalendarAgendaRow(model: model, item: $0, moveTarget: $0.rolledOverFrom == nil ? nil : today) }
-                if let index = day.value {
-                    habitRows(index.remaining, index: index)
-                    if window.value != nil && remaining.isEmpty && reminders.isEmpty && index.remaining.isEmpty {
-                        Text(completed.isEmpty && index.completed.isEmpty ? "Nothing scheduled for this day." : "All done for this day.").foregroundStyle(.secondary)
-                    }
-                } else if day.isLoading { ProgressView("Loading habits") }
-                if let error = day.error { ReadError(message: error) { retry += 1 } }
-                Button { newTaskDay = selectedDay } label: {
-                    Label("New task on \(selectedDay.formatted())", systemImage: "plus.circle").frame(minHeight: 44)
-                }
-                .disabled(!model.canEdit)
-                .accessibilityIdentifier("calendarNewTask")
-            } header: {
-                sectionHeader(selectedDay.formatted("EEEE, MMMM d"), showsMoveAll: !overdueHostsMoveAll && !rolledOver.isEmpty)
-            }
-            .textCase(nil)
-        } else {
-            if !remaining.isEmpty {
+        Group {
+            if showsMonth {
                 Section {
-                    ForEach(remaining) { CalendarAgendaRow(model: model, item: $0, moveTarget: $0.rolledOverFrom == nil ? nil : today) }
+                    AccountNotice(model: model)
+                    if let notice = model.captureReminderNotice { Text(notice).font(.footnote).foregroundStyle(Color.pk.textSecondary) }
+                    Text("Web reminder changes reach iPhone alerts after this app next syncs.").font(.caption).foregroundStyle(Color.pk.textSecondary)
+                }
+            } else {
+                if showsWelcome, let account = model.account, let startFocus {
+                    WelcomeSection(model: model, accountID: account.id, startFocus: startFocus)
+                }
+                if let openTimer {
+                    Section { FocusTodayCard(model: model, today: today, openTimer: openTimer, startFocus: startFocus) }
+                }
+                if window.value == nil && window.error == nil {
+                    Section { ProgressView("Loading your day") }
+                }
+                if let error = window.error { Section { ReadError(message: error) { retry += 1 } } }
+                if day.value != nil && overdue.value == nil && overdue.error == nil {
+                    Section { ProgressView("Checking overdue items") }
+                }
+            }
+            if selectedDay == today, !overdueOther.isEmpty {
+                Section {
+                    ForEach(overdueOther) { CalendarAgendaRow(model: model, item: $0, showsDate: true, moveTarget: today) }
                 } header: {
-                    sectionHeader("Scheduled", showsMoveAll: !overdueHostsMoveAll && !rolledOver.isEmpty)
+                    sectionHeader("Overdue", showsMoveAll: overdueHostsMoveAll)
                 }
                 .textCase(nil)
             }
-            if let index = day.value {
-                if !index.remaining.isEmpty {
-                    Section {
+            if selectedDay == today, let error = overdue.error { Section { ReadError(message: error) { retry += 1 } } }
+            if showsMonth {
+                Section {
+                    ForEach(remaining) { CalendarAgendaRow(model: model, item: $0, moveTarget: $0.rolledOverFrom == nil ? nil : today) }
+                    if let index = day.value {
                         habitRows(index.remaining, index: index)
-                    } header: {
-                        let layout = typeSize.isAccessibilitySize
-                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-                            : AnyLayout(HStackLayout())
-                        layout {
-                            Text("Habits")
-                            if !typeSize.isAccessibilitySize { Spacer() }
-                            Text("\(index.completed.count) of \(index.ids.count) done")
-                                .fontWeight(.regular)
+                        if window.value != nil && remaining.isEmpty && reminders.isEmpty && index.remaining.isEmpty {
+                            Text(completed.isEmpty && index.completed.isEmpty ? "Nothing scheduled for this day." : "All done for this day.").foregroundStyle(Color.pk.textSecondary)
                         }
+                    } else if day.isLoading { ProgressView("Loading habits") }
+                    if let error = day.error { ReadError(message: error) { retry += 1 } }
+                    Button { newTaskDay = selectedDay } label: {
+                        Label("New task on \(selectedDay.formatted())", systemImage: "plus.circle").frame(minHeight: 44)
+                    }
+                    .disabled(!model.canEdit)
+                    .accessibilityIdentifier("calendarNewTask")
+                } header: {
+                    sectionHeader(selectedDay.formatted("EEEE, MMMM d"), showsMoveAll: !overdueHostsMoveAll && !rolledOver.isEmpty)
+                }
+                .textCase(nil)
+            } else {
+                if !remaining.isEmpty {
+                    Section {
+                        ForEach(remaining) { CalendarAgendaRow(model: model, item: $0, moveTarget: $0.rolledOverFrom == nil ? nil : today) }
+                    } header: {
+                        sectionHeader("Scheduled", showsMoveAll: !overdueHostsMoveAll && !rolledOver.isEmpty)
                     }
                     .textCase(nil)
                 }
-                if window.value != nil, overdue.value != nil,
-                   window.error == nil, day.error == nil, overdue.error == nil,
-                   remaining.isEmpty, reminders.isEmpty, index.remaining.isEmpty,
-                   overdue.value?.isEmpty == true {
-                    Section {
-                        if completed.isEmpty && index.completed.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Label("Nothing scheduled today", systemImage: "calendar")
-                                    .font(.headline)
-                                Text("Dated tasks, project deadlines, habits, and reminders appear here.")
-                                    .font(.subheadline).foregroundStyle(.secondary)
-                            }.padding(.vertical, 8)
-                            NavigationLink("View unscheduled items") { CalendarUnscheduledView(model: model) }
-                                .accessibilityIdentifier("todayUnscheduled")
-                            if let openHabits {
-                                Button("Browse habits", action: openHabits).frame(minHeight: 44)
-                                    .accessibilityIdentifier("todayBrowseHabits")
+                if let index = day.value {
+                    if !index.remaining.isEmpty {
+                        Section {
+                            habitRows(index.remaining, index: index)
+                        } header: {
+                            let layout = typeSize.isAccessibilitySize
+                                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                                : AnyLayout(HStackLayout())
+                            layout {
+                                Text("Habits")
+                                if !typeSize.isAccessibilitySize { Spacer() }
+                                Text("\(index.completed.count) of \(index.ids.count) done")
+                                    .fontWeight(.regular)
                             }
-                        } else {
-                            Label("All done for today", systemImage: "checkmark.circle")
-                                .foregroundStyle(.secondary).padding(.vertical, 8)
+                        }
+                        .textCase(nil)
+                    }
+                    if window.value != nil, overdue.value != nil,
+                       window.error == nil, day.error == nil, overdue.error == nil,
+                       remaining.isEmpty, reminders.isEmpty, index.remaining.isEmpty,
+                       overdue.value?.isEmpty == true {
+                        Section {
+                            if completed.isEmpty && index.completed.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Label("Nothing scheduled today", systemImage: "calendar")
+                                        .font(.headline)
+                                    Text("Dated tasks, project deadlines, habits, and reminders appear here.")
+                                        .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
+                                }.padding(.vertical, 8)
+                                NavigationLink("View unscheduled items") { CalendarUnscheduledView(model: model) }
+                                    .accessibilityIdentifier("todayUnscheduled")
+                                if let openHabits {
+                                    Button("Browse habits", action: openHabits).frame(minHeight: 44)
+                                        .accessibilityIdentifier("todayBrowseHabits")
+                                }
+                            } else {
+                                Label("All done for today", systemImage: "checkmark.circle")
+                                    .foregroundStyle(Color.pk.textSecondary).padding(.vertical, 8)
+                            }
                         }
                     }
+                } else if day.error == nil {
+                    Section { ProgressView("Loading habits") }
                 }
-            } else if day.error == nil {
-                Section { ProgressView("Loading habits") }
+                if let error = day.error { Section { ReadError(message: error) { retry += 1 } } }
             }
-            if let error = day.error { Section { ReadError(message: error) { retry += 1 } } }
-        }
-        if !reminders.isEmpty {
-            Section("Reminders") { ForEach(reminders) { CalendarAgendaRow(model: model, item: $0) } }
-                .textCase(nil)
-        }
-        if !completed.isEmpty || day.value?.completed.isEmpty == false {
-            Section {
-                DisclosureGroup("Completed (\(completed.count + (day.value?.completed.count ?? 0)))", isExpanded: $completedExpanded) {
-                    ForEach(completed) { CalendarAgendaRow(model: model, item: $0) }
-                    if let index = day.value { habitRows(index.completed, index: index) }
+            if !reminders.isEmpty {
+                Section("Reminders") { ForEach(reminders) { CalendarAgendaRow(model: model, item: $0) } }
+                    .textCase(nil)
+            }
+            if !completed.isEmpty || day.value?.completed.isEmpty == false {
+                Section {
+                    DisclosureGroup("Completed (\(completed.count + (day.value?.completed.count ?? 0)))", isExpanded: $completedExpanded) {
+                        ForEach(completed) { CalendarAgendaRow(model: model, item: $0) }
+                        if let index = day.value { habitRows(index.completed, index: index) }
+                    }
                 }
             }
-        }
-        if showsMonth { Section { NavigationLink("Unscheduled projects and tasks") { CalendarUnscheduledView(model: model) } } }
+            if showsMonth { Section { NavigationLink("Unscheduled projects and tasks") { CalendarUnscheduledView(model: model) } } }
+        }.pkRowBackground()
     }
 
     private func sectionHeader(_ title: String, showsMoveAll: Bool) -> some View {
@@ -425,9 +431,9 @@ private struct CalendarAgendaRow: View {
         layout {
             NavigationLink { destination } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.title).foregroundStyle(.primary).strikethrough(item.isComplete)
+                    Text(item.title).foregroundStyle(Color.pk.textPrimary).strikethrough(item.isComplete)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                    Text(detail).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }.buttonStyle(.plain)
@@ -453,9 +459,9 @@ private struct CalendarAgendaRow: View {
         .swipeActions(edge: .trailing) {
             if let moveTarget, item.kind != .project {
                 Button("Tomorrow", systemImage: "arrow.right.circle") { move(to: moveTarget.adding(days: 1)) }
-                    .tint(.indigo).disabled(!model.canEdit || save.isSaving)
+                    .tint(Color.pk.primary).disabled(!model.canEdit || save.isSaving)
                 Button("Today", systemImage: "calendar") { move(to: moveTarget) }
-                    .tint(.orange).disabled(!model.canEdit || save.isSaving)
+                    .tint(Color.pk.warning).disabled(!model.canEdit || save.isSaving)
             }
         }
         .contextMenu {
@@ -516,7 +522,7 @@ struct CalendarUnscheduledView: View {
             : AnyLayout(HStackLayout(spacing: 12))
     }
     var body: some View {
-        List {
+        List { Group {
             AccountNotice(model: model)
             Section("Projects") {
                 PagedRows(model: model, query: RecordQueries.calendarUnscheduledProjects(), emptyTitle: "All projects have a date", compactEmpty: true) { record in
@@ -538,7 +544,7 @@ struct CalendarUnscheduledView: View {
                     }
                 }
             }
-        }.navigationTitle("Unscheduled").refreshable { await model.refresh() }
+        }.pkRowBackground() }.pkScreenBackground().navigationTitle("Unscheduled").refreshable { await model.refresh() }
             .sheet(item: $project) { record in
                 RemoteRecord<Project, ProjectEditorView>(model: model, collection: "projects", id: record.id) { ProjectEditorView(model: model, original: $0) }
             }
@@ -570,9 +576,9 @@ private struct WelcomeSection: View {
         if !dismissed && !model.hasRunningSession {
             Section {
                 Text("Your Pokus, tasks, captures, and notes live together here. Start with one Pokus.")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Picker("Session length", selection: $duration) {
+                Picker("Pokus length", selection: $duration) {
                     ForEach(FocusDuration.presets, id: \.self) { Text("\($0) min").tag($0) }
                     if !FocusDuration.presets.contains(duration) { Text("\(duration) min").tag(duration) }
                 }
@@ -580,7 +586,7 @@ private struct WelcomeSection: View {
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("welcomeDuration")
                 if let addedTitle {
-                    Label("Next session: \(addedTitle)", systemImage: "checklist")
+                    Label("Next Pokus: \(addedTitle)", systemImage: "checklist")
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("welcomeTask")
                 } else {
@@ -592,7 +598,7 @@ private struct WelcomeSection: View {
                             .focused($titleFocused).submitLabel(.done)
                             .onSubmit(addTask)
                             .frame(minHeight: 44)
-                            .accessibilityHint("Adds a task due today and links it to your first session.")
+                            .accessibilityHint("Adds a task due today and links it to your first Pokus.")
                             .accessibilityIdentifier("welcomeTaskTitle")
                         Button(adding ? "Adding…" : "Add", action: addTask)
                             .buttonStyle(.bordered).frame(minHeight: 44)
@@ -604,15 +610,15 @@ private struct WelcomeSection: View {
                     dismissed = true
                     startFocus()
                 } label: {
-                    Label(addedTitle == nil ? "Just start focusing" : "Start focusing", systemImage: "play.fill")
+                    Label("Start a Pokus", systemImage: "play.fill")
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.pkPrimary)
                 .disabled(!model.storageReady)
                 .accessibilityIdentifier("welcomeStart")
             } header: {
                 HStack {
-                    Text("Welcome to Pokus").font(.headline).foregroundStyle(.primary)
+                    Text("Welcome to Pokus").font(.headline).foregroundStyle(Color.pk.textPrimary)
                     Spacer()
                     Button { dismissed = true } label: {
                         Label("Dismiss welcome", systemImage: "xmark").labelStyle(.iconOnly)

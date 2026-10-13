@@ -39,7 +39,7 @@ struct KnowledgeEditorView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 AccountNotice(model: model)
                 Section("Note") {
                     TextField("Title", text: $title, axis: .vertical).focused($focusedField, equals: .title)
@@ -51,7 +51,7 @@ struct KnowledgeEditorView: View {
                 }
                 Section("Body") {
                     if let original, !editingBody {
-                        if original.body.isEmpty { Text("No body added").foregroundStyle(.secondary) }
+                        if original.body.isEmpty { Text("No body added").foregroundStyle(Color.pk.textSecondary) }
                         else { RichDescription(html: original.body) }
                         Button("Edit as plain text") { editingBody = true; focusedField = .body }.frame(minHeight: 44)
                     }
@@ -60,7 +60,7 @@ struct KnowledgeEditorView: View {
                             .editorPrompt("Write what you learned in your own words", isShowing: bodyText.isEmpty)
                             .accessibilityLabel("Note body")
                         if original != nil {
-                            Text("Saving replaces existing body formatting with plain paragraphs.").font(.footnote).foregroundStyle(.secondary)
+                            Text("Saving replaces existing body formatting with plain paragraphs.").font(.footnote).foregroundStyle(Color.pk.textSecondary)
                             Button("Restore original body") {
                                 if bodyText == WorkspaceRules.plainText(original?.body ?? "") { restoreBody() }
                                 else { restoringBody = true }
@@ -94,7 +94,7 @@ struct KnowledgeEditorView: View {
                 } footer: {
                     if showingDetails { Text("The origin is where this note started. Linked projects can reuse it; sources record what you learned from.") }
                 }
-            }.disabled(submitting || model.isSaving)
+            }.pkRowBackground() }.pkScreenBackground().disabled(submitting || model.isSaving)
                 .keyboardDoneButton(isEditing: focusedField != nil) { focusedField = nil }
                 .navigationTitle(original == nil ? "New note" : "Edit note")
                 .navigationBarTitleDisplayMode(.inline)

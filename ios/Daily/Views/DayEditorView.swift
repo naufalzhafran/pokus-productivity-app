@@ -31,7 +31,7 @@ struct DayEditorView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section {
                     DatePicker("Date", selection: Binding(
                         get: { day.date },
@@ -45,7 +45,7 @@ struct DayEditorView: View {
                 Section {
                     if loadedContentIdentity == contentIdentity, let index = indexState.value {
                         let ids = index.ids.filter { habitID == nil || HabitWire.identity($0) == habitID || UUID(uuidString: $0) == habitID }
-                        if ids.isEmpty { Text("No habits to log on this day.").foregroundStyle(.secondary) }
+                        if ids.isEmpty { Text("No habits to log on this day.").foregroundStyle(Color.pk.textSecondary) }
                         HabitPagedRows(store: store, ids: ids, day: day, index: index) { habit in
                         if habit.kind == .check {
                             Toggle(isOn: Binding(
@@ -66,9 +66,9 @@ struct DayEditorView: View {
                             } label: {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 5) {
-                                        Text(habit.name).foregroundStyle(Color.primary)
+                                        Text(habit.name).foregroundStyle(Color.pk.textPrimary)
                                         Text("\(NumberText.display(habit.value(on: day))) / \(NumberText.display(habit.target(on: day))) \(habit.unit)")
-                                            .font(.subheadline).foregroundStyle(Color.secondary)
+                                            .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                                     }
                                     Spacer()
                                     Image(systemName: habit.isComplete(on: day) ? "checkmark.circle.fill" : "pencil.circle")
@@ -89,7 +89,7 @@ struct DayEditorView: View {
                 } footer: {
                     Text("Changes save immediately and update your progress and streaks.")
                 }
-            }
+            }.pkRowBackground() }.pkScreenBackground()
             .navigationTitle(day == today ? "Today's entries" : "Daily entries")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.disabled(save.isSaving) } }

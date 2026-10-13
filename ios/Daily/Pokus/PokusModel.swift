@@ -416,7 +416,7 @@ final class PokusModel {
         guard pendingCount > 0 else { return }
         guard force || Date() >= retryAt else { return }
         guard authentication?.isValid == true else {
-            if pendingCount > 0 { syncError = "Sign in again to sync your saved sessions." }; return
+            if pendingCount > 0 { syncError = "Sign in again to sync your saved Pokus." }; return
         }
         let generation = epoch; let api = client; isSyncing = true
         defer { if epoch == generation { isSyncing = false } }
@@ -438,7 +438,7 @@ final class PokusModel {
                             if version == workspaceVersion, let task { workspaceState.value.tasks.upsert(task) }
                         } catch {
                             guard epoch == generation else { return }
-                            self.error = "Your session synced, but the task total couldn't refresh. Pull to refresh to try again."
+                            self.error = "Your Pokus synced, but the task total couldn't refresh. Pull to refresh to try again."
                         }
                     }
                 }

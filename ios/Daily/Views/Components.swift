@@ -3,12 +3,12 @@ import Observation
 import SwiftUI
 
 enum DailyTheme {
-    static let accent = Color.accentColor
-    static let background = Color(uiColor: .systemGroupedBackground)
-    static let card = Color(uiColor: .secondarySystemGroupedBackground)
+    static let accent = Color.pk.primary
+    static let background = Color.pk.background
+    static let card = Color.pk.surface
 
     static func heatColor(_ level: Int, dark: Bool) -> Color {
-        let colors: [Color] = [Color(uiColor: .systemGray5), accent.opacity(dark ? 0.35 : 0.2),
+        let colors: [Color] = [Color.pk.surfaceSunken, accent.opacity(dark ? 0.35 : 0.2),
                                accent.opacity(0.5), accent.opacity(0.75), accent]
         return colors[min(4, max(0, level))]
     }
@@ -20,7 +20,7 @@ struct Card<Content: View>: View {
         content
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DailyTheme.card, in: RoundedRectangle(cornerRadius: 24))
+            .background(DailyTheme.card, in: RoundedRectangle(cornerRadius: PKRadius.lg, style: .continuous))
     }
 }
 
@@ -39,16 +39,16 @@ struct StreakCards: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DailyTheme.card, in: RoundedRectangle(cornerRadius: 20))
+        .background(DailyTheme.card, in: RoundedRectangle(cornerRadius: PKRadius.lg, style: .continuous))
     }
 
     private func stat(value: Int, label: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(value.formatted()).font(.title2.weight(.semibold)).monospacedDigit()
-                Text(value == 1 ? "day" : "days").font(.subheadline).foregroundStyle(.secondary)
+                Text(value.formatted()).font(.pk.displayS).monospacedDigit()
+                Text(value == 1 ? "day" : "days").font(.subheadline).foregroundStyle(Color.pk.textSecondary)
             }
-            Text(label).font(.subheadline).foregroundStyle(.secondary)
+            Text(label).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -142,7 +142,7 @@ extension View {
                     .padding(.horizontal)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
-                    .background(Color(uiColor: .systemBackground))
+                    .background(Color.pk.background)
                 }
             }
     }
@@ -218,7 +218,7 @@ struct EditorError: View {
     @AccessibilityFocusState private var focused: Bool
     var body: some View {
         if let message {
-            Text(message).foregroundStyle(.red)
+            Text(message).foregroundStyle(Color.pk.danger)
                 .accessibilityFocused($focused)
                 .onAppear { focused = true }
                 .onChange(of: message) { _, _ in focused = true }

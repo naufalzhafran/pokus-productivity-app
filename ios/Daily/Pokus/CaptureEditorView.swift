@@ -52,7 +52,7 @@ struct CaptureEditorView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 AccountNotice(model: model)
                 if original == nil {
                     Section {
@@ -120,7 +120,7 @@ struct CaptureEditorView: View {
                     }
                     Section("Note") {
                         if let original, !editingBody {
-                            if original.note.isEmpty { Text("No note added").foregroundStyle(.secondary) }
+                            if original.note.isEmpty { Text("No note added").foregroundStyle(Color.pk.textSecondary) }
                             else { RichDescription(html: original.note) }
                             Button("Edit as plain text") { editingBody = true; focusedField = .note }
                                 .frame(minHeight: 44)
@@ -128,7 +128,7 @@ struct CaptureEditorView: View {
                             TextEditor(text: $note).frame(minHeight: noteHeight).focused($focusedField, equals: .note)
                                 .editorPrompt("Add a note", isShowing: note.isEmpty)
                                 .accessibilityLabel("Capture note")
-                            Text("Saving replaces the note's existing formatting with plain paragraphs.").font(.footnote).foregroundStyle(.secondary)
+                            Text("Saving replaces the note's existing formatting with plain paragraphs.").font(.footnote).foregroundStyle(Color.pk.textSecondary)
                             Button("Restore original note") {
                                 if note == WorkspaceRules.plainText(original?.note ?? "") { restoreBody() }
                                 else { restoringBody = true }
@@ -136,7 +136,7 @@ struct CaptureEditorView: View {
                         }
                     }
                 }
-            }.disabled(fetchingPreview || model.isSaving)
+            }.pkRowBackground() }.pkScreenBackground().disabled(fetchingPreview || model.isSaving)
                 .keyboardDoneButton(isEditing: focusedField != nil) { focusedField = nil }
                 .navigationTitle(original == nil ? "New capture" : "Edit capture")
                 .navigationBarTitleDisplayMode(.inline)
@@ -211,7 +211,7 @@ private struct CaptureDetectionBadge: View {
         layout {
             Text("Saves as")
             Label(summary, systemImage: parsed.kind.icon)
-                .font(.caption.weight(.semibold)).foregroundStyle(.primary)
+                .font(.caption.weight(.semibold)).foregroundStyle(Color.pk.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .ignore).accessibilityLabel("Saves as \(summary)")

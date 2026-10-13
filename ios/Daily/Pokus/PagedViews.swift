@@ -36,8 +36,8 @@ struct PagedRows<T: Decodable & Identifiable & Sendable, Row: View>: View where 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(emptyTitle)
                         .font(emptyDescription.isEmpty ? .body : .headline)
-                        .foregroundStyle(emptyDescription.isEmpty ? .secondary : .primary)
-                    if !emptyDescription.isEmpty { Text(emptyDescription).font(.subheadline).foregroundStyle(.secondary) }
+                        .foregroundStyle(emptyDescription.isEmpty ? Color.pk.textSecondary : Color.pk.textPrimary)
+                    if !emptyDescription.isEmpty { Text(emptyDescription).font(.subheadline).foregroundStyle(Color.pk.textSecondary) }
                     if let emptyActionTitle, let emptyAction {
                         Button(emptyActionTitle, action: emptyAction).disabled(emptyActionDisabled).frame(minHeight: 44)
                     }
@@ -90,7 +90,7 @@ struct ReadError: View {
     var retry: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(message).font(.footnote).foregroundStyle(.secondary)
+            Text(message).font(.footnote).foregroundStyle(Color.pk.textSecondary)
             Button("Retry", action: retry).frame(minHeight: 44)
         }.accessibilityElement(children: .contain)
     }
@@ -137,7 +137,7 @@ struct RecordSelectionLink: View {
             layout {
                 Text(title).layoutPriority(1)
                 SelectedRecordLabel(model: model, kind: kind, id: selection, none: none)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.pk.textSecondary)
                     .frame(maxWidth: .infinity, alignment: typeSize.isAccessibilitySize ? .leading : .trailing)
             }
         }
@@ -179,7 +179,7 @@ struct RecordSelector: View {
     @State private var search = ""
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        List {
+        List { Group {
             Section { choice("", none) }
             Section(sectionTitle) {
                 switch kind {
@@ -191,7 +191,7 @@ struct RecordSelector: View {
                     PagedRows(model: model, query: RecordQueries.captures(search: search), search: search) { choice($0.id, $0.label) }
                 }
             }
-        }.id(search).navigationTitle(title).searchable(text: $search)
+        }.pkRowBackground() }.pkScreenBackground().id(search).navigationTitle(title).searchable(text: $search)
             .scrollDismissesKeyboard(.interactively).refreshable { await model.refresh() }
     }
     private var sectionTitle: String {
@@ -200,7 +200,7 @@ struct RecordSelector: View {
     private func choice(_ id: String, _ label: String) -> some View {
         Button { selection = id; dismiss() } label: {
             HStack(spacing: 12) {
-                Text(label).foregroundStyle(id.isEmpty ? Color.secondary : Color.primary).multilineTextAlignment(.leading)
+                Text(label).foregroundStyle(id.isEmpty ? Color.pk.textSecondary : Color.pk.textPrimary).multilineTextAlignment(.leading)
                 Spacer(minLength: 8)
                 if selection == id { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.accentColor).accessibilityHidden(true) }
             }.frame(minHeight: 44).contentShape(Rectangle())
@@ -216,7 +216,7 @@ struct RecordMultiSelector: View {
     @State private var search = ""
     @State private var selectedOnly = false
     var body: some View {
-        List {
+        List { Group {
             Toggle("Show selected only", isOn: $selectedOnly)
             if kind == .project {
                 PagedRows(model: model, query: RecordQueries.projects(search: search, ids: selectedOnly ? Array(selections) : nil),
@@ -225,7 +225,7 @@ struct RecordMultiSelector: View {
                 PagedRows(model: model, query: RecordQueries.captures(search: search, ids: selectedOnly ? Array(selections) : nil),
                     identity: "\(selectedOnly)-\(selectedOnly ? selections.sorted().joined() : "")", search: search) { choice($0.id, $0.label) }
             }
-        }.id("\(selectedOnly)-\(search)").navigationTitle(title).searchable(text: $search).refreshable { await model.refresh() }
+        }.pkRowBackground() }.pkScreenBackground().id("\(selectedOnly)-\(search)").navigationTitle(title).searchable(text: $search).refreshable { await model.refresh() }
     }
     private func choice(_ id: String, _ title: String) -> some View {
         Toggle(title, isOn: Binding(get: { selections.contains(id) }, set: { if $0 { selections.insert(id) } else { selections.remove(id) } })).frame(minHeight: 44)

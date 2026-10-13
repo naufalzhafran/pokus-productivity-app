@@ -14,7 +14,7 @@ struct LibraryFilterSheet<Content: View>: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            Form { content; Button("Reset filters", action: reset).frame(minHeight: 44) }
+            Form { Group { content; Button("Reset filters", action: reset).frame(minHeight: 44) }.pkRowBackground() }.pkScreenBackground()
                 .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
@@ -44,7 +44,7 @@ struct LibrarySaveNotice: View {
     let message: String?
     var body: some View {
         if let message {
-            Label(message, systemImage: "checkmark.circle").font(.subheadline).foregroundStyle(.secondary)
+            Label(message, systemImage: "checkmark.circle").font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                 .accessibilityIdentifier("librarySaveConfirmation")
         }
     }

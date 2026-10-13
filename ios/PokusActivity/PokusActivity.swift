@@ -21,7 +21,7 @@ struct PokusFocusActivity: Widget {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.state.paused ? "Focus paused" : "Focusing").font(.headline)
                         Text(context.attributes.taskTitle ?? "\(context.attributes.durationMinutes)-minute Pokus")
-                            .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                            .font(.subheadline).foregroundStyle(Color.pk.textSecondary).lineLimit(1)
                     }
                     Spacer(minLength: 8)
                     Countdown(state: context.state)
@@ -35,7 +35,7 @@ struct PokusFocusActivity: Widget {
             .padding()
             .activityBackgroundTint(Color.pk.surface)
             .activitySystemActionForegroundColor(.accentColor)
-            .foregroundStyle(.primary)
+            .foregroundStyle(Color.pk.textPrimary)
             .widgetURL(URL(string: "pokus://timer"))
         } dynamicIsland: { context in
             DynamicIsland {
@@ -111,7 +111,7 @@ private struct FocusControls: View {
                 Label("Stop", systemImage: "stop.fill").frame(maxWidth: .infinity, minHeight: 36)
             }
             .buttonStyle(.bordered)
-            .accessibilityHint("Ends the session and saves the elapsed time.")
+            .accessibilityHint("Ends the Pokus and saves the elapsed time.")
         }
         .font(.subheadline.weight(.semibold))
     }

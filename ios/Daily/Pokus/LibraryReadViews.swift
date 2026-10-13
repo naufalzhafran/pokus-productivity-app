@@ -107,7 +107,7 @@ struct ProjectSummaryView: View {
                 if includeFocus { ReadError(message: error) { retry += 1 } }
                 else { Text("Task summary unavailable").font(.caption) }
             }
-        }.font(.subheadline).foregroundStyle(.secondary)
+        }.font(.subheadline).foregroundStyle(Color.pk.textSecondary)
             .task(id: "\(model.queryIdentity)-\(id)-\(includeFocus)-\(retry)") { await summary.load { try await model.readAPI().projectSummary(id, includeFocus: includeFocus) } }
     }
     @ViewBuilder private func summaryLabels(_ value: (completed: Int, total: Int, seconds: Int)) -> some View {
@@ -138,8 +138,8 @@ struct ProjectResourcesView: View {
         HStack {
             Label(title, systemImage: symbol)
             Spacer(minLength: 12)
-            if let count { Text("\(count)").foregroundStyle(.secondary) }
-            else if counts.error != nil { Text("—").foregroundStyle(.secondary).accessibilityLabel("Count unavailable") }
+            if let count { Text("\(count)").foregroundStyle(Color.pk.textSecondary) }
+            else if counts.error != nil { Text("—").foregroundStyle(Color.pk.textSecondary).accessibilityLabel("Count unavailable") }
             else { ProgressView().accessibilityLabel("Loading count") }
         }.frame(minHeight: 44)
     }

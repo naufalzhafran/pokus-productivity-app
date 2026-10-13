@@ -54,27 +54,30 @@ struct ProgressViewScreen: View {
                 HabitPagedRows(store: store, ids: index.ids, day: today, index: index) { habit in
                     NavigationLink { HabitDetailView(store: store, habitID: habit.id, today: today) } label: {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(habit.name).font(.body.weight(.medium)).foregroundStyle(.primary)
+                            Text(habit.name).font(.body.weight(.medium)).foregroundStyle(Color.pk.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                             if let stats = statistics.value?.byID[habit.id] {
                                 Text("\(stats.current) day streak · \(stats.completedDays) \(stats.completedDays == 1 ? "day" : "days") completed")
-                                    .font(.subheadline).foregroundStyle(.secondary)
+                                    .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                             } else {
                                 Text(statistics.error == nil ? "Loading statistics" : "Statistics unavailable")
-                                    .font(.subheadline).foregroundStyle(.secondary)
+                                    .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                             }
                         }.frame(minHeight: 44)
                     }.accessibilityIdentifier("detail-\(habit.name)")
                 }
             }
             .textCase(nil)
-            if let error = dayState.error { ReadError(message: error) { retry += 1 } }
-            if let error = statistics.error, statistics.value != nil { ReadError(message: error) { retry += 1 } }
+            .pkRowBackground()
+            Group {
+                if let error = dayState.error { ReadError(message: error) { retry += 1 } }
+                if let error = statistics.error, statistics.value != nil { ReadError(message: error) { retry += 1 } }
+            }.pkRowBackground()
         }
         .listStyle(.insetGrouped)
         .listSectionSpacing(16)
         .contentMargins(.top, 0)
-        .scrollContentBackground(.hidden)
+        .pkScreenBackground()
     }
 }
 
@@ -100,7 +103,7 @@ struct HabitDetailView: View {
                                 Label(habit.kind == .check ? "A daily check-in" : "\(NumberText.display(habit.target(on: today))) \(habit.unit) a day",
                                       systemImage: habit.kind == .check ? "checkmark.circle" : "number.circle")
                                     .font(.headline).foregroundStyle(DailyTheme.accent)
-                                Text("Started \(habit.startDay.formatted("MMMM d, yyyy"))").font(.subheadline).foregroundStyle(.secondary)
+                                Text("Started \(habit.startDay.formatted("MMMM d, yyyy"))").font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                                 if let stats = statistics.value?.byID[habitID] {
                                     Text("\(stats.completedDays) \(stats.completedDays == 1 ? "day" : "days") completed").font(.subheadline.weight(.medium))
                                 }
@@ -111,7 +114,7 @@ struct HabitDetailView: View {
                         else { ProgressView("Loading lifetime statistics") }
                         HabitActivityView(store: store, today: today, habitID: habitID) { selectedDay = $0 }
                         Text("An unfinished today keeps yesterday's streak alive. Tap any past day to fill it in or make a correction.")
-                            .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 4)
+                            .font(.footnote).foregroundStyle(Color.pk.textSecondary).padding(.horizontal, 4)
                     }.padding(20)
                 }.navigationTitle(habit.name)
                     .toolbar {

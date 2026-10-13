@@ -41,7 +41,8 @@ private extension String {
 
 extension CaptureKind {
     var tint: Color {
-        switch self { case .note: .orange; case .article: .blue; case .social: .indigo; case .video: .red; case .drive: .green; case .book: .brown }
+        // Brand icons are single-color; the symbol tells the kinds apart.
+        Color.pk.primary
     }
 }
 
@@ -50,7 +51,7 @@ extension CaptureStage {
         switch self { case .all: "tray.2"; case .inbox: "tray"; case .inProgress: "circle.lefthalf.filled"; case .processed: "checkmark.circle.fill" }
     }
     var tint: Color {
-        switch self { case .all: .secondary; case .inbox: .blue; case .inProgress: .orange; case .processed: .green }
+        switch self { case .all: Color.pk.textSecondary; case .inbox: Color.pk.primary; case .inProgress: Color.pk.warning; case .processed: Color.pk.success }
     }
 }
 
@@ -68,7 +69,7 @@ struct CaptureStageBadge: View {
 struct CaptureThumbnail: View {
     let capture: Capture
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: PKRadius.sm, style: .continuous)
         ZStack {
             shape.fill(capture.kind.tint.opacity(0.14))
             Image(systemName: capture.kind.icon).font(.title3).foregroundStyle(capture.kind.tint)
@@ -97,12 +98,12 @@ struct CaptureRow: View {
             if !typeSize.isAccessibilitySize { CaptureThumbnail(capture: capture) }
             VStack(alignment: .leading, spacing: 4) {
                 Text(CaptureRow.singleLine(display.title)).font(.headline).lineLimit((display.isNamed ? 2 : 3) + extraLines)
-                if let summary = display.summary { Text(CaptureRow.singleLine(summary)).font(.subheadline).foregroundStyle(.secondary).lineLimit(2 + extraLines) }
+                if let summary = display.summary { Text(CaptureRow.singleLine(summary)).font(.subheadline).foregroundStyle(Color.pk.textSecondary).lineLimit(2 + extraLines) }
                 HStack(spacing: 6) {
                     if capture.isProcessed { Image(systemName: CaptureStage.processed.symbol).foregroundStyle(CaptureStage.processed.tint) }
                     Text(display.details.joined(separator: " · "))
                         .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
-                }.font(.caption).foregroundStyle(.secondary).padding(.top, 2)
+                }.font(.caption).foregroundStyle(Color.pk.textSecondary).padding(.top, 2)
             }
         }.padding(.vertical, 4)
     }
@@ -118,7 +119,7 @@ struct CaptureHeroImage: View {
     let capture: Capture
     let url: URL
     var body: some View {
-        Color(uiColor: .tertiarySystemFill).aspectRatio(capture.kind == .video ? 16 / 9 : 1.91, contentMode: .fit)
+        Color.pk.surfaceSunken.aspectRatio(capture.kind == .video ? 16 / 9 : 1.91, contentMode: .fit)
             .overlay {
                 AsyncImage(url: url) { phase in
                     if let image = phase.image { image.resizable().scaledToFill() }
@@ -143,19 +144,19 @@ struct CaptureHeader: View {
             status {
                 if let stage { CaptureStageBadge(stage: stage) }
                 if !typeSize.isAccessibilitySize { Spacer(minLength: 8) }
-                if let saved = display.saved { Text("Saved \(saved)").font(.caption).foregroundStyle(.secondary) }
+                if let saved = display.saved { Text("Saved \(saved)").font(.caption).foregroundStyle(Color.pk.textSecondary) }
             }
             if display.leadsWithNote { RichDescription(html: capture.note) }
             else { Text(display.title).font(display.isNamed ? .title2.weight(.semibold) : .title3).textSelection(.enabled) }
             Label {
                 Text(([display.source] + [display.byline].compactMap { $0 }).joined(separator: " · "))
             } icon: { Image(systemName: capture.kind.icon).foregroundStyle(capture.kind.tint) }
-                .font(.subheadline).foregroundStyle(.secondary)
-            if display.isNamed, let description = display.description { Text(description).foregroundStyle(.secondary).textSelection(.enabled) }
+                .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
+            if display.isNamed, let description = display.description { Text(description).foregroundStyle(Color.pk.textSecondary).textSelection(.enabled) }
             VStack(spacing: 10) {
                 if let link = display.link {
                     Link(destination: link) { Label("Open original", systemImage: "safari").frame(maxWidth: .infinity, minHeight: 44) }
-                        .buttonStyle(.borderedProminent).accessibilityHint(display.host ?? "")
+                        .buttonStyle(.pkPrimary).accessibilityHint(display.host ?? "")
                 }
                 Button(action: toggleProcessed) {
                     Label(capture.isProcessed ? "Mark unprocessed" : "Mark processed",

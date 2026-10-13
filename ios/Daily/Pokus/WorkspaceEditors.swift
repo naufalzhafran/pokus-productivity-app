@@ -34,7 +34,7 @@ struct ProjectEditorView: View {
     }
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 AccountNotice(model: model)
                 Section {
                     TextField("Project name", text: $title).focused($focusedField, equals: .title).submitLabel(.done)
@@ -56,7 +56,7 @@ struct ProjectEditorView: View {
                         Text("Editing here saves plain text and replaces the description's formatting. Leave it unchanged to keep the formatting.")
                     }
                 }
-            }
+            }.pkRowBackground() }.pkScreenBackground()
             .disabled(submitting || model.isSaving)
             .keyboardDoneButton(isEditing: focusedField != nil) { focusedField = nil }
             .onAppear { if initialDraft == nil { initialDraft = draft } }
@@ -116,7 +116,7 @@ struct TaskEditorView: View {
     }
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 AccountNotice(model: model)
                 Section {
                     TextField("Task name", text: $title, axis: .vertical).focused($focusedField, equals: .title)
@@ -145,7 +145,7 @@ struct TaskEditorView: View {
                         Text("Editing here saves plain text and replaces the description's formatting. Leave it unchanged to keep the formatting.")
                     }
                 }
-            }.disabled(submitting || model.isSaving)
+            }.pkRowBackground() }.pkScreenBackground().disabled(submitting || model.isSaving)
                 .keyboardDoneButton(isEditing: focusedField != nil) { focusedField = nil }
                 .onAppear { if initialDraft == nil { initialDraft = draft } }
                 .navigationTitle(original == nil ? "New task" : "Edit task")
@@ -177,13 +177,13 @@ struct CategoriesView: View {
     @State private var deleting: FocusCategory?
     @State private var confirmation: String?
     var body: some View {
-        List {
+        List { Group {
             AccountNotice(model: model)
             LibrarySaveNotice(message: confirmation)
             PagedRows(model: model, query: RecordQueries.categories(), emptyTitle: "No categories yet", symbol: "tag", emptyDescription: "Create categories to organize tasks and notes.", emptyActionTitle: "New category", emptyAction: { selected = nil; editing = true }, emptyActionDisabled: !model.canEdit) { category in
                 HStack {
                     Button { selected = category; editing = true } label: {
-                        Label { Text(category.name).foregroundStyle(.primary) } icon: { Circle().fill(categoryColor(category.color)).frame(width: 16, height: 16).accessibilityHidden(true) }.frame(minHeight: 44)
+                        Label { Text(category.name).foregroundStyle(Color.pk.textPrimary) } icon: { Circle().fill(categoryColor(category.color)).frame(width: 16, height: 16).accessibilityHidden(true) }.frame(minHeight: 44)
                     }.buttonStyle(.borderless).disabled(!model.canEdit || save.isSaving)
                         .accessibilityLabel(category.name).accessibilityValue("\(category.color) category")
                     Spacer()
@@ -194,7 +194,7 @@ struct CategoriesView: View {
                         Button("Delete", role: .destructive) { deleting = category }.disabled(!model.canEdit || save.isSaving)
                     }
             }
-        }.navigationTitle("Categories")
+        }.pkRowBackground() }.pkScreenBackground().navigationTitle("Categories")
             .toolbar { Button("New category", systemImage: "plus") { selected = nil; editing = true }.disabled(!model.canEdit) }
             .sheet(isPresented: $editing) { CategoryEditorView(model: model, original: selected, onSaved: { confirmation = "Category saved" }) }
             .alert("Delete this category?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), presenting: deleting) { category in
@@ -232,14 +232,14 @@ private struct CategoryEditorView: View {
     }
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 TextField("Name", text: $name).focused($focusedName).submitLabel(.done)
                     .onSubmit { focusedName = false }.accessibilityHint("Required")
                 EditorError(message: error)
                 Picker("Color", selection: $color) {
                     ForEach(["slate", "red", "orange", "amber", "green", "teal", "blue", "violet", "pink"], id: \.self) { Text($0.capitalized).tag($0) }
                 }
-            }.disabled(submitting || model.isSaving)
+            }.pkRowBackground() }.pkScreenBackground().disabled(submitting || model.isSaving)
                 .keyboardDoneButton(isEditing: focusedName) { focusedName = false }
                 .onAppear { if initialDraft == nil { initialDraft = draft } }
                 .navigationTitle(original == nil ? "New category" : "Edit category")

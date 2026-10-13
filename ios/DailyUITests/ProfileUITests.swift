@@ -18,7 +18,7 @@ import XCTest
         let app = launchProfile(replica: true)
         capture("Profile", in: app)
 
-        tap(app.buttons["Session history"], in: app, list: "profileList")
+        tap(app.buttons["Pokus history"], in: app, list: "profileList")
         XCTAssertTrue(app.navigationBars["Focus history"].waitForExistence(timeout: 5))
         app.navigationBars.buttons["BackButton"].tap()
 
@@ -61,7 +61,7 @@ import XCTest
         XCTAssertTrue(alert.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Sign out"].isEnabled)
 
-        tap(app.buttons["Session history"], in: app, list: "profileList")
+        tap(app.buttons["Pokus history"], in: app, list: "profileList")
         XCTAssertTrue(app.navigationBars["Focus history"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Continue with Google"].exists)
     }
@@ -71,7 +71,7 @@ import XCTest
         XCTAssertTrue(app.buttons["Continue with Google"].waitForExistence(timeout: 5))
         reveal(app.buttons["Habit reminders"], in: app, list: "profileList")
         XCTAssertFalse(app.buttons["Habit reminders"].isEnabled)
-        XCTAssertFalse(app.buttons["Session history"].exists)
+        XCTAssertFalse(app.buttons["Pokus history"].exists)
         XCTAssertFalse(app.buttons["profileDataSync"].exists)
         XCTAssertFalse(app.buttons["Sign out"].exists)
 
@@ -85,7 +85,7 @@ import XCTest
         let app = launchProfile(accessibilityText: true)
         for appearance in ["Light", "Dark"] {
             selectAppearance(appearance, in: app)
-            for control in [app.buttons["Session history"], app.buttons["Habit reminders"],
+            for control in [app.buttons["Pokus history"], app.buttons["Habit reminders"],
                             app.buttons["Open notification settings"], app.buttons["profileDataSync"],
                             app.buttons["Sign out"]] {
                 reveal(control, in: app, list: "profileList")
@@ -94,7 +94,7 @@ import XCTest
                 XCTAssertGreaterThanOrEqual(control.frame.minX, app.frame.minX)
                 XCTAssertLessThanOrEqual(control.frame.maxX, app.frame.maxX)
             }
-            reveal(app.buttons["Session history"], in: app, list: "profileList")
+            reveal(app.buttons["Pokus history"], in: app, list: "profileList")
             capture("\(appearance) Profile at AX5", in: app)
             tap(app.buttons["profileDataSync"], in: app, list: "profileList")
             XCTAssertTrue(app.navigationBars["Data & sync"].waitForExistence(timeout: 5))

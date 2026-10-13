@@ -39,15 +39,15 @@ struct FocusTodayCard: View {
             : AnyLayout(HStackLayout(spacing: 12))
         layout {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Today's focus").font(.subheadline).foregroundStyle(.secondary)
+                Text("Today's focus").font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                 Group {
                     if let value = statistics.value { Text(FocusStatistics.duration(value.today)) }
                     else if statistics.error != nil { Text("—") }
                     else { Text("0m").redacted(reason: .placeholder) }
                 }
-                .font(.system(.title2, design: .rounded, weight: .semibold)).monospacedDigit()
+                .font(.pk.displayS).monospacedDigit()
                 if let streak = statistics.value?.streak, streak > 1 {
-                    Text("\(streak)-day streak").font(.caption).foregroundStyle(.secondary)
+                    Text("\(streak)-day streak").font(.caption).foregroundStyle(Color.pk.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -119,8 +119,8 @@ struct ProfileFocusStatistics: View {
 
     private func stat(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.subheadline).foregroundStyle(.secondary)
-            Text(value).font(.system(.title3, design: .rounded, weight: .semibold)).monospacedDigit()
+            Text(title).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
+            Text(value).font(.pk.displayS).monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -164,7 +164,7 @@ struct TimerPreferencesSection: View {
             Toggle("Completion sound", isOn: $sound).accessibilityIdentifier("completionSound")
             Toggle("Completion haptic", isOn: $haptic).accessibilityIdentifier("completionHaptic")
         } header: { Text("Timer") } footer: {
-            Text("The sound plays with the completion notification. The haptic plays when a session finishes while Pokus is open.")
+            Text("The sound plays with the completion notification. The haptic plays when a Pokus finishes while the app is open.")
         }
     }
 }

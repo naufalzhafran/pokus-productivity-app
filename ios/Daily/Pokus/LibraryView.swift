@@ -25,7 +25,7 @@ struct PokusLibraryView: View {
         return "Include a note in review to revisit what you learn"
     }
     var body: some View {
-        List {
+        List { Group {
             AccountNotice(model: model)
             if habitStore != nil && !searching {
                 Section { NavigationLink(value: LibraryRoute.habits) { destination("Habits", symbol: "checkmark.circle", detail: "Daily check-ins and progress") }.accessibilityIdentifier("libraryHabits") }
@@ -63,7 +63,7 @@ struct PokusLibraryView: View {
                     }
                 }
             }
-        }.navigationTitle("Library").searchable(text: $search, prompt: "Search your library")
+        }.pkRowBackground() }.pkScreenBackground().navigationTitle("Library").searchable(text: $search, prompt: "Search your library")
             .scrollDismissesKeyboard(.interactively).refreshable { await model.refresh() }
             .navigationDestination(for: LibraryRoute.self) { route in
                 switch route {
@@ -132,7 +132,7 @@ struct PokusLibraryView: View {
         Button("Clear search") { search = "" }.frame(minHeight: 44)
     }
     private func searchRow(_ title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) { Text(title).font(.headline); if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(.secondary).lineLimit(2) } }.padding(.vertical, 4)
+        VStack(alignment: .leading, spacing: 4) { Text(title).font(.headline); if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(Color.pk.textSecondary).lineLimit(2) } }.padding(.vertical, 4)
     }
     private func destination(_ title: String, symbol: String, detail: String, count: Int? = nil) -> some View {
         let countDescription = count.map { "\($0) \(title == "Unassigned tasks" ? "open" : title == "Projects" ? "unarchived" : "saved")" }
@@ -141,14 +141,14 @@ struct PokusLibraryView: View {
                 .font(.system(size: min(destinationSymbolSize, 28))).frame(width: 28).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
                 Text(title).font(.headline)
-                Text(detail).font(.subheadline).foregroundStyle(.secondary)
+                Text(detail).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                 if typeSize.isAccessibilitySize, let countDescription {
-                    Text(countDescription).font(.caption).foregroundStyle(.secondary)
+                    Text(countDescription).font(.caption).foregroundStyle(Color.pk.textSecondary)
                 }
             }.fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
             if !typeSize.isAccessibilitySize, let count {
                 Text(count, format: .number).font(.subheadline).monospacedDigit()
-                    .foregroundStyle(.secondary).fixedSize()
+                    .foregroundStyle(Color.pk.textSecondary).fixedSize()
             }
         }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(.vertical, 6)
             .contentShape(Rectangle()).accessibilityElement(children: .combine)
@@ -173,7 +173,7 @@ struct CapturesView: View {
         List {
             Section {
                 if typeSize.isAccessibilitySize {
-                    stagePicker.pickerStyle(.menu)
+                    stagePicker.pickerStyle(.menu).pkRowBackground()
                 } else {
                     stagePicker.pickerStyle(.segmented)
                         .listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
@@ -198,8 +198,8 @@ struct CapturesView: View {
                             Button("Delete capture", systemImage: "trash", role: .destructive) { deleting = capture }.disabled(!editable)
                         }
                 }
-            }
-        }.id("\(queryID)-\(search)").listSectionSpacing(.compact)
+            }.pkRowBackground()
+        }.id("\(queryID)-\(search)").listSectionSpacing(.compact).pkScreenBackground()
             .navigationTitle(projectID == nil ? "Captures" : "Project captures").searchable(text: $search, prompt: "Search captures")
             .scrollDismissesKeyboard(.interactively).refreshable { await model.refresh() }
             .toolbar {
@@ -256,7 +256,7 @@ struct CaptureDetailView: View {
     private var capture: Capture? { record.value ?? nil }
     private var editable: Bool { model.canEdit && !save.isSaving }
     var body: some View {
-        List {
+        List { Group {
             AccountNotice(model: model)
             LibrarySaveNotice(message: confirmation)
             if let capture {
@@ -283,7 +283,7 @@ struct CaptureDetailView: View {
             } else if record.isLoading { ProgressView("Loading capture") }
             else if record.error == nil && record.value != nil { ContentUnavailableView("Capture unavailable", systemImage: "tray", description: Text("It may have been deleted.")) }
             if let error = record.error ?? stage.error { ReadError(message: error) { retry += 1 } }
-        }.listSectionSpacing(.compact).navigationTitle("Capture").navigationBarTitleDisplayMode(.inline).refreshable { await model.refresh() }
+        }.pkRowBackground() }.pkScreenBackground().listSectionSpacing(.compact).navigationTitle("Capture").navigationBarTitleDisplayMode(.inline).refreshable { await model.refresh() }
             .task(id: "\(model.queryIdentity)-\(captureID)-\(retry)") {
                 await record.load { try await model.readAPI().record("captures", id: captureID) }
                 if let capture { await stage.load { try await LibraryReadQueries.captureStage(capture, api: model.readAPI()) } }
@@ -330,7 +330,7 @@ private struct CaptureProjectsView: View {
     private var query: RecordQuery<Project> { var query = RecordQueries.projects(search: search); query.fields += ",captures"; return query }
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 AccountNotice(model: model)
                 LibrarySaveNotice(message: confirmation)
                 if save.isSaving { ProgressView("Saving filing") }
@@ -341,10 +341,10 @@ private struct CaptureProjectsView: View {
                             guard await model.write(collection: .projects, id: project.id, fields: [linked ? "captures-" : "captures+": .array([.string(captureID)])]) else { throw PokusError.message(model.error ?? "Couldn't update the project filing.") }
                         } onSuccess: { confirmation = linked ? "Removed from \(project.title)" : "Filed in \(project.title)" }
                     } label: {
-                        HStack { Text(project.title).foregroundStyle(.primary); Spacer(); Image(systemName: linked ? "checkmark.circle.fill" : "circle").accessibilityHidden(true) }.frame(minHeight: 44)
+                        HStack { Text(project.title).foregroundStyle(Color.pk.textPrimary); Spacer(); Image(systemName: linked ? "checkmark.circle.fill" : "circle").accessibilityHidden(true) }.frame(minHeight: 44)
                     }.accessibilityIdentifier("filingProject-\(project.id)").accessibilityValue(linked ? "Filed" : "Not filed").accessibilityAddTraits(linked ? .isSelected : []).disabled(!model.canEdit || save.isSaving)
                 }
-            }.navigationTitle("File in projects").navigationBarTitleDisplayMode(.inline).searchable(text: $search, prompt: "Search projects")
+            }.pkRowBackground() }.pkScreenBackground().navigationTitle("File in projects").navigationBarTitleDisplayMode(.inline).searchable(text: $search, prompt: "Search projects")
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.disabled(save.isSaving) } }
                 .interactiveDismissDisabled(save.isSaving).saveAlert(save)
         }

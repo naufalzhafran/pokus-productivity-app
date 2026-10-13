@@ -50,7 +50,7 @@ struct ActivityGrid: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DailyTheme.card, in: RoundedRectangle(cornerRadius: 20))
+        .background(DailyTheme.card, in: RoundedRectangle(cornerRadius: PKRadius.lg, style: .continuous))
         .onChange(of: month) { old, next in
             onMonthChange?(next.firstDay)
             if old.firstDay.year != next.firstDay.year { onYearChange?(next.firstDay.year) }
@@ -81,7 +81,7 @@ struct ActivityGrid: View {
                             .font(.body.weight(.medium))
                         Label(accessibleProgress(day), systemImage: fraction(on: day) >= 1 ? "checkmark.circle.fill" : "circle")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.pk.textSecondary)
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -105,7 +105,7 @@ struct ActivityGrid: View {
             calendar
             HStack(spacing: 16) {
                 HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 3).strokeBorder(.primary, lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: 3).strokeBorder(Color.pk.textPrimary, lineWidth: 1.5)
                         .frame(width: 12, height: 12)
                     Text("Today")
                 }
@@ -113,7 +113,7 @@ struct ActivityGrid: View {
                 legend
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.pk.textSecondary)
             .padding(.horizontal, 8)
             .accessibilityHidden(true)
             dateChooser.padding(.horizontal, 8)
@@ -127,7 +127,7 @@ struct ActivityGrid: View {
         return layout {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Activity").font(.headline)
-                Text(monthTitle).font(.subheadline).foregroundStyle(.secondary)
+                Text(monthTitle).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                     .accessibilityIdentifier("activityMonth")
             }
             if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
@@ -149,7 +149,7 @@ struct ActivityGrid: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(canMove ? DailyTheme.accent : Color.secondary.opacity(0.45))
+        .foregroundStyle(canMove ? DailyTheme.accent : Color.pk.textSecondary.opacity(0.45))
         .disabled(!canMove)
         .accessibilityLabel(title)
     }
@@ -185,7 +185,7 @@ struct ActivityGrid: View {
                 Color.clear.frame(width: 1, height: 14)
                 ForEach(0..<7, id: \.self) { row in
                     Text(row % 2 == 1 ? symbols[row] : "")
-                        .font(.caption2).foregroundStyle(.secondary)
+                        .font(.caption2).foregroundStyle(Color.pk.textSecondary)
                         .fixedSize()
                         .frame(height: Self.cellSize, alignment: .center)
                 }
@@ -197,7 +197,7 @@ struct ActivityGrid: View {
                         ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
                             VStack(spacing: Self.cellSpacing) {
                                 Text(monthLabel(for: week, previous: index > 0 ? weeks[index - 1] : nil))
-                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .font(.caption2).foregroundStyle(Color.pk.textSecondary)
                                     .fixedSize()
                                     .frame(width: Self.cellSize, height: 14, alignment: .leading)
                                     .accessibilityHidden(true)
@@ -236,7 +236,7 @@ struct ActivityGrid: View {
 
     private func heatColor(_ progress: Double) -> Color {
         let opacity = level(progress)
-        return opacity == 0 ? Color.secondary.opacity(0.2) : DailyTheme.accent.opacity(opacity)
+        return opacity == 0 ? Color.pk.textSecondary.opacity(0.2) : DailyTheme.accent.opacity(opacity)
     }
 
     private var legend: some View {
@@ -270,7 +270,7 @@ struct ActivityGrid: View {
                 .fill(heatColor(enabled ? progress : 0))
                 .frame(width: Self.cellSize, height: Self.cellSize)
                 .overlay {
-                    if day == today { RoundedRectangle(cornerRadius: 3).strokeBorder(Color.primary, lineWidth: 1.5) }
+                    if day == today { RoundedRectangle(cornerRadius: 3).strokeBorder(Color.pk.textPrimary, lineWidth: 1.5) }
                 }
                 .contentShape(Rectangle())
         }

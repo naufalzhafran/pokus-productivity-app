@@ -163,3 +163,17 @@ extension ButtonStyle where Self == PKPrimaryButtonStyle {
 extension ButtonStyle where Self == PKSecondaryButtonStyle {
     static var pkSecondary: PKSecondaryButtonStyle { .init() }
 }
+
+// MARK: - Lists and screens
+
+extension View {
+    /// Brand screen background behind a List or Form (replaces the system grouped background).
+    func pkScreenBackground() -> some View {
+        scrollContentBackground(.hidden).background(Color.pk.background)
+    }
+
+    /// Brand `surface` behind list rows. Apply to a Section, or to a Group wrapping a List's content.
+    func pkRowBackground() -> some View {
+        listRowBackground(Color.pk.surface)
+    }
+}

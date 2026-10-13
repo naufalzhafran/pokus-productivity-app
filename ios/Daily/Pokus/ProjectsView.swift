@@ -15,7 +15,7 @@ struct PokusProjectsView: View {
     private var editable: Bool { model.canEdit && !save.isSaving }
     private var narrowed: Bool { filter != "all" || !search.isEmpty }
     var body: some View {
-        List {
+        List { Group {
             AccountNotice(model: model)
             LibrarySaveNotice(message: confirmation)
             if filter != "all" { LibraryFilterSummary(text: filterTitle, active: true) { filter = "all" } }
@@ -28,8 +28,8 @@ struct PokusProjectsView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(project.title).font(.headline)
                             ProjectSummaryView(model: model, id: project.id)
-                            Text(project.isDone ? "Archived · \(project.lifecycle.label)" : project.lifecycle.label).font(.caption).foregroundStyle(.secondary)
-                            if let due = project.dueDate, !due.isEmpty { Text(LibraryDates.due(due)).font(.caption).foregroundStyle(.secondary) }
+                            Text(project.isDone ? "Archived · \(project.lifecycle.label)" : project.lifecycle.label).font(.caption).foregroundStyle(Color.pk.textSecondary)
+                            if let due = project.dueDate, !due.isEmpty { Text(LibraryDates.due(due)).font(.caption).foregroundStyle(Color.pk.textSecondary) }
                         }.padding(.vertical, 6)
                     }.accessibilityLabel(project.title)
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
@@ -38,14 +38,14 @@ struct PokusProjectsView: View {
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button("Delete", systemImage: "trash") { deleting = project }
-                                .tint(.red).disabled(!editable)
+                                .tint(Color.pk.danger).disabled(!editable)
                             Button(project.isDone ? "Restore" : "Archive", systemImage: project.isDone ? "arrow.uturn.backward" : "archivebox") {
                                 setArchived(!project.isDone, project: project)
-                            }.tint(project.isDone ? Color.accentColor : .orange).disabled(!editable)
+                            }.tint(project.isDone ? Color.accentColor : Color.pk.warning).disabled(!editable)
                         }
                 }
             }
-        }.id("\(filter)-\(search)").searchable(text: $search, prompt: "Search projects").navigationTitle("Projects").refreshable { await model.refresh() }
+        }.pkRowBackground() }.pkScreenBackground().id("\(filter)-\(search)").searchable(text: $search, prompt: "Search projects").navigationTitle("Projects").refreshable { await model.refresh() }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { Button("Filter projects", systemImage: filter == "all" ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill") { showingFilters = true } }
                 ToolbarItem(placement: .primaryAction) { Button("New project", systemImage: "plus") { creating = true }.disabled(!model.canEdit) }
@@ -130,7 +130,7 @@ struct ProjectTasksView: View {
         }
     }
     private var projectContent: some View {
-        List {
+        List { Group {
             AccountNotice(model: model)
             LibrarySaveNotice(message: confirmation)
             if let project {
@@ -138,9 +138,9 @@ struct ProjectTasksView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(project.title)
-                                .font(.title.bold()).fixedSize(horizontal: false, vertical: true)
+                                .font(.pk.displayM).fixedSize(horizontal: false, vertical: true)
                                 .accessibilityAddTraits(.isHeader).accessibilityIdentifier("projectTitle")
-                            Text(projectMetadata(project)).font(.subheadline).foregroundStyle(.secondary)
+                            Text(projectMetadata(project)).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                         }
                         ProjectSummaryView(model: model, id: projectID, includeFocus: true, detailed: true)
                     }
@@ -168,10 +168,10 @@ struct ProjectTasksView: View {
                                 .accessibilityLabel("\(task.isDone ? "Reopen" : "Complete") \(task.title)").accessibilityIdentifier("completeTask-\(task.id)")
                             NavigationLink { TaskDetailView(model: model, taskID: task.id) } label: {
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text(task.title).foregroundStyle(.primary).strikethrough(task.isDone)
+                                    Text(task.title).foregroundStyle(Color.pk.textPrimary).strikethrough(task.isDone)
                                         .lineLimit(typeSize.isAccessibilitySize ? 4 : 2)
                                     if !taskMetadata(task).isEmpty {
-                                        Text(taskMetadata(task)).font(.caption).foregroundStyle(.secondary)
+                                        Text(taskMetadata(task)).font(.caption).foregroundStyle(Color.pk.textSecondary)
                                             .lineLimit(typeSize.isAccessibilitySize ? 3 : 2)
                                     }
                                 }.padding(.vertical, 4)
@@ -200,7 +200,7 @@ struct ProjectTasksView: View {
                 }
                 .id("projectTaskControls")
             }
-        }.listStyle(.insetGrouped)
+        }.pkRowBackground() }.pkScreenBackground().listStyle(.insetGrouped)
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("projectTaskList")
             .navigationTitle(projectID.isEmpty ? "Unassigned tasks" : "Project")
@@ -271,7 +271,7 @@ struct ProjectTasksView: View {
             .saveAlert(save)
     }
     private var taskHeading: some View {
-        Text("Tasks").font(.title3.weight(.semibold)).foregroundStyle(.primary).accessibilityAddTraits(.isHeader)
+        Text("Tasks").font(.pk.title).foregroundStyle(Color.pk.textPrimary).accessibilityAddTraits(.isHeader)
     }
     private var newTaskButton: some View {
         Button { searchFocused = false; taskEditorOpen = true } label: {
@@ -317,7 +317,7 @@ struct ProjectTasksView: View {
     private var taskSearchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").font(.system(size: min(symbolSize, 24)))
-                .foregroundStyle(.secondary).accessibilityHidden(true)
+                .foregroundStyle(Color.pk.textSecondary).accessibilityHidden(true)
             TextField("Search tasks", text: $search).focused($searchFocused)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                 .submitLabel(.search).onSubmit { searchFocused = false }
@@ -328,11 +328,11 @@ struct ProjectTasksView: View {
             if !search.isEmpty {
                 Button("Clear search", systemImage: "xmark.circle.fill") { search = "" }
                     .labelStyle(.iconOnly).font(.system(size: min(symbolSize, 28)))
-                    .foregroundStyle(.secondary).frame(width: 44, height: 44)
+                    .foregroundStyle(Color.pk.textSecondary).frame(width: 44, height: 44)
             }
         }
         .padding(.leading, 12).padding(.trailing, 4).frame(minHeight: 44)
-        .background(Color(uiColor: .tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.pk.surfaceSunken, in: RoundedRectangle(cornerRadius: PKRadius.sm, style: .continuous))
         .buttonStyle(.borderless)
     }
     private var statusPicker: some View {
@@ -393,18 +393,21 @@ private struct ProjectResourcesDetailView: View {
     let projectID: String
     var body: some View {
         List {
-            AccountNotice(model: model)
+            AccountNotice(model: model).pkRowBackground()
             RemoteRecord(model: model, collection: "projects", id: projectID) { (project: Project) in
                 Section {
-                    Text(project.title).font(.title2.weight(.semibold))
+                    Text(project.title).font(.pk.displayS)
                         .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                 }
-                Section { ProjectResourcesView(model: model, projectID: project.id) }
-                if !project.description.isEmpty { Section("Description") { RichDescription(html: project.description) } }
+                Group {
+                    Section { ProjectResourcesView(model: model, projectID: project.id) }
+                    if !project.description.isEmpty { Section("Description") { RichDescription(html: project.description) } }
+                }.pkRowBackground()
             }
         }
+        .pkScreenBackground()
         .navigationTitle("Resources").navigationBarTitleDisplayMode(.inline)
         .refreshable { await model.refresh() }
     }
@@ -422,12 +425,12 @@ struct TaskDetailView: View {
     @Environment(\.dismiss) private var dismiss
     private var task: FocusTask? { record.value ?? nil }
     var body: some View {
-        List {
+        List { Group {
             AccountNotice(model: model)
             LibrarySaveNotice(message: confirmation)
             if let task {
                 Section {
-                    Text(task.title).font(.title2.weight(.semibold)).textSelection(.enabled)
+                    Text(task.title).font(.pk.displayS).textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
                     LabeledContent("Status", value: task.isDone ? "Completed" : "Open")
                     LabeledContent("Focus time", value: WorkspaceRules.focused(task.focusedSeconds))
@@ -442,7 +445,7 @@ struct TaskDetailView: View {
                 Section("Details") {
                     if !task.project.isEmpty {
                         NavigationLink { ProjectTasksView(model: model, projectID: task.project) } label: { SelectedRecordLabel(model: model, kind: .project, id: task.project) }
-                    } else { Text("No project").foregroundStyle(.secondary) }
+                    } else { Text("No project").foregroundStyle(Color.pk.textSecondary) }
                     LabeledContent("Priority", value: (task.priority ?? .none).rawValue.capitalized)
                     if let dueDate = task.dueDate, !dueDate.isEmpty { LabeledContent("Due date", value: LibraryDates.due(dueDate, completed: task.isDone)) }
                     else if !task.project.isEmpty {
@@ -459,25 +462,25 @@ struct TaskDetailView: View {
             } else if record.isLoading { ProgressView("Loading task") }
             else if record.error == nil && record.value != nil { ContentUnavailableView("Task unavailable", systemImage: "checklist", description: Text("It may have been deleted.")) }
             if let error = record.error { ReadError(message: error) { retry += 1 } }
-        }.navigationTitle("Task").navigationBarTitleDisplayMode(.inline).refreshable { await model.refresh() }
+        }.pkRowBackground() }.pkScreenBackground().navigationTitle("Task").navigationBarTitleDisplayMode(.inline).refreshable { await model.refresh() }
             .task(id: "\(model.queryIdentity)-\(taskID)-\(retry)") { await record.load { try await model.readAPI().record("tasks", id: taskID) } }
             .safeAreaInset(edge: .bottom) {
                 if let task {
                     VStack(spacing: 6) {
                         if model.canLinkRunningSession {
                             Text("A Pokus without a task is running. Link it to count its time toward this task.")
-                                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                                .font(.footnote).foregroundStyle(Color.pk.textSecondary).multilineTextAlignment(.center)
                                 .accessibilityIdentifier("sessionAlreadyRunning")
                         } else if model.hasRunningSession {
                             Text(model.session?.task == task.id ? "This task's Pokus is running." : "A Pokus is already running. Finish it to focus on this task.")
-                                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                                .font(.footnote).foregroundStyle(Color.pk.textSecondary).multilineTextAlignment(.center)
                                 .accessibilityIdentifier("sessionAlreadyRunning")
                         }
                         Button { model.focus(on: task.id) } label: {
-                            Label(model.canLinkRunningSession ? "Link to running session" : model.hasRunningSession ? "Open timer" : "Focus on this task", systemImage: "timer")
+                            Label(model.canLinkRunningSession ? "Link to running Pokus" : model.hasRunningSession ? "Open timer" : "Focus on this task", systemImage: "timer")
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.pkPrimary)
                             .disabled(model.account == nil || !model.storageReady || save.isSaving)
                     }.padding().background(.bar)
                 }
@@ -506,9 +509,9 @@ struct FocusTaskButton: View {
     let model: PokusModel
     let taskID: String
     var body: some View {
-        Button(model.canLinkRunningSession ? "Link to session" : model.hasRunningSession ? "Open timer" : "Focus", systemImage: "timer") { model.focus(on: taskID) }
+        Button(model.canLinkRunningSession ? "Link to running Pokus" : model.hasRunningSession ? "Open timer" : "Focus", systemImage: "timer") { model.focus(on: taskID) }
             .disabled(model.account == nil || !model.storageReady)
-            .accessibilityHint(model.canLinkRunningSession ? "Counts the running session's time toward this task."
+            .accessibilityHint(model.canLinkRunningSession ? "Counts the running Pokus toward this task."
                 : model.hasRunningSession ? "A Pokus is already running." : "Links this task to your next Pokus.")
     }
 }

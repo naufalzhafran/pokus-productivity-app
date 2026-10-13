@@ -5,7 +5,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        Form {
+        Form { Group {
             Section {
                 Toggle("Daily reminder", isOn: Binding(
                     get: { reminders.enabled },
@@ -26,7 +26,7 @@ struct SettingsView: View {
                 if reminders.permissionDenied {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Notifications are turned off for Pokus. Enable them in Settings, then turn on your reminder here.")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.footnote).foregroundStyle(Color.pk.textSecondary)
                         Button("Open notification settings") {
                             if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
                         }
@@ -35,7 +35,7 @@ struct SettingsView: View {
                     }
                 }
                 if let error = reminders.errorMessage {
-                    Text(error).font(.footnote).foregroundStyle(.red)
+                    Text(error).font(.footnote).foregroundStyle(Color.pk.danger)
                 }
             } header: {
                 Text("Schedule")
@@ -47,7 +47,7 @@ struct SettingsView: View {
             } footer: {
                 Text("This reminder works offline. Set reminders separately on each device. Signing out pauses reminders until you sign in again.")
             }
-        }
+        }.pkRowBackground() }.pkScreenBackground()
         .navigationTitle("Habit reminders")
         .navigationBarTitleDisplayMode(.inline)
     }

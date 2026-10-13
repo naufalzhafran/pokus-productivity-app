@@ -19,7 +19,7 @@ struct CaptureReminderEditor: View {
     }
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section { Text(capture.label).font(.headline) }
                 Section {
                     DatePicker("Date", selection: $date, in: Calendar.current.startOfDay(for: .now)..., displayedComponents: .date)
@@ -32,7 +32,7 @@ struct CaptureReminderEditor: View {
                 } footer: {
                     Text("Reminders use this device's timezone. Changes made on the web reach iPhone alerts the next time this app syncs.")
                 }
-            }.disabled(save.isSaving)
+            }.pkRowBackground() }.pkScreenBackground().disabled(save.isSaving)
                 .navigationTitle(capture.reminderAt > 0 ? "Edit reminder" : "Add reminder")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -75,7 +75,7 @@ struct CaptureReminderSection: View {
                 Button("Add reminder", systemImage: "calendar.badge.plus", action: edit).disabled(!model.canEdit)
             }
             if let notice = model.captureReminderNotice {
-                Text(notice).font(.footnote).foregroundStyle(.secondary)
+                Text(notice).font(.footnote).foregroundStyle(Color.pk.textSecondary)
                 if model.captureReminderPermissionDenied {
                     Button("Open notification settings") { if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) } }
                 } else {

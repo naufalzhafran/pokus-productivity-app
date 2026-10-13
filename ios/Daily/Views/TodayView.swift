@@ -84,20 +84,20 @@ struct TodayView: View {
                             habitRows(index.remaining)
                         } header: {
                             sectionHeader("To do", count: index.remaining.count)
-                        }.textCase(nil)
+                        }.textCase(nil).pkRowBackground()
                     }
                     if !index.completed.isEmpty {
                         Section {
                             habitRows(index.completed)
                         } header: {
                             sectionHeader("Completed", count: index.completed.count)
-                        }.textCase(nil)
+                        }.textCase(nil).pkRowBackground()
                     }
                 }
                 .listStyle(.insetGrouped)
                 .listSectionSpacing(20)
                 .contentMargins(.top, 0)
-                .scrollContentBackground(.hidden)
+                .pkScreenBackground()
                 .accessibilityIdentifier("habitsTodayList")
             }
         }
@@ -141,9 +141,9 @@ private struct TodaySummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(today.formatted("EEEE, MMMM d"))
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
             Text(progress.completed == progress.total ? "All done for today" : "\(progress.completed) of \(progress.total) complete")
-                .font(.title2.weight(.semibold))
+                .font(.pk.displayS)
                 .fixedSize(horizontal: false, vertical: true)
             ProgressView(value: progress.fraction)
                 .tint(DailyTheme.accent)
@@ -170,13 +170,13 @@ struct HabitRow<Detail: View>: View {
         layout {
             NavigationLink(destination: detail) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(habit.name).font(.body.weight(.medium)).foregroundStyle(.primary)
+                    Text(habit.name).font(.body.weight(.medium)).foregroundStyle(Color.pk.textPrimary)
                     if habit.kind == .number {
                         Text("\(NumberText.display(habit.value(on: day))) of \(NumberText.display(habit.target(on: day)))\(habit.unit.isEmpty ? "" : " \(habit.unit)")")
-                            .font(.subheadline).foregroundStyle(.secondary)
+                            .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                     } else {
                         Text(habit.isComplete(on: day) ? "Completed" : "Daily check-in")
-                            .font(.subheadline).foregroundStyle(.secondary)
+                            .font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                     }
                 }
                 .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
@@ -189,7 +189,7 @@ struct HabitRow<Detail: View>: View {
                 Button(action: toggle) {
                     Image(systemName: habit.isComplete(on: day) ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 29, weight: .light))
-                        .foregroundStyle(habit.isComplete(on: day) ? DailyTheme.accent : Color.secondary)
+                        .foregroundStyle(habit.isComplete(on: day) ? DailyTheme.accent : Color.pk.textSecondary)
                         .frame(width: 48, height: 48)
                 }
                 .buttonStyle(.plain)
