@@ -26,6 +26,9 @@ final class PokusModel {
     private(set) var storageReady = false
     var error: String?
     var syncError: String?
+    /// True once saving to the server has failed several times in a row; a first failed attempt
+    /// (often a cold connection at launch) retries quietly instead of showing a banner.
+    private(set) var syncFailureVisible = false
     var selectedTaskID = ""
     var openTimer: (() -> Void)?
     /// Set by App Intents, widgets, and links; the root view handles it and clears it.
@@ -92,6 +95,8 @@ final class PokusModel {
     @ObservationIgnored private var retryAt = Date.distantPast
     @ObservationIgnored private var dataRetryTask: Task<Void, Never>?
     @ObservationIgnored private var failedAttempts = 0
+    @ObservationIgnored private var retryTask: Task<Void, Never>?
+    private static let failuresBeforeBanner = 3
     @ObservationIgnored private var lastSurfaceSession: FocusSession?
     @ObservationIgnored private let testing = ProcessInfo.processInfo.arguments.contains("-ui-testing")
     @ObservationIgnored private let testBackend = UITestPocketBase()
@@ -228,6 +233,7 @@ final class PokusModel {
         await refreshReplicaStatus()
         lastSurfaceSession = nil; await surfaces.clear()
         failedAttempts = 0; retryAt = .distantPast; syncError = nil
+        retryTask?.cancel(); retryTask = nil; updateSyncFailureVisible()
         try await loadAccount()
     }
     func signOut() async {
@@ -266,6 +272,13 @@ final class PokusModel {
         isLoading = true
         defer { if epoch == generation { isLoading = false } }
         let needsAuthenticationReload = authentication?.isValid != true
+        // Queued changes go first with the saved token, so a slow token or cache refresh can't hold them back.
+        if !needsAuthenticationReload {
+            await sync(force: refreshManualRequested)
+            guard epoch == generation, !Task.isCancelled else { return }
+            await syncData(force: refreshManualRequested, pull: false)
+            guard epoch == generation, !Task.isCancelled else { return }
+        }
         do {
             let refreshed = try await client.refreshAuthentication()
             guard epoch == generation, !Task.isCancelled else { return }
@@ -443,13 +456,16 @@ final class PokusModel {
             }
             guard epoch == generation else { return }
             syncError = nil; failedAttempts = 0; retryAt = .distantPast
+            retryTask?.cancel(); retryTask = nil; updateSyncFailureVisible()
             // Task focus totals changed on the server; bring them into the device copy.
             if completed { scheduleDataSync(pull: true) }
         } catch {
             if epoch == generation {
                 failedAttempts += 1
-                retryAt = Date().addingTimeInterval(min(300, 15 * pow(2, Double(min(failedAttempts, 5)))))
+                retryAt = Date().addingTimeInterval(Self.backoff(failedAttempts))
                 syncError = error.localizedDescription
+                updateSyncFailureVisible()
+                scheduleRetry()
             }
         }
     }
@@ -562,6 +578,7 @@ final class PokusModel {
                 guard epoch == generation else { return }
                 dataFailures = 0; dataRetryAt = .distantPast; dataSyncError = nil
                 dataRetryTask?.cancel(); dataRetryTask = nil
+                updateSyncFailureVisible()
                 await refreshReplicaStatus()
                 // The first full download replaces the older saved-response copies.
                 if !wasReady && replicaStatus.ready { await readCache.invalidate() }
@@ -569,15 +586,32 @@ final class PokusModel {
             } catch {
                 guard epoch == generation else { return }
                 dataFailures += 1
-                dataRetryAt = Date().addingTimeInterval(min(300, 15 * pow(2, Double(min(dataFailures, 5)))))
+                dataRetryAt = Date().addingTimeInterval(Self.backoff(dataFailures))
                 dataSyncError = (error as? APIError)?.status == 401
                     ? "Sign in again to sync your changes. They're saved on this iPhone."
                     : "Couldn't sync right now. Your changes are saved on this iPhone and will sync when connected."
+                updateSyncFailureVisible()
                 if (error as? APIError)?.status != 401 { scheduleDataRetry() }
                 await refreshReplicaStatus()
                 return
             }
         } while dataSyncAgain && epoch == generation && isOnline
+    }
+    /// Quick first retries (10s, 20s, 40s…) so a cold connection at launch heals before the user notices.
+    private static func backoff(_ failures: Int) -> TimeInterval { min(300, 5 * pow(2, Double(min(failures, 6)))) }
+    private func updateSyncFailureVisible() {
+        let visible = failedAttempts >= Self.failuresBeforeBanner || dataFailures >= Self.failuresBeforeBanner
+        if syncFailureVisible != visible { syncFailureVisible = visible }
+    }
+    /// The session queue retries on its own too, instead of waiting for the next foreground.
+    private func scheduleRetry() {
+        retryTask?.cancel()
+        let delay = max(1, retryAt.timeIntervalSinceNow)
+        retryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            await self?.sync()
+        }
     }
     /// Retries on its own once the backoff passes, so a brief server or network failure heals without a manual refresh.
     private func scheduleDataRetry() {

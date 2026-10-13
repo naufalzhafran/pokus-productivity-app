@@ -202,7 +202,7 @@ struct PokusTimerView: View {
                 }
             }
             if model.focus.isSaving { ProgressView("Saving session") }
-            if model.pendingCount > 0 && !compact {
+            if model.pendingCount > 0 && model.syncFailureVisible && !compact {
                 Text("\(model.pendingCount) session updates waiting to sync")
                     .font(.footnote).foregroundStyle(.secondary).lineLimit(2)
             }
@@ -276,7 +276,7 @@ struct PokusTimerView: View {
             let total = (model.session?.durationMinutes ?? duration) * 60
             return FocusDurationDial(minutes: $duration,
                               progress: model.session == nil ? nil : Double(remaining) / Double(max(1, total)),
-                              spokenValue: "\(remaining / 60) minutes, \(remaining % 60) seconds\(model.session?.isActive == false ? ", paused" : "")\(compact && model.pendingCount > 0 ? ", \(model.pendingCount) session updates waiting to sync" : "")") {
+                              spokenValue: "\(remaining / 60) minutes, \(remaining % 60) seconds\(model.session?.isActive == false ? ", paused" : "")\(compact && model.pendingCount > 0 && model.syncFailureVisible ? ", \(model.pendingCount) session updates waiting to sync" : "")") {
                 VStack(spacing: diameter < 280 ? 8 : 16) {
                     if model.session?.isActive == false && diameter >= 240 && !compact {
                         Text("Paused")
@@ -405,7 +405,7 @@ struct AccountNotice: View {
         } else if !compact, !model.replicaStatus.failed.isEmpty {
             Label("\(changes(model.replicaStatus.failed.count)) couldn't sync. Review them in Profile.", systemImage: "exclamationmark.icloud")
                 .font(.footnote)
-        } else if !compact, let error = model.dataSyncError {
+        } else if !compact, model.syncFailureVisible, let error = model.dataSyncError {
             Label(error, systemImage: "icloud.slash").font(.footnote)
         }
     }
