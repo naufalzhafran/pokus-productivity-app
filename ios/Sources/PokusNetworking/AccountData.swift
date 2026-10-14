@@ -1,19 +1,7 @@
 import Foundation
 import PokusCore
 
-extension RecordQueries {
-    /// Unarchived projects in progress, for shortcuts such as Library's recent projects.
-    public static let activeProjectsFilter = "isDone = false && (status = 'active' || status = '')"
-}
-
 extension PocketBaseClient {
-    /// Active, unarchived projects, the most recently changed first.
-    public func recentProjects(limit: Int = 5) async throws -> [Project] {
-        let page: RecordPage<Project> = try await listPage("projects", perPage: max(1, limit), filter: RecordQueries.activeProjectsFilter,
-            sort: "-updated,id", fields: "id,title,isDone,status,dueDate,created")
-        return page.items
-    }
-
     /// Whether the account has nothing yet: no projects, tasks, captures, or saved focus sessions.
     public func isWorkspaceEmpty() async throws -> Bool {
         for collection in ["projects", "tasks", "captures"] {

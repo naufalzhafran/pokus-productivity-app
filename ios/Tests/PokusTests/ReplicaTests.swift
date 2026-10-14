@@ -402,22 +402,14 @@ struct ReplicaTests {
         #expect(await harness.server.row("tasks", "task0000000001")?["title"] == .string("Keep me"))
     }
 
-    @Test func recentProjectsListActiveProjectsByLastChangeOffline() async throws {
+    @Test func workspaceEmptinessIsAnsweredOffline() async throws {
         let harness = Harness(); defer { try? FileManager.default.removeItem(at: harness.directory) }
         #expect(try await harness.remote.isWorkspaceEmpty())
         await harness.seedWorkspace()
-        await harness.server.seed("projects", [
-            ["id": .string("project0000003"), "title": .string("Planned"), "isDone": .bool(false), "status": .string("planned")],
-            ["id": .string("project0000004"), "title": .string("Newer"), "isDone": .bool(false), "status": .string("active")],
-            ["id": .string("project0000005"), "title": .string("Legacy"), "isDone": .bool(false), "status": .string("")]
-        ])
         let replica = harness.replica()
         try await replica.pull(harness.remote)
         let offline = harness.local(replica, online: false)
         #expect(try await offline.isWorkspaceEmpty() == false)
-        #expect(try await offline.recentProjects().map(\.title) == ["Legacy", "Newer", "Active"])
-        _ = try await offline.save(.projects, id: "project0000001", creationID: nil, fields: ["title": .string("Active edited")], owner: "owner")
-        #expect(try await offline.recentProjects(limit: 2).map(\.title) == ["Active edited", "Legacy"])
     }
 
     @Test func exportIncludesEveryCollectionAndUnsyncedSessions() async throws {
