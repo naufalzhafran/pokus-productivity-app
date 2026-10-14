@@ -7,8 +7,17 @@ public struct FocusActivityAttributes: ActivityAttributes {
         public var deadline: Date
         public var remainingSeconds: Int
         public var paused: Bool
-        public init(deadline: Date, remainingSeconds: Int, paused: Bool) {
-            self.deadline = deadline; self.remainingSeconds = remainingSeconds; self.paused = paused
+        /// Set once the Pokus has finished; absent in states written by older versions.
+        public var completed: Bool
+        public init(deadline: Date, remainingSeconds: Int, paused: Bool, completed: Bool = false) {
+            self.deadline = deadline; self.remainingSeconds = remainingSeconds; self.paused = paused; self.completed = completed
+        }
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            deadline = try c.decode(Date.self, forKey: .deadline)
+            remainingSeconds = try c.decode(Int.self, forKey: .remainingSeconds)
+            paused = try c.decode(Bool.self, forKey: .paused)
+            completed = try c.decodeIfPresent(Bool.self, forKey: .completed) ?? false
         }
     }
     public var sessionID: String

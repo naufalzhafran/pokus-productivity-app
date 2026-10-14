@@ -17,20 +17,24 @@ struct PokusFocusActivity: Widget {
         ActivityConfiguration(for: FocusActivityAttributes.self) { context in
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .center, spacing: 12) {
-                    Image(systemName: "timer").font(.title2).foregroundStyle(Color.accentColor).accessibilityHidden(true)
+                    Image(systemName: context.state.completed || context.isStale ? "checkmark.circle.fill" : "timer").font(.title2).foregroundStyle(Color.accentColor).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(context.state.paused ? "Focus paused" : "Focusing").font(.headline)
+                        Text(context.state.completed || context.isStale ? "Pokus complete" : context.state.paused ? "Focus paused" : "Focusing").font(.headline)
                         Text(context.attributes.taskTitle ?? "\(context.attributes.durationMinutes)-minute Pokus")
                             .font(.subheadline).foregroundStyle(Color.pk.textSecondary).lineLimit(1)
                     }
                     Spacer(minLength: 8)
-                    Countdown(state: context.state)
-                        .font(.pk.display(size: 20))
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 104, alignment: .trailing)
+                    if !(context.state.completed || context.isStale) {
+                        Countdown(state: context.state)
+                            .font(.pk.display(size: 20))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 104, alignment: .trailing)
+                    }
                 }
-                FocusProgress(state: context.state, durationMinutes: context.attributes.durationMinutes)
-                FocusControls(sessionID: context.attributes.sessionID, paused: context.state.paused)
+                if !(context.state.completed || context.isStale) {
+                    FocusProgress(state: context.state, durationMinutes: context.attributes.durationMinutes)
+                    FocusControls(sessionID: context.attributes.sessionID, paused: context.state.paused)
+                }
             }
             .padding()
             .activityBackgroundTint(Color.pk.surface)
@@ -40,29 +44,36 @@ struct PokusFocusActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.state.paused ? "Paused" : "Focus", systemImage: context.state.paused ? "pause.fill" : "timer")
+                    let done = context.state.completed || context.isStale
+                    Label(done ? "Complete" : context.state.paused ? "Paused" : "Focus", systemImage: done ? "checkmark.circle.fill" : context.state.paused ? "pause.fill" : "timer")
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Countdown(state: context.state).monospacedDigit().multilineTextAlignment(.trailing).frame(width: 64, alignment: .trailing)
+                    if !(context.state.completed || context.isStale) {
+                        Countdown(state: context.state).monospacedDigit().multilineTextAlignment(.trailing).frame(width: 64, alignment: .trailing)
+                    }
                 }
                 DynamicIslandExpandedRegion(.center) {
                     if let title = context.attributes.taskTitle { Text(title).font(.subheadline).lineLimit(1) }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 8) {
-                        FocusProgress(state: context.state, durationMinutes: context.attributes.durationMinutes)
-                        FocusControls(sessionID: context.attributes.sessionID, paused: context.state.paused)
+                    if !(context.state.completed || context.isStale) {
+                        VStack(spacing: 8) {
+                            FocusProgress(state: context.state, durationMinutes: context.attributes.durationMinutes)
+                            FocusControls(sessionID: context.attributes.sessionID, paused: context.state.paused)
+                        }
                     }
                 }
             } compactLeading: {
-                Image(systemName: context.state.paused ? "pause.fill" : "timer")
+                Image(systemName: context.state.completed || context.isStale ? "checkmark.circle.fill" : context.state.paused ? "pause.fill" : "timer")
             } compactTrailing: {
-                Countdown(state: context.state)
-                    .monospacedDigit()
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 48, alignment: .trailing)
+                if !(context.state.completed || context.isStale) {
+                    Countdown(state: context.state)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 48, alignment: .trailing)
+                }
             } minimal: {
-                Image(systemName: context.state.paused ? "pause.fill" : "timer")
+                Image(systemName: context.state.completed || context.isStale ? "checkmark.circle.fill" : context.state.paused ? "pause.fill" : "timer")
             }
             .widgetURL(URL(string: "pokus://timer"))
             .keylineTint(.accentColor)

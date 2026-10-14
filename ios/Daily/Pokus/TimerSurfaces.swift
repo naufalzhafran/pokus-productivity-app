@@ -39,7 +39,13 @@ final class TimerSurfaces: TimerSurfaceClient {
         guard let session, session.mode == .running else {
             for activity in Activity<FocusActivityAttributes>.activities {
                 guard generation == current else { return }
-                await activity.end(nil, dismissalPolicy: .immediate)
+                if let session, session.mode == .complete, activity.attributes.sessionID == session.id {
+                    // Leave a "Pokus complete" card on the Lock Screen instead of removing it.
+                    let done = FocusActivityAttributes.ContentState(deadline: session.deadline, remainingSeconds: 0, paused: false, completed: true)
+                    await activity.end(ActivityContent(state: done, staleDate: nil), dismissalPolicy: .after(.now.addingTimeInterval(30 * 60)))
+                } else {
+                    await activity.end(nil, dismissalPolicy: .immediate)
+                }
             }
             guard generation == current else { return }
             if let session, session.mode == .complete, completionID != session.id {
