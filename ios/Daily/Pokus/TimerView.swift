@@ -68,7 +68,7 @@ struct PokusTimerView: View {
         }
         .background(Color.pk.background)
         .saveAlert(taskSave)
-        .navigationTitle("Focus")
+        .navigationTitle("Pokus")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Stop this Pokus?", isPresented: $stopping) {
             Button("Continue", role: .cancel) { }
@@ -81,6 +81,14 @@ struct PokusTimerView: View {
         }
         .sheet(isPresented: $choosingTask) { TimerTaskPicker(model: model, linksRunningSession: model.canLinkRunningSession) }
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 8) {
+                    Image("PokusMark").resizable().scaledToFit().frame(width: 28, height: 28).accessibilityHidden(true)
+                    Text("Pokus").font(.pk.headline).foregroundStyle(Color.pk.textPrimary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+            }
             if let newCapture {
                 ToolbarItem(placement: .primaryAction) {
                     Button("New capture", systemImage: "plus", action: newCapture)
@@ -148,7 +156,6 @@ struct PokusTimerView: View {
     private func secondaryControls(compact: Bool) -> some View {
         VStack(spacing: 8) {
             if model.session == nil {
-                durationPresets(compact: compact)
                 taskChip(compact: compact)
             } else if let session = model.session {
                 if !session.task.isEmpty {
@@ -206,34 +213,6 @@ struct PokusTimerView: View {
                     .font(.footnote).foregroundStyle(Color.pk.textSecondary).lineLimit(2)
             }
         }
-    }
-
-    /// Quick lengths under the ring; the ring still allows any length.
-    @ViewBuilder
-    private func durationPresets(compact: Bool) -> some View {
-        let presets = HStack(spacing: 8) {
-            ForEach(FocusDuration.presets, id: \.self) { minutes in
-                Button { duration = minutes } label: {
-                    Text("\(minutes)m").monospacedDigit().frame(minWidth: 44, minHeight: 44)
-                }
-                .buttonStyle(.bordered).buttonBorderShape(.capsule)
-                .tint(duration == minutes ? Color.accentColor : Color.pk.textSecondary)
-                .accessibilityLabel("\(minutes) minutes")
-                .accessibilityAddTraits(duration == minutes ? .isSelected : [])
-                .accessibilityIdentifier("durationPreset-\(minutes)")
-            }
-        }
-        let menu = Menu {
-            Picker("Duration", selection: $duration) {
-                ForEach(FocusDuration.presets, id: \.self) { Text("\($0) minutes").tag($0) }
-                if !FocusDuration.presets.contains(duration) { Text("\(duration) minutes").tag(duration) }
-            }
-        } label: {
-            Label("\(duration) min", systemImage: "clock").frame(minHeight: 44)
-        }
-        .accessibilityLabel("Duration").accessibilityValue("\(duration) minutes")
-        if typeSize.isAccessibilitySize { menu }
-        else { ViewThatFits(in: .horizontal) { presets; menu } }
     }
 
     private func taskChip(compact: Bool) -> some View {
@@ -298,8 +277,8 @@ struct PokusTimerView: View {
     private func timerActions(compact: Bool, iconsOnly: Bool = false) -> some View {
         if model.session?.mode == .complete {
             Button { Task { await model.reset() } } label: {
-                actionLabel(compact ? "Again" : "Focus again", symbol: "arrow.clockwise", iconsOnly: iconsOnly)
-            }.buttonStyle(.pkPrimary).accessibilityLabel("Focus again")
+                actionLabel(compact ? "Again" : "Start another Pokus", symbol: "arrow.clockwise", iconsOnly: iconsOnly)
+            }.buttonStyle(.pkPrimary).accessibilityLabel("Start another Pokus")
         } else if model.session == nil {
             Button { Task { await model.start(minutes: duration) } } label: {
                 actionLabel(compact ? "Start" : "Start a Pokus", symbol: "play.fill", iconsOnly: iconsOnly)

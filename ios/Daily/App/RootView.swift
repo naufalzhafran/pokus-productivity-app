@@ -53,7 +53,7 @@ struct RootView: View {
             }
             TabView(selection: $selectedTab) {
                 NavigationStack { PokusTimerView(model: pokus, isVisible: selectedTab == 0, newCapture: newCapture) }
-                    .tabItem { Label("Focus", systemImage: "timer") }.tag(0)
+                    .tabItem { Label("Pokus", image: "PokusTabMark") }.tag(0)
                 NavigationStack {
                     PokusCalendarView(model: pokus, today: today, showsMonth: false, openHabits: openHabits, selectedCapture: $selectedCapture,
                                       newCapture: newCapture, newTask: newTask, openTimer: { selectedTab = 0 },

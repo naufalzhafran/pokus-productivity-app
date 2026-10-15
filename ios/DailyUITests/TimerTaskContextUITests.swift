@@ -49,7 +49,7 @@ import XCTest
         let confirmation = app.alerts["Stop this Pokus?"]
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
         confirmation.buttons["Save elapsed time"].tap()
-        XCTAssertTrue(app.buttons["Focus again"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Start another Pokus"].waitForExistence(timeout: 5))
         XCTAssertTrue(taskTitle.isHittable)
         app.buttons["Mark task complete"].tap()
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "focusTaskCompleted").firstMatch.waitForExistence(timeout: 5))

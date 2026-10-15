@@ -166,7 +166,7 @@ import XCTest
         app.buttons["Projects"].tap()
         XCTAssertTrue(app.navigationBars["Projects"].waitForExistence(timeout: 5))
         app.navigationBars.buttons["BackButton"].tap()
-        tabs["Focus"].tap()
+        tabs["Pokus"].tap()
         app.buttons["newCapture"].tap()
         XCTAssertTrue(app.navigationBars["New capture"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["New capture"].buttons["Cancel"].exists)
@@ -718,13 +718,13 @@ import XCTest
 
     func testSignedOutShellGuardsHabits() {
         let app = XCUIApplication(); app.launchArguments = ["-ui-testing"]; app.launch()
-        XCTAssertTrue(app.navigationBars["Focus"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Pokus"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Continue with Google"].exists)
         app.tabBars.buttons["Today"].tap()
         XCTAssertTrue(app.buttons["Continue with Google"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["addHabit"].exists)
         XCTAssertFalse(app.buttons["todayAdd"].exists)
-        app.tabBars.buttons["Focus"].tap()
+        app.tabBars.buttons["Pokus"].tap()
         XCTAssertFalse(app.buttons["newCapture"].exists)
         app.tabBars.buttons["Profile"].tap()
         XCTAssertFalse(app.buttons["Habit reminders"].isEnabled)
@@ -742,7 +742,7 @@ import XCTest
         let pause = app.buttons["Pause"]
         XCTAssertTrue(pause.waitForExistence(timeout: 5)); pause.tap()
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
-        app.tabBars.buttons["Today"].tap(); app.tabBars.buttons["Focus"].tap()
+        app.tabBars.buttons["Today"].tap(); app.tabBars.buttons["Pokus"].tap()
         XCTAssertTrue(app.buttons["Resume"].exists); app.buttons["Resume"].tap()
         XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
         app.buttons["Stop"].tap()
@@ -875,7 +875,7 @@ import XCTest
             XCTAssertTrue(picker.waitForExistence(timeout: 5))
             picker.tap()
             app.buttons[appearance].tap()
-            app.tabBars.buttons["Focus"].tap()
+            app.tabBars.buttons["Pokus"].tap()
             for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
                 XCUIDevice.shared.orientation = orientation
                 let start = app.buttons["startFocus"]

@@ -80,7 +80,7 @@ struct FocusDurationDial<Content: View>: View {
             dragAngle = min(turn, max(0, dragAngle))
         }
         previousAngle = angle
-        // Dragging moves in 5-minute steps; VoiceOver and the presets still allow any minute.
+        // Dragging moves in 5-minute steps; VoiceOver still allows any minute.
         let snapped = FocusDuration.snapped(dragAngle / turn * 60)
         if snapped != minutes { minutes = snapped }
     }

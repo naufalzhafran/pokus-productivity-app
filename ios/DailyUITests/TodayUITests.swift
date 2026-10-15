@@ -141,7 +141,7 @@ import XCTest
         start.tap()
         XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["startFocus"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Focus"].isSelected)
+        XCTAssertTrue(app.tabBars.buttons["Pokus"].isSelected)
         XCTAssertTrue(app.buttons["linkRunningTask"].exists)
         app.tabBars.buttons["Today"].tap()
         XCTAssertTrue(app.buttons["todayStartFocus"].waitForExistence(timeout: 5))
