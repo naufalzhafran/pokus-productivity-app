@@ -62,6 +62,8 @@ const loadProjectsPage = () => import("@/components/features/ProjectsPage");
 const ProjectsPage = lazy(() => loadProjectsPage().then((module) => ({ default: module.ProjectsPage })));
 const loadProjectDetailPage = () => import("@/components/features/ProjectDetailPage");
 const ProjectDetailPage = lazy(() => loadProjectDetailPage().then((module) => ({ default: module.ProjectDetailPage })));
+const loadTasksPage = () => import("@/components/features/TasksPage");
+const TasksPage = lazy(() => loadTasksPage().then((module) => ({ default: module.TasksPage })));
 const ProfilePage = lazy(() =>
   loadProfilePage().then((module) => ({
     default: module.ProfilePage,
@@ -91,8 +93,8 @@ const TimerPage = lazy(() =>
 
 function readRoute(): AppRoute {
   const route = parseRoute(window.location.hash);
-  // Old `#tasks` links and installed shortcuts now open the projects list.
-  if (window.location.hash === "#tasks" || window.location.hash.startsWith("#tasks/")) history.replaceState(null, "", routeHash(route));
+  // Old `#tasks/<id>` links open that project.
+  if (window.location.hash.startsWith("#tasks/")) history.replaceState(null, "", routeHash(route));
   return route;
 }
 
@@ -159,6 +161,7 @@ export default function App() {
     changeProjectCaptures,
     setCaptureProjects,
     reconcileDeletedCapture,
+    reconcileDeletedCategory: reconcileProjectCategory,
     isLoading: areProjectsLoading,
     loadError: projectsLoadError,
   } = useProjects();
@@ -486,10 +489,13 @@ export default function App() {
   const handleDeleteCategory = useCallback(async (categoryId: string) => {
     await deleteCategory(categoryId);
     reconcileDeletedCategory(categoryId);
+    reconcileProjectCategory(categoryId);
     knowledgeStore.reconcileDeletedCategory(categoryId);
-    if (viewState.categoryId === categoryId) setViewState((current) => ({ ...current, categoryId: null }));
-    toast.success("Category deleted. Affected tasks are now uncategorized.");
-  }, [deleteCategory, knowledgeStore, reconcileDeletedCategory, setViewState, viewState.categoryId]);
+    setViewState((current) => current.categoryId === categoryId || current.projectCategory === categoryId
+      ? { ...current, categoryId: current.categoryId === categoryId ? null : current.categoryId, projectCategory: current.projectCategory === categoryId ? "all" : current.projectCategory }
+      : current);
+    toast.success("Category deleted. Affected projects and tasks are now uncategorized.");
+  }, [deleteCategory, knowledgeStore, reconcileDeletedCategory, reconcileProjectCategory, setViewState]);
 
   /** Completing a project asks what it taught you. */
   const handleUpdateProject = useCallback(async (projectId: string, input: ProjectInput) => {
@@ -521,6 +527,7 @@ export default function App() {
     if (nextPage === "habits") void loadHabitsPage();
     if (nextPage === "calendar") void loadCalendarPage();
     if (nextPage === "projects") { void loadProjectsPage(); void loadProjectDetailPage(); }
+    if (nextPage === "tasks") void loadTasksPage();
     if (nextPage === "capture") void loadCapturePage();
     if (nextPage === "knowledge") { void loadKnowledgePage(); void loadKnowledgeDetailPage(); }
   }, []);
@@ -660,6 +667,24 @@ export default function App() {
           />}
           </Suspense>
         </div>
+      ) : page === "tasks" ? (
+        <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+          {areTasksLoading || areProjectsLoading || areCategoriesLoading ? <Skeleton className="h-96 w-full" /> : <TasksPage
+            readOnly={!canEdit}
+            tasks={tasks}
+            projects={projects}
+            categories={categories}
+            viewState={viewState}
+            setViewState={setViewState}
+            canStartPomodoro={canFocus}
+            onCreateTask={createTask}
+            onEditTask={editTask}
+            onDeleteTask={handleDeleteTask}
+            onStatusChange={handleStatusChange}
+            onStartPomodoro={setUpTimerForTask}
+            onCreateCategory={createCategory}
+          />}
+        </Suspense>
       ) : page === "capture" ? (
         <div className="screen-panel">
           <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>

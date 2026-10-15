@@ -6,10 +6,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CategoryPill } from "@/components/features/CategoryPill";
 import { ConfirmPrompt, type ConfirmRequest } from "@/components/features/ConfirmPrompt";
 import { ProjectTasks, type ProjectTasksProps } from "@/components/features/ProjectTasks";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
-import { buildProjectStats, dueLabel, formatFocused, getProjectStatus, isProjectArchived, localDateKey, NO_PROJECT_ID, PROJECT_STATUS_LABELS } from "@/lib/workspace";
+import { buildProjectStats, dueLabel, formatFocused, getProjectStatus, isProjectArchived, localDateKey, NO_PROJECT_ID, PRIORITY_LABELS, PROJECT_STATUS_LABELS } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import type { ProjectInput } from "@/types/task";
 
@@ -35,7 +36,7 @@ interface ProjectDetailPageProps extends TaskProps {
 const backLink = <a href="#projects" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 self-start")}><ArrowLeft />Projects</a>;
 
 export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject, onDeleteProject, capturesPanel, captureCount = 0, knowledgePanel, knowledgeCount = 0, ...taskProps }: ProjectDetailPageProps) {
-  const { readOnly, projects, tasks, canStartPomodoro } = taskProps;
+  const { readOnly, projects, tasks, categories, canStartPomodoro } = taskProps;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [editing, setEditing] = useState(false);
   const [pending, setPending] = useState(false);
@@ -46,6 +47,7 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
   const stats = useMemo(() => buildProjectStats(tasks).get(isNoProject ? NO_PROJECT_ID : projectId), [isNoProject, projectId, tasks]);
   const today = localDateKey();
   const archived = isProjectArchived(project);
+  const category = project?.categoryId ? categories.find((item) => item.id === project.categoryId) : undefined;
 
   useEffect(() => { headingRef.current?.focus({ preventScroll: true }); }, [projectId]);
 
@@ -94,6 +96,8 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
           {project ? <Badge variant={archived ? "secondary" : "outline"}>{archived ? "Archived" : PROJECT_STATUS_LABELS[getProjectStatus(project)]}</Badge> : <span>Tasks that aren’t in a project yet.</span>}
+          {category ? <CategoryPill category={category} className="text-xs" /> : null}
+          {project?.priority && project.priority !== "none" ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{PRIORITY_LABELS[project.priority]} priority</span> : null}
           {due ? <span className={cn("flex items-center gap-1.5", project?.dueDate && project.dueDate <= today && "font-medium text-destructive")}><CalendarDays aria-hidden="true" className="size-4" /><time dateTime={project?.dueDate ?? undefined}>{due}</time></span> : null}
           <span>{stats?.completedCount ?? 0}/{taskCount} {taskCount === 1 ? "task" : "tasks"} done</span>
           {stats?.focusedSeconds ? <span>{formatFocused(stats.focusedSeconds)}</span> : null}
@@ -132,7 +136,7 @@ export function ProjectDetailPage({ projectId, onUpdateProject, onArchiveProject
         </section>
       )}
       <ResponsiveOverlay open={editing} onOpenChange={setEditing} title="Edit project">
-        {editing && project ? <Suspense fallback={<Skeleton className="h-64 w-full" />}><ProjectEditor project={project} openTaskCount={stats?.openCount ?? 0} onCancel={() => setEditing(false)} onSave={async (input) => { await onUpdateProject(project.id, input); setEditing(false); }} /></Suspense> : null}
+        {editing && project ? <Suspense fallback={<Skeleton className="h-64 w-full" />}><ProjectEditor project={project} categories={taskProps.categories} openTaskCount={stats?.openCount ?? 0} onCancel={() => setEditing(false)} onSave={async (input) => { await onUpdateProject(project.id, input); setEditing(false); }} /></Suspense> : null}
       </ResponsiveOverlay>
       <ConfirmPrompt request={confirm} onClose={() => setConfirm(null)} />
     </div>

@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmPrompt, type ConfirmRequest } from "@/components/features/ConfirmPrompt";
 import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { TaskRow } from "@/components/features/TaskRow";
-import { selectProjectTasks, TASK_BATCH_SIZE, titlePreview, type PriorityFilter, type TaskSort, type TaskStatusFilter, type WorkspaceViewState } from "@/lib/workspace";
+import { isProjectArchived, NO_PROJECT_ID, selectProjectTasks, TASK_BATCH_SIZE, titlePreview, type PriorityFilter, type TaskSort, type TaskStatusFilter, type WorkspaceViewState } from "@/lib/workspace";
 import type { Category, CategoryInput, Project, Task, TaskInput } from "@/types/task";
 
 const TaskEditor = lazy(() => import("@/components/features/TaskEditor").then((module) => ({ default: module.TaskEditor })));
@@ -23,8 +23,8 @@ const defaultFilters = { status: "open", sort: "smart", priority: "all", categor
 
 export interface ProjectTasksProps {
   readOnly: boolean;
-  /** The project whose tasks are shown, or `null` for tasks without a project. */
-  project: Project | null;
+  /** The project whose tasks are shown, `null` for tasks without a project, or `"all"` for every task outside archived projects. */
+  project: Project | null | "all";
   tasks: Task[];
   projects: Project[];
   categories: Category[];
@@ -51,19 +51,27 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
   const [announcement, setAnnouncement] = useState("");
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const categoryMap = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
-  const projectId = project?.id ?? null;
-  const selected = useMemo(() => selectProjectTasks(tasks, projectId, viewState, deferredSearch, categoryMap), [categoryMap, deferredSearch, projectId, tasks, viewState]);
-  const projectTaskCount = useMemo(() => tasks.filter((task) => task.projectId === projectId).length, [projectId, tasks]);
+  const projectMap = useMemo(() => new Map(projects.map((item) => [item.id, item])), [projects]);
+  const allTasks = project === "all";
+  const currentProject = allTasks ? null : project;
+  // The All tasks list narrows by project with its own filter; "all" leaves out archived projects.
+  const [projectFilter, setProjectFilter] = useState("all");
+  const projectId = allTasks ? projectFilter === "all" ? undefined : projectFilter === NO_PROJECT_ID ? null : projectFilter : currentProject?.id ?? null;
+  const scopeTasks = useMemo(() => allTasks ? tasks.filter((task) => !task.projectId || !isProjectArchived(projectMap.get(task.projectId))) : tasks, [allTasks, projectMap, tasks]);
+  const selected = useMemo(() => selectProjectTasks(scopeTasks, projectId, viewState, deferredSearch, categoryMap), [categoryMap, deferredSearch, projectId, scopeTasks, viewState]);
+  const projectTaskCount = useMemo(() => projectId === undefined ? scopeTasks.length : scopeTasks.filter((task) => task.projectId === projectId).length, [projectId, scopeTasks]);
   const detailTask = tasks.find((task) => task.id === detailId);
+  const detailProject = detailTask?.projectId ? projectMap.get(detailTask.projectId) : undefined;
+  const projectFilterLabels = useMemo<Record<string, string>>(() => Object.fromEntries([["all", "All projects"], [NO_PROJECT_ID, "No project"], ...projects.filter((item) => !isProjectArchived(item)).map((item) => [item.id, item.title])]), [projects]);
   const categoryFilterLabels = useMemo(() => Object.fromEntries([["all", "All categories"], ...categories.map((category) => [category.id, category.name])]), [categories]);
-  const activeFilterCount = [viewState.status !== "open", viewState.sort !== "smart", (viewState.priority ?? "all") !== "all", Boolean(viewState.categoryId)].filter(Boolean).length;
+  const activeFilterCount = [allTasks && projectFilter !== "all", viewState.status !== "open", viewState.sort !== "smart", (viewState.priority ?? "all") !== "all", Boolean(viewState.categoryId)].filter(Boolean).length;
   const hasFilters = Boolean(search) || activeFilterCount > 0;
 
   const update = <K extends keyof WorkspaceViewState>(key: K, value: WorkspaceViewState[K]) => {
     setVisible(TASK_BATCH_SIZE);
     setViewState((current) => ({ ...current, [key]: value }));
   };
-  const clearFilters = () => { setSearch(""); setViewState((current) => ({ ...current, ...defaultFilters })); };
+  const clearFilters = () => { setSearch(""); setProjectFilter("all"); setViewState((current) => ({ ...current, ...defaultFilters })); };
   const mutate = useCallback(async (id: string, action: () => Promise<unknown>, message: string) => {
     if (pendingRef.current.has(id)) return;
     pendingRef.current = new Set(pendingRef.current).add(id);
@@ -86,6 +94,7 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
   };
 
   const filterSelects = ([
+    ...(allTasks ? [{ key: "project", label: "Project filter", value: projectFilterLabels[projectFilter] ? projectFilter : "all", items: projectFilterLabels, width: "w-40" }] : []),
     { key: "status", label: "Task status", value: viewState.status, items: taskStatusLabels, width: "w-32" },
     { key: "priority", label: "Priority filter", value: viewState.priority ?? "all", items: priorityFilterLabels, width: "w-36" },
     { key: "categoryId", label: "Category filter", value: viewState.categoryId ?? "all", items: categoryFilterLabels, width: "w-36" },
@@ -93,6 +102,7 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
   ] as const).map((filter) => ({
     ...filter,
     onChange: (value: string) => {
+      if (filter.key === "project") { setVisible(TASK_BATCH_SIZE); setProjectFilter(value); }
       if (filter.key === "status") update("status", value as TaskStatusFilter);
       if (filter.key === "priority") update("priority", value as PriorityFilter);
       if (filter.key === "sort") update("sort", value as TaskSort);
@@ -103,7 +113,7 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
     ? ["No matching tasks", "Try a different search or clear your filters."]
     : projectTaskCount
       ? ["No open tasks", "Switch to All statuses to see completed tasks, or add a new task."]
-      : ["No tasks yet", project ? "Add the first task to this project." : "Tasks without a project appear here."];
+      : ["No tasks yet", allTasks ? "Tasks from every project appear here." : currentProject ? "Add the first task to this project." : "Tasks without a project appear here."];
 
   return (
     <div className="flex flex-col gap-3">
@@ -125,13 +135,15 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
         <CardContent className="p-0">
           {selected.length ? (
             <>
-              <ul aria-label={`${project?.title ?? "No project"} tasks`}>
-                {selected.slice(0, visible).map((task) => (
-                  <TaskRow key={task.id} readOnly={readOnly} task={task} category={task.categoryId ? categoryMap.get(task.categoryId) : undefined}
+              <ul aria-label={allTasks ? "All tasks" : `${currentProject?.title ?? "No project"} tasks`}>
+                {selected.slice(0, visible).map((task) => {
+                  const taskProject = task.projectId ? projectMap.get(task.projectId) : undefined;
+                  return <TaskRow key={task.id} readOnly={readOnly} task={task} category={task.categoryId ? categoryMap.get(task.categoryId) : undefined}
+                    projectTitle={allTasks ? taskProject?.title ?? "" : undefined} dueDate={allTasks ? task.dueDate ?? taskProject?.dueDate ?? null : undefined}
                     pending={pending.has(task.id)} canFocus={canStartPomodoro}
                     onToggle={() => void mutate(task.id, () => onStatusChange(task.id, !task.isDone), task.isDone ? "Task reopened." : "Task completed.")}
-                    onOpen={() => setDetailId(task.id)} onEdit={() => setEditorTask(task)} onDelete={() => confirmDelete(task)} onFocus={() => onStartPomodoro(task.id)} />
-                ))}
+                    onOpen={() => setDetailId(task.id)} onEdit={() => setEditorTask(task)} onDelete={() => confirmDelete(task)} onFocus={() => onStartPomodoro(task.id)} />;
+                })}
               </ul>
               {visible < selected.length ? (
                 <Button variant="ghost" className="m-3 w-[calc(100%-1.5rem)]" onClick={() => setVisible((value) => value + TASK_BATCH_SIZE)}>
@@ -153,7 +165,8 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
       </Card>
       <ResponsiveOverlay open={Boolean(editorTask)} onOpenChange={(open) => { if (!open) setEditorTask(null); }} title={editorTask === "new" ? "New task" : "Edit task"}>
         <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-muted" />}>
-          <TaskEditor task={editorTask && editorTask !== "new" ? editorTask : undefined} projects={projects} categories={categories} initialProjectId={projectId}
+          <TaskEditor task={editorTask && editorTask !== "new" ? editorTask : undefined} projects={projects} categories={categories} initialProjectId={allTasks ? null : currentProject?.id ?? null}
+            initialPriority={currentProject?.priority ?? "none"} initialCategoryId={currentProject?.categoryId ?? null}
             onCreateCategory={onCreateCategory} onCancel={() => setEditorTask(null)}
             onSave={async (input) => {
               if (editorTask === "new") await onCreateTask(input);
@@ -166,7 +179,7 @@ export function ProjectTasks({ readOnly, project, tasks, projects, categories, v
       <ResponsiveOverlay open={Boolean(detailTask)} onOpenChange={(open) => { if (!open) setDetailId(null); }} title="Task details">
         <Suspense fallback={<p role="status">Loading task…</p>}>
           {detailTask ? (
-            <TaskDetail readOnly={readOnly} task={detailTask} project={project ?? undefined} category={detailTask.categoryId ? categoryMap.get(detailTask.categoryId) : undefined}
+            <TaskDetail readOnly={readOnly} task={detailTask} project={detailProject} category={detailTask.categoryId ? categoryMap.get(detailTask.categoryId) : undefined}
               canFocus={canStartPomodoro} isPending={pending.has(detailTask.id)}
               onEdit={() => { setDetailId(null); setEditorTask(detailTask); }} onFocus={() => onStartPomodoro(detailTask.id)} onDelete={() => confirmDelete(detailTask)} />
           ) : null}

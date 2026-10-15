@@ -1,19 +1,19 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { CalendarCheck, CalendarDays, Ellipsis, FolderKanban, Inbox, Lightbulb, Sun, Timer, UserRound } from "lucide-react";
+import { CalendarCheck, CalendarDays, Ellipsis, FolderKanban, Inbox, Lightbulb, ListChecks, Sun, Timer, UserRound } from "lucide-react";
 import { PokusLogo } from "@/components/features/PokusLogo";
 import { cn } from "@/lib/utils";
 import { MORE_PAGES, type AppPage } from "@/lib/routes";
 import type { PomodoroSession } from "@/types/task";
 
 const items = {
-  timer: { label: "Timer", Icon: Timer }, today: { label: "Today", Icon: Sun }, projects: { label: "Projects", Icon: FolderKanban },
+  timer: { label: "Timer", Icon: Timer }, today: { label: "Today", Icon: Sun }, projects: { label: "Projects", Icon: FolderKanban }, tasks: { label: "All tasks", Icon: ListChecks },
   calendar: { label: "Calendar", Icon: CalendarDays }, habits: { label: "Habits", Icon: CalendarCheck }, capture: { label: "Capture", Icon: Inbox },
   knowledge: { label: "Knowledge", Icon: Lightbulb }, profile: { label: "Profile", Icon: UserRound }, more: { label: "More", Icon: Ellipsis },
 } as const;
-// Phones get five tabs; Calendar, Habits, Knowledge, and Profile live under More.
-const desktopPages = ["timer", "today", "projects", "calendar", "habits", "capture", "knowledge", "profile"] as const;
+// Phones get five tabs; All tasks, Calendar, Habits, Knowledge, and Profile live under More.
+const desktopPages = ["timer", "today", "projects", "tasks", "calendar", "habits", "capture", "knowledge", "profile"] as const;
 const mobilePages = ["timer", "today", "projects", "capture", "more"] as const;
-const titles: Record<AppPage, string> = { timer: "Timer", today: "Today", projects: "Projects", calendar: "Calendar", habits: "Habits", capture: "Capture", knowledge: "Knowledge", profile: "Profile", more: "More" };
+const titles: Record<AppPage, string> = { timer: "Timer", today: "Today", projects: "Projects", tasks: "All tasks", calendar: "Calendar", habits: "Habits", capture: "Capture", knowledge: "Knowledge", profile: "Profile", more: "More" };
 
 interface AppShellProps {
   page: AppPage;

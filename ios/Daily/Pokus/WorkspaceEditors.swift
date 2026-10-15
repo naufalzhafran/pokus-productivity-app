@@ -13,6 +13,8 @@ struct ProjectEditorView: View {
     @State private var title: String
     @State private var description = ""
     @State private var status: ProjectStatus
+    @State private var priority: Priority
+    @State private var category: String
     @State private var hasDueDate: Bool
     @State private var dueDate: Date
     @State private var validation: String?
@@ -20,12 +22,14 @@ struct ProjectEditorView: View {
     @State private var closeRequested = false
     private enum Field { case title, description }
     @FocusState private var focusedField: Field?
-    private var draft: [String] { [title.trimmingCharacters(in: .whitespacesAndNewlines), description, status.rawValue, hasDueDate ? WorkspaceRules.dayKey(dueDate) : ""] }
+    private var draft: [String] { [title.trimmingCharacters(in: .whitespacesAndNewlines), description, status.rawValue, priority.rawValue, category, hasDueDate ? WorkspaceRules.dayKey(dueDate) : ""] }
     init(model: PokusModel, original: Project?, captureID: String? = nil, suggestedTitle: String? = nil, onSaved: ((String) -> Void)? = nil) {
         self.model = model; self.original = original; self.captureID = captureID; self.onSaved = onSaved
         _title = State(initialValue: original?.title ?? suggestedTitle ?? "")
         _description = State(initialValue: WorkspaceRules.plainText(original?.description ?? ""))
         _status = State(initialValue: original?.lifecycle ?? .active)
+        _priority = State(initialValue: original?.priority ?? .none)
+        _category = State(initialValue: original?.category ?? "")
         _hasDueDate = State(initialValue: original?.dueDate?.isEmpty == false)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.calendar = Calendar(identifier: .gregorian)
@@ -47,6 +51,10 @@ struct ProjectEditorView: View {
                     Toggle("Due date", isOn: $hasDueDate.animation())
                     if hasDueDate { DatePicker("Due", selection: $dueDate, displayedComponents: .date) }
                 }
+                Section {
+                    Picker("Priority", selection: $priority) { ForEach(Priority.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
+                    RecordSelectionLink(model: model, kind: .category, title: "Category", selection: $category)
+                } header: { Text("Organize") } footer: { Text("New tasks in this project start with this priority and category.") }
                 Section {
                     TextEditor(text: $description).frame(minHeight: 120).focused($focusedField, equals: .description)
                         .editorPrompt("Description", isShowing: description.isEmpty)
@@ -77,6 +85,7 @@ struct ProjectEditorView: View {
         do {
             if try await model.saveProject(original: original, creationID: creationID, title: title, description: description,
                                            status: status, dueDate: hasDueDate ? dueDate : nil, captureID: captureID,
+                                           priority: priority, category: category,
                                            replacementDescription: original.flatMap { WorkspaceRules.replacementDescription(description, original: $0.description) }) { onSaved?(original?.id ?? creationID); dismiss() }
             else { validation = model.error }
         } catch { validation = error.localizedDescription; focusedField = .title }
@@ -102,14 +111,16 @@ struct TaskEditorView: View {
     private enum Field { case title, description }
     @FocusState private var focusedField: Field?
     private var draft: [String] { [title.trimmingCharacters(in: .whitespacesAndNewlines), description, projectID, priority.rawValue, category, hasDueDate ? WorkspaceRules.dayKey(dueDate) : ""] }
-    /// `initialDueDate` dates a new task, such as one created from Today or a calendar day.
-    init(model: PokusModel, original: FocusTask?, projectID: String, initialDueDate: Date? = nil, onSaved: ((String) -> Void)? = nil) {
+    /// `initialDueDate` dates a new task, such as one created from Today or a calendar day; `initialPriority` and
+    /// `initialCategory` start a new task with its project's defaults.
+    init(model: PokusModel, original: FocusTask?, projectID: String, initialDueDate: Date? = nil, initialPriority: Priority = .none,
+         initialCategory: String = "", onSaved: ((String) -> Void)? = nil) {
         self.model = model; self.original = original; self.onSaved = onSaved
         _title = State(initialValue: original?.title ?? "")
         _description = State(initialValue: WorkspaceRules.plainText(original?.description ?? ""))
         _projectID = State(initialValue: original?.project ?? projectID)
-        _priority = State(initialValue: original?.priority ?? .none)
-        _category = State(initialValue: original?.category ?? "")
+        _priority = State(initialValue: original.map { $0.priority ?? .none } ?? initialPriority)
+        _category = State(initialValue: original.map { $0.category ?? "" } ?? initialCategory)
         _hasDueDate = State(initialValue: original == nil ? initialDueDate != nil : !(original?.dueDate ?? "").isEmpty)
         let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
         _dueDate = State(initialValue: original?.dueDate.flatMap { formatter.date(from: $0) } ?? initialDueDate ?? .now)

@@ -702,6 +702,9 @@ final class PokusModel {
         case .categories:
             workspaceState.value.categories.removeAll { $0.id == id }
             for index in workspaceState.value.tasks.indices where workspaceState.value.tasks[index].category == id { workspaceState.value.tasks[index].category = "" }
+            for index in workspaceState.value.projects.indices where workspaceState.value.projects[index].category == id {
+                workspaceState.value.projects[index].category = ""; workspaceState.value.projects[index].categoryName = ""
+            }
             for index in libraryState.value.knowledge.indices where libraryState.value.knowledge[index].category == id { libraryState.value.knowledge[index].category = "" }
         case .captures:
             libraryState.value.captures.removeAll { $0.id == id }
@@ -762,7 +765,7 @@ final class PokusModel {
         switch collection {
         case .projects: ["projects", "tasks", "captures", "knowledge"]
         case .tasks: ["tasks"]
-        case .categories: ["categories", "tasks", "knowledge"]
+        case .categories: ["categories", "projects", "tasks", "knowledge"]
         case .captures: ["captures", "projects", "knowledge"]
         case .knowledge: ["knowledge", "captures"]
         }

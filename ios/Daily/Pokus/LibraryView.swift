@@ -44,10 +44,11 @@ struct PokusLibraryView: View {
                         NavigationLink(value: LibraryRoute.captures) { destination("Captures", symbol: "tray", detail: "Saved links, books, and thoughts", count: summary.value?.captures) }.accessibilityLabel("Captures").accessibilityIdentifier("libraryCaptures")
                         NavigationLink(value: LibraryRoute.notes) { destination("Notes", symbol: "text.book.closed", detail: "Keep and connect what you learn", count: summary.value?.notes) }.accessibilityLabel("Notes").accessibilityIdentifier("libraryNotes")
                         NavigationLink(value: LibraryRoute.projects) { destination("Projects", symbol: "folder", detail: "Tasks and resources", count: summary.value?.projects) }.accessibilityLabel("Projects").accessibilityIdentifier("libraryProjects")
+                        NavigationLink(value: LibraryRoute.allTasks) { destination("All tasks", symbol: "checklist", detail: "Every open task in one list", count: summary.value?.openTasks) }.accessibilityLabel("All tasks").accessibilityIdentifier("libraryAllTasks")
                     }
                     Section("Organize") {
                         NavigationLink(value: LibraryRoute.calendar) { destination("Calendar", symbol: "calendar", detail: "Deadlines, tasks, habits, and reminders by date") }.accessibilityLabel("Calendar").accessibilityIdentifier("libraryCalendar")
-                        NavigationLink(value: LibraryRoute.unassigned) { destination("Unassigned tasks", symbol: "checklist", detail: "Tasks without a project", count: summary.value?.unassigned) }.accessibilityLabel("Unassigned tasks")
+                        NavigationLink(value: LibraryRoute.unassigned) { destination("Unassigned tasks", symbol: "tray.full", detail: "Tasks without a project", count: summary.value?.unassigned) }.accessibilityLabel("Unassigned tasks")
                         NavigationLink(value: LibraryRoute.categories) { destination("Categories", symbol: "tag", detail: "Organize tasks and notes", count: summary.value?.categories) }.accessibilityLabel("Categories")
                     }
                 }
@@ -62,6 +63,7 @@ struct PokusLibraryView: View {
                 case .captures: CapturesView(model: model)
                 case .notes: KnowledgeListView(model: model)
                 case .projects: PokusProjectsView(model: model)
+                case .allTasks: ProjectTasksView(model: model, projectID: nil)
                 case .review: KnowledgeReviewView(model: model)
                 case .unassigned: ProjectTasksView(model: model, projectID: "")
                 case .categories: CategoriesView(model: model)

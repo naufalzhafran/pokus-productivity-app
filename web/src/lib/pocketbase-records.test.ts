@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { captureFromRecord, captureToRecord, projectFromRecord, taskFromRecord, taskToRecord, type CaptureRecord, type ProjectRecord, type TaskRecord } from "@/lib/pocketbase-records";
+import { captureFromRecord, captureToRecord, projectFromRecord, projectToRecord, taskFromRecord, taskToRecord, type CaptureRecord, type ProjectRecord, type TaskRecord } from "@/lib/pocketbase-records";
 import { pb } from "@/lib/pocketbase";
 
 describe("PocketBase workspace adapters", () => {
@@ -15,7 +15,16 @@ describe("PocketBase workspace adapters", () => {
     const task = taskFromRecord({ id: "task", title: "Legacy", project: "", isDone: false, focusedSeconds: 0, created: "2026-07-01T00:00:00Z" } as TaskRecord);
     const project = projectFromRecord({ id: "project", title: "Legacy", description: "", isDone: false, created: "2026-07-01T00:00:00Z" } as ProjectRecord);
     expect(task).toMatchObject({ description: "", priority: "none", categoryId: null, dueDate: null });
-    expect(project).toMatchObject({ status: "active", isArchived: false, dueDate: null, captureIds: [] });
+    expect(project).toMatchObject({ status: "active", isArchived: false, dueDate: null, captureIds: [], priority: "none", categoryId: null });
+  });
+
+  it("round-trips a project's priority and category", () => {
+    pb.authStore.save("test", { id: "owner", collectionId: "users", collectionName: "users" });
+    const project = projectFromRecord({ id: "project", title: "Launch", description: "", priority: "high", category: "work", isDone: false, created: "2026-07-01T00:00:00Z" } as ProjectRecord);
+    expect(project).toMatchObject({ priority: "high", categoryId: "work" });
+    expect(projectToRecord(project)).toMatchObject({ priority: "high", category: "work" });
+    expect(projectToRecord({ ...project, priority: undefined, categoryId: null })).toMatchObject({ priority: "none", category: "" });
+    pb.authStore.clear();
   });
 
   it("round-trips new dates and reminders while defaulting older captures", () => {

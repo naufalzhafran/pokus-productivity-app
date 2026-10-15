@@ -1,7 +1,8 @@
-import { CalendarCheck, CalendarDays, ChevronRight, Lightbulb, UserRound } from "lucide-react";
+import { CalendarCheck, CalendarDays, ChevronRight, Lightbulb, ListChecks, UserRound } from "lucide-react";
 import type { AppPage } from "@/lib/routes";
 
 const links = [
+  { page: "tasks", label: "All tasks", description: "Every task in one list, filtered across projects", Icon: ListChecks },
   { page: "calendar", label: "Calendar", description: "Deadlines, dated tasks, habits, and reminders by day", Icon: CalendarDays },
   { page: "habits", label: "Habits", description: "Daily check-ins, totals, and streaks", Icon: CalendarCheck },
   { page: "knowledge", label: "Knowledge", description: "Notes distilled from your captures, and review", Icon: Lightbulb },

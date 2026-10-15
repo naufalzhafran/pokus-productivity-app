@@ -3,7 +3,7 @@ import SwiftUI
 
 enum LibraryRoute: Hashable {
     case habits, calendar
-    case captures, notes, projects, review, unassigned, categories
+    case captures, notes, projects, allTasks, review, unassigned, categories
     case capture(String), note(String), project(String), task(String)
 }
 

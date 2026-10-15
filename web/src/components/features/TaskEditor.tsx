@@ -6,13 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProjectCombobox } from "@/components/features/ProjectCombobox";
 import { CategoryCombobox } from "@/components/features/CategoryCombobox";
-import { CATEGORY_NAME_MAX_LENGTH, TASK_TITLE_MAX_LENGTH, validateTaskTitle } from "@/lib/workspace";
+import { CATEGORY_NAME_MAX_LENGTH, PRIORITY_LABELS, TASK_PRIORITIES, TASK_TITLE_MAX_LENGTH, validateTaskTitle } from "@/lib/workspace";
 import type { Category, CategoryColor, CategoryInput, Project, Task, TaskInput, TaskPriority } from "@/types/task";
 
 const RichTextEditor = lazy(() => import("@/components/features/RichTextEditor").then((module) => ({ default: module.RichTextEditor })));
 const colors: CategoryColor[] = ["slate", "red", "orange", "amber", "green", "teal", "blue", "violet", "pink"];
-const priorities: TaskPriority[] = ["none", "low", "medium", "high", "urgent"];
-const priorityLabels: Record<TaskPriority, string> = { none: "No priority", low: "Low", medium: "Medium", high: "High", urgent: "Urgent" };
 const colorLabels = Object.fromEntries(colors.map((color) => [color, color[0].toUpperCase() + color.slice(1)]));
 
 interface TaskEditorProps {
@@ -22,15 +20,18 @@ interface TaskEditorProps {
   initialProjectId: string | null;
   /** The due date a new task starts with, such as the selected calendar day. */
   initialDueDate?: string | null;
+  /** The priority and category a new task starts with, such as its project's. */
+  initialPriority?: TaskPriority;
+  initialCategoryId?: string | null;
   onCancel: () => void;
   onSave: (input: TaskInput) => Promise<unknown>;
   onCreateCategory?: (input: CategoryInput) => Promise<Category>;
 }
 
-export function TaskEditor({ task, projects, categories = [], initialProjectId, initialDueDate = null, onCancel, onSave, onCreateCategory }: TaskEditorProps) {
+export function TaskEditor({ task, projects, categories = [], initialProjectId, initialDueDate = null, initialPriority = "none", initialCategoryId = null, onCancel, onSave, onCreateCategory }: TaskEditorProps) {
   const [input, setInput] = useState<TaskInput>({
     title: task?.title ?? "", description: task?.description ?? "", projectId: task ? task.projectId : initialProjectId,
-    priority: task?.priority ?? "none", categoryId: task?.categoryId ?? null,
+    priority: task ? task.priority ?? "none" : initialPriority, categoryId: task ? task.categoryId ?? null : initialCategoryId,
     dueDate: task ? task.dueDate ?? null : initialDueDate,
   });
   const [creatingCategory, setCreatingCategory] = useState(false);
@@ -66,7 +67,7 @@ export function TaskEditor({ task, projects, categories = [], initialProjectId, 
       <Field><FieldLabel htmlFor="task-editor-project">Project</FieldLabel><ProjectCombobox id="task-editor-project" projects={projects.filter((project) => !(project.isArchived ?? project.isDone) || project.id === task?.projectId)} value={input.projectId} onValueChange={(value) => set("projectId", value)} disabled={isSaving} /></Field>
       <Field><FieldLabel htmlFor="task-editor-due">Task due date</FieldLabel><Input id="task-editor-due" type="date" value={input.dueDate ?? ""} onChange={(event) => set("dueDate", event.target.value || null)} disabled={isSaving} /><p className="text-sm text-muted-foreground">{input.dueDate ? "This date overrides the project deadline." : projects.find((project) => project.id === input.projectId)?.dueDate ? `From project: ${projects.find((project) => project.id === input.projectId)?.dueDate}. Leave empty to use the project deadline.` : "Leave empty to keep this task unscheduled."}</p></Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field><FieldLabel>Priority</FieldLabel><Select disabled={isSaving} items={priorityLabels} value={input.priority} onValueChange={(value) => set("priority", value as TaskPriority)}><SelectTrigger aria-label="Task priority"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{priorities.map((value) => <SelectItem key={value} value={value}>{priorityLabels[value]}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
+        <Field><FieldLabel>Priority</FieldLabel><Select disabled={isSaving} items={PRIORITY_LABELS} value={input.priority} onValueChange={(value) => set("priority", value as TaskPriority)}><SelectTrigger aria-label="Task priority"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{TASK_PRIORITIES.map((value) => <SelectItem key={value} value={value}>{PRIORITY_LABELS[value]}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
         <Field><FieldLabel htmlFor="task-editor-category">Category</FieldLabel><CategoryCombobox id="task-editor-category" categories={categories} value={input.categoryId} onValueChange={(value) => set("categoryId", value)} disabled={isSaving} />{onCreateCategory ? <Button type="button" variant="ghost" size="sm" disabled={isSaving} aria-expanded={creatingCategory} onClick={() => setCreatingCategory((value) => !value)}><Plus data-icon="inline-start" />{creatingCategory ? "Cancel new category" : "New category"}</Button> : null}</Field>
       </div>
       {creatingCategory ? <div className="grid gap-3 rounded-2xl border p-3 sm:grid-cols-[1fr_10rem_auto]"><Input disabled={isSaving} aria-label="New category name" value={categoryName} maxLength={CATEGORY_NAME_MAX_LENGTH} onChange={(event) => setCategoryName(event.target.value)} placeholder="Category name" /><Select disabled={isSaving} items={colorLabels} value={categoryColor} onValueChange={(value) => setCategoryColor(value as CategoryColor)}><SelectTrigger aria-label="Category color"><SelectValue /></SelectTrigger><SelectContent>{colors.map((color) => <SelectItem key={color} value={color}>{colorLabels[color]}</SelectItem>)}</SelectContent></Select><Button type="button" onClick={() => void createCategory()} disabled={!categoryName.trim() || isSaving}>Create</Button></div> : null}

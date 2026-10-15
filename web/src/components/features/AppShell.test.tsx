@@ -30,6 +30,8 @@ describe("AppShell", () => {
     expect(onNavigateIntent).toHaveBeenCalledWith("projects");
     expect(onNavigate).toHaveBeenCalledWith("projects");
 
+    expect(screen.getByRole("link", { name: "All tasks" })).toHaveAttribute("href", "#tasks");
+
     await user.hover(screen.getAllByRole("link", { name: "Timer" })[0]);
     expect(onNavigateIntent).toHaveBeenCalledWith("timer");
   });
@@ -51,7 +53,7 @@ describe("AppShell", () => {
   it("keeps phone navigation to five tabs and marks More for pages inside it", () => {
     render(<AppShell page="habits" session={null} onNavigate={vi.fn()}><p>Habits</p></AppShell>);
     const [desktop, phone] = screen.getAllByRole("navigation", { name: "Primary navigation" });
-    expect(within(desktop).getAllByRole("link").map((link) => link.textContent)).toEqual(["Timer", "Today", "Projects", "Calendar", "Habits", "Capture", "Knowledge", "Profile"]);
+    expect(within(desktop).getAllByRole("link").map((link) => link.textContent)).toEqual(["Timer", "Today", "Projects", "All tasks", "Calendar", "Habits", "Capture", "Knowledge", "Profile"]);
     expect(within(phone).getAllByRole("link")).toHaveLength(5);
     expect(within(phone).getByRole("link", { name: "More, Habits" })).toHaveAttribute("href", "#more");
     expect(within(desktop).getByRole("link", { name: "Habits" })).toHaveAttribute("aria-current", "page");

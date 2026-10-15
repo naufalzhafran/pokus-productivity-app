@@ -3,26 +3,30 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CategoryCombobox } from "@/components/features/CategoryCombobox";
 import { ConfirmPrompt, type ConfirmRequest } from "@/components/features/ConfirmPrompt";
-import { getProjectStatus, PROJECT_STATUS_LABELS, PROJECT_TITLE_MAX_LENGTH } from "@/lib/workspace";
-import type { Project, ProjectInput, ProjectStatus } from "@/types/task";
+import { getProjectStatus, PRIORITY_LABELS, PROJECT_STATUS_LABELS, PROJECT_TITLE_MAX_LENGTH, TASK_PRIORITIES } from "@/lib/workspace";
+import type { Category, Project, ProjectInput, ProjectStatus, TaskPriority } from "@/types/task";
 
 const RichTextEditor = lazy(() => import("@/components/features/RichTextEditor").then((module) => ({ default: module.RichTextEditor })));
 
 interface ProjectEditorProps {
   project?: Project;
+  categories?: Category[];
   /** Open tasks in the project, used to confirm completing it. */
   openTaskCount?: number;
   onCancel: () => void;
   onSave: (input: ProjectInput) => Promise<unknown>;
 }
 
-export function ProjectEditor({ project, openTaskCount = 0, onCancel, onSave }: ProjectEditorProps) {
+export function ProjectEditor({ project, categories = [], openTaskCount = 0, onCancel, onSave }: ProjectEditorProps) {
   const [input, setInput] = useState<ProjectInput>({
     title: project?.title ?? "",
     description: project?.description ?? "",
     status: project ? getProjectStatus(project) : "active",
     dueDate: project?.dueDate ?? null,
+    priority: project?.priority ?? "none",
+    categoryId: project?.categoryId ?? null,
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -73,6 +77,22 @@ export function ProjectEditor({ project, openTaskCount = 0, onCancel, onSave }: 
           <Input id="project-due-date" type="date" value={input.dueDate ?? ""} onChange={(event) => setInput((current) => ({ ...current, dueDate: event.target.value || null }))} />
         </Field>
       </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel>Priority</FieldLabel>
+          <Select items={PRIORITY_LABELS} value={input.priority ?? "none"} onValueChange={(value) => setInput((current) => ({ ...current, priority: value as TaskPriority }))}>
+            <SelectTrigger aria-label="Project priority" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TASK_PRIORITIES.map((value) => <SelectItem key={value} value={value}>{PRIORITY_LABELS[value]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="project-category">Category</FieldLabel>
+          <CategoryCombobox id="project-category" categories={categories} value={input.categoryId ?? null} onValueChange={(categoryId) => setInput((current) => ({ ...current, categoryId }))} disabled={saving} />
+        </Field>
+      </div>
+      <p className="-mt-2 text-sm text-muted-foreground">New tasks in this project start with this priority and category.</p>
       <Field>
         <FieldLabel>Description</FieldLabel>
         <Suspense fallback={<div className="h-48 animate-pulse rounded-2xl bg-muted" />}>

@@ -155,23 +155,28 @@ public enum RecordFilters {
     public static let inProgress = "isProcessed = false && (projects_via_captures.id ?!= '' || knowledge_via_sources.id ?!= '')"
 }
 public enum RecordQueries {
-    public static func projects(search: String = "", status: String = "any", ids: [String]? = nil) -> RecordQuery<Project> {
+    /// `status` "all" is every unarchived project; "open" also leaves out completed ones. `category` is a category id,
+    /// "none" for projects without one, or empty for any.
+    public static func projects(search: String = "", status: String = "any", category: String = "", ids: [String]? = nil) -> RecordQuery<Project> {
         let state: String
         switch status {
         case "any": state = ""
         case "archived": state = "isDone = true"
         case "all": state = "isDone = false"
+        case "open": state = "isDone = false && status != 'completed'"
         case "due":
             let end = WorkspaceRules.dayKey(Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date())
             state = "isDone = false && status != 'completed' && dueDate != '' && dueDate <= \(RecordFilters.literal(end))"
         case "active": state = "isDone = false && (status = 'active' || status = '')"
         default: state = "isDone = false && status = \(RecordFilters.literal(status))"
         }
-        let base = RecordFilters.and([state, ids.map(RecordFilters.ids) ?? ""])
+        let categoryFilter = category.isEmpty ? "" : category == "none" ? "category = ''" : "category = \(RecordFilters.literal(category))"
+        let base = RecordFilters.and([state, categoryFilter, ids.map(RecordFilters.ids) ?? ""])
         var query = RecordQuery<Project>("projects", segments: [
             RecordSegment(filter: RecordFilters.and([base, "dueDate != ''"]), sort: "dueDate,-created,id"),
             RecordSegment(filter: RecordFilters.and([base, "dueDate = ''"]), sort: "-created,id")
-        ], fields: "id,title,isDone,status,dueDate,created" + (search.isEmpty ? "" : ",description"))
+        ], fields: "id,title,isDone,status,dueDate,created,priority,category,expand.category.name" + (search.isEmpty ? "" : ",description"))
+        query.expand = "category"
         query.matches = { search.isEmpty || ($0.title + " " + WorkspaceRules.plainText($0.description)).localizedCaseInsensitiveContains(search) }
         query.trim = { var row = $0; row.description = ""; return row }
         return query

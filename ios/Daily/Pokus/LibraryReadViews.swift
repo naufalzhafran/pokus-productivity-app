@@ -18,6 +18,7 @@ struct LibraryOverviewSummary: Sendable {
     let captures: Int
     let notes: Int
     let projects: Int
+    let openTasks: Int
     let unassigned: Int
     let categories: Int
     let due: Int
@@ -25,14 +26,15 @@ struct LibraryOverviewSummary: Sendable {
     static func load(_ api: PocketBaseClient) async throws -> Self {
         async let captures = api.count("captures")
         async let notes = api.count("knowledge")
-        async let projects = api.count("projects", filter: "isDone = false")
+        async let projects = api.count("projects", filter: "isDone = false && status != 'completed'")
+        async let openTasks = api.count("tasks", filter: "isDone = false && (project = '' || project.isDone = false)")
         async let unassigned = api.count("tasks", filter: "project = '' && isDone = false")
         async let categories = api.count("categories")
         async let due = api.count("knowledge", filter: LibraryReadQueries.due, cacheKey: "knowledge-due-count")
         async let next: RecordPage<Knowledge> = api.listPage("knowledge", perPage: 1,
             filter: "status = 'evergreen' && nextReviewAt > \(Int(Date().timeIntervalSince1970 * 1000))", sort: "nextReviewAt,id", fields: LibraryReadQueries.noteFields,
             cacheKey: "knowledge-next-review")
-        return try await Self(captures: captures, notes: notes, projects: projects, unassigned: unassigned,
+        return try await Self(captures: captures, notes: notes, projects: projects, openTasks: openTasks, unassigned: unassigned,
                               categories: categories, due: due, nextReview: next.items.first?.nextReviewAt)
     }
 }
@@ -55,8 +57,8 @@ enum LibraryReadQueries {
         query.matches = { LibrarySearch.matches([$0.title, $0.summary, $0.locator, $0.body], query: search) }
         return query
     }
-    static func searchedProjects(_ search: String, status: String = "any") -> RecordQuery<Project> {
-        var query = RecordQueries.projects(search: search, status: status)
+    static func searchedProjects(_ search: String, status: String = "any", category: String = "") -> RecordQuery<Project> {
+        var query = RecordQueries.projects(search: search, status: status, category: category)
         query.matches = { LibrarySearch.matches([$0.title, $0.description], query: search) }
         return query
     }

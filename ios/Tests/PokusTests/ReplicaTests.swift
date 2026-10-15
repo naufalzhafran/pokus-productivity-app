@@ -190,6 +190,34 @@ struct ReplicaTests {
         #expect(await replica.status().pendingIDs.isEmpty)
     }
 
+    @Test func projectsCarryPriorityAndCategoryAndFilterByThem() async throws {
+        let harness = Harness(); defer { try? FileManager.default.removeItem(at: harness.directory) }
+        await harness.seedWorkspace()
+        await harness.server.seed("categories", [["id": .string("category000001"), "name": .string("Work"), "color": .string("blue")]])
+        await harness.server.seed("projects", [["id": .string("project0000003"), "title": .string("Done"), "isDone": .bool(false), "status": .string("completed")]])
+        await harness.server.edit("projects", "project0000001", ["priority": .string("high"), "category": .string("category000001")])
+        let replica = harness.replica()
+        try await replica.pull(harness.remote)
+        let local = harness.local(replica, online: false)
+        let open = try await RecordReader(api: local, query: RecordQueries.projects(status: "open")).next()
+        #expect(open.items.map(\.title) == ["Active"])
+        #expect(open.items.first?.priority == .high)
+        #expect(open.items.first?.category == "category000001")
+        #expect(open.items.first?.categoryName == "Work")
+        let unarchived = try await RecordReader(api: local, query: RecordQueries.projects(status: "all")).next()
+        #expect(Set(unarchived.items.map(\.title)) == ["Active", "Done"])
+        let work = try await RecordReader(api: local, query: RecordQueries.projects(status: "all", category: "category000001")).next()
+        #expect(work.items.map(\.title) == ["Active"])
+        let uncategorized = try await RecordReader(api: local, query: RecordQueries.projects(status: "all", category: "none")).next()
+        #expect(uncategorized.items.map(\.title) == ["Done"])
+        let legacy: Project? = try await local.record("projects", id: "project0000003")
+        #expect(legacy?.priority == Priority.none)
+        // Deleting a category unsets it on projects, as PocketBase does.
+        try await local.delete("categories", id: "category000001")
+        let cleared: Project? = try await local.record("projects", id: "project0000001")
+        #expect(cleared?.category == "")
+    }
+
     @Test func pendingChangesSurviveRelaunchAndOverlayDownloadedRows() async throws {
         let harness = Harness(); defer { try? FileManager.default.removeItem(at: harness.directory) }
         await harness.seedWorkspace()

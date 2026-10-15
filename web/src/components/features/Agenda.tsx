@@ -88,7 +88,7 @@ export function AgendaEditor({ editor, onClose, readOnly, tasks, projects, categ
   return <ResponsiveOverlay open={Boolean(editor)} onOpenChange={(value) => { if (!value) onClose(); }} title={creating ? "New task" : editedTask ? "Edit task" : "Edit project"}>
     <Suspense fallback={<Skeleton className="h-64 w-full" />}>
       {editedTask && !readOnly ? <TaskEditor key={editedTask.id} task={editedTask} initialProjectId={editedTask.projectId} projects={projects} categories={categories} onCreateCategory={onCreateCategory} onCancel={onClose} onSave={async (input) => { await onEditTask(editedTask.id, input); onClose(); }} /> : null}
-      {editedProject && !readOnly ? <ProjectEditor key={editedProject.id} project={editedProject} openTaskCount={tasks.filter((task) => task.projectId === editedProject.id && !task.isDone).length} onCancel={onClose} onSave={async (input) => { await onEditProject(editedProject.id, input); onClose(); }} /> : null}
+      {editedProject && !readOnly ? <ProjectEditor key={editedProject.id} project={editedProject} categories={categories} openTaskCount={tasks.filter((task) => task.projectId === editedProject.id && !task.isDone).length} onCancel={onClose} onSave={async (input) => { await onEditProject(editedProject.id, input); onClose(); }} /> : null}
       {creating && onCreateTask && !readOnly ? <TaskEditor initialProjectId={null} initialDueDate={creating.day} projects={projects} categories={categories} onCreateCategory={onCreateCategory} onCancel={onClose}
         onSave={async (input) => { await onCreateTask(input); onClose(); toast.success(input.dueDate ? "Task added to your calendar." : "Task added."); }} /> : null}
       {readOnly ? <p>Connect and sign in to edit this item.</p> : null}

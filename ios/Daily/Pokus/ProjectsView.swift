@@ -5,7 +5,9 @@ import SwiftUI
 struct PokusProjectsView: View {
     @Bindable var model: PokusModel
     @State private var search = ""
-    @State private var filter = "all"
+    @State private var filter = "open"
+    @State private var category = ""
+    @State private var uncategorized = false
     @State private var creating = false
     @State private var showingFilters = false
     @State private var editing: Project?
@@ -13,14 +15,16 @@ struct PokusProjectsView: View {
     @State private var confirmation: String?
     @State private var save = SaveAction()
     private var editable: Bool { model.canEdit && !save.isSaving }
-    private var narrowed: Bool { filter != "all" || !search.isEmpty }
+    private var categoryFilter: String { uncategorized ? "none" : category }
+    private var filtered: Bool { filter != "open" || !categoryFilter.isEmpty }
+    private var narrowed: Bool { filtered || !search.isEmpty }
     var body: some View {
         List { Group {
             AccountNotice(model: model)
             LibrarySaveNotice(message: confirmation)
-            if filter != "all" { LibraryFilterSummary(text: filterTitle, active: true) { filter = "all" } }
+            if filtered { LibraryFilterSummary(text: filterSummary, active: true) { resetFilters() } }
             Section(filterTitle) {
-                PagedRows(model: model, query: LibraryReadQueries.searchedProjects(search, status: filter), identity: filter, search: search,
+                PagedRows(model: model, query: LibraryReadQueries.searchedProjects(search, status: filter, category: categoryFilter), identity: "\(filter)-\(categoryFilter)", search: search,
                           emptyTitle: narrowed ? "No matching projects" : "No projects yet", symbol: "folder",
                           emptyDescription: narrowed ? "Clear your search and filters to see more projects." : "Create a project to keep its tasks and resources together.",
                           emptyActionTitle: narrowed ? "Clear search and filters" : "New project", emptyAction: emptyAction, emptyActionDisabled: !narrowed && !model.canEdit) { project in
@@ -28,7 +32,7 @@ struct PokusProjectsView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(project.title).font(.headline)
                             ProjectSummaryView(model: model, id: project.id)
-                            Text(project.isDone ? "Archived · \(project.lifecycle.label)" : project.lifecycle.label).font(.caption).foregroundStyle(Color.pk.textSecondary)
+                            Text(projectLabels(project)).font(.caption).foregroundStyle(Color.pk.textSecondary)
                             if let due = project.dueDate, !due.isEmpty { Text(LibraryDates.due(due)).font(.caption).foregroundStyle(Color.pk.textSecondary) }
                         }.padding(.vertical, 6)
                     }.accessibilityLabel(project.title)
@@ -45,9 +49,13 @@ struct PokusProjectsView: View {
                         }
                 }
             }
-        }.pkRowBackground() }.pkScreenBackground().id("\(filter)-\(search)").searchable(text: $search, prompt: "Search projects").navigationTitle("Projects").refreshable { await model.refresh() }
+        }.pkRowBackground() }.pkScreenBackground().id("\(filter)-\(categoryFilter)-\(search)").searchable(text: $search, prompt: "Search projects").navigationTitle("Projects").refreshable { await model.refresh() }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button("Filter projects", systemImage: filter == "all" ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill") { showingFilters = true } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink { ProjectTasksView(model: model, projectID: nil) } label: { Label("All tasks", systemImage: "checklist") }
+                        .accessibilityIdentifier("allTasks")
+                }
+                ToolbarItem(placement: .topBarTrailing) { Button("Filter projects", systemImage: !filtered ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill") { showingFilters = true } }
                 ToolbarItem(placement: .primaryAction) { Button("New project", systemImage: "plus") { creating = true }.disabled(!model.canEdit) }
             }
             .sheet(isPresented: $creating) { ProjectEditorView(model: model, original: nil, onSaved: { _ in confirmation = "Project saved" }) }
@@ -58,12 +66,14 @@ struct PokusProjectsView: View {
                 }
             }
             .sheet(isPresented: $showingFilters) {
-                LibraryFilterSheet(title: "Filter projects", reset: { filter = "all" }) {
+                LibraryFilterSheet(title: "Filter projects", reset: resetFilters) {
                     Picker("Show projects", selection: $filter) {
-                        Text("All unarchived").tag("all")
+                        Text("Open").tag("open")
                         ForEach(ProjectStatus.allCases, id: \.self) { Text($0.label).tag($0.rawValue) }
                         Text("Due soon").tag("due"); Text("Archived").tag("archived")
                     }
+                    Toggle("Only projects without a category", isOn: $uncategorized)
+                    if !uncategorized { RecordSelectionLink(model: model, kind: .category, title: "Category", selection: $category, none: "All categories") }
                 }
             }
             .alert("Delete this project?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), presenting: deleting) { project in
@@ -81,15 +91,28 @@ struct PokusProjectsView: View {
             guard await model.write(collection: .projects, id: project.id, fields: ["isDone": .bool(archived)]) else { throw PokusError.message(model.error ?? "Couldn't update this project.") }
         } onSuccess: { confirmation = archived ? "Project archived" : "Project restored" }
     }
-    private func emptyAction() { if narrowed { filter = "all"; search = "" } else { creating = true } }
+    private func resetFilters() { filter = "open"; category = ""; uncategorized = false }
+    private func emptyAction() { if narrowed { resetFilters(); search = "" } else { creating = true } }
+    private func projectLabels(_ project: Project) -> String {
+        var labels = [project.isDone ? "Archived · \(project.lifecycle.label)" : project.lifecycle.label]
+        if let priority = project.priority, priority != .none { labels.append("\(priority.rawValue.capitalized) priority") }
+        if !project.categoryName.isEmpty { labels.append(project.categoryName) }
+        return labels.joined(separator: " · ")
+    }
+    private var filterSummary: String {
+        var labels = [filterTitle]
+        if uncategorized { labels.append("No category") } else if !category.isEmpty { labels.append("Category selected") }
+        return labels.joined(separator: " · ")
+    }
     private var filterTitle: String {
-        switch filter { case "all": "All unarchived projects"; case "due": "Due soon"; case "archived": "Archived"; default: ProjectStatus.allCases.first { $0.rawValue == filter }?.label ?? "Projects" }
+        switch filter { case "open": "Open projects"; case "due": "Due soon"; case "archived": "Archived"; default: ProjectStatus.allCases.first { $0.rawValue == filter }?.label ?? "Projects" }
     }
 }
 
 struct ProjectTasksView: View {
     @Bindable var model: PokusModel
-    let projectID: String
+    /// A project id, empty for unassigned tasks, or nil for every task.
+    let projectID: String?
     @State private var projectRecord = ReadState<Project?>()
     @State private var retry = 0
     @State private var search = ""
@@ -97,6 +120,7 @@ struct ProjectTasksView: View {
     @State private var priority = "all"
     @State private var category = ""
     @State private var sort = "smart"
+    @State private var projectFilter = ""
     @State private var editingProject = false
     @State private var showingProjectDetails = false
     @State private var taskEditorOpen = false
@@ -113,9 +137,20 @@ struct ProjectTasksView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     private var project: Project? { projectRecord.value ?? nil }
-    private var activeFilters: Bool { priority != "all" || !category.isEmpty || sort != "smart" }
+    private var allTasks: Bool { projectID == nil }
+    private var scopedID: String { projectID ?? "" }
+    private var activeFilters: Bool { priority != "all" || !category.isEmpty || sort != "smart" || !projectFilter.isEmpty }
     private var narrowed: Bool { activeFilters || !search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var queryID: String { "\(projectID)-\(status)-\(priority)-\(category)-\(sort)" }
+    private var queryID: String { "\(projectID ?? "all")-\(projectFilter)-\(status)-\(priority)-\(category)-\(sort)" }
+    private var taskQuery: RecordQuery<FocusTask> {
+        guard allTasks else { return LibraryReadQueries.searchedTasks(search, project: scopedID, status: status, priority: priority, category: category, sort: sort) }
+        var query = LibraryReadQueries.searchedTasks(search, project: projectFilter.isEmpty ? nil : projectFilter, status: status, priority: priority, category: category, sort: sort)
+        // Every task, except those in archived projects unless one is picked.
+        if projectFilter.isEmpty {
+            query.segments = query.segments.map { .init(filter: RecordFilters.and([$0.filter, "project = '' || project.isDone = false"]), sort: $0.sort) }
+        }
+        return query
+    }
     private var compactControls: Bool { typeSize.isAccessibilitySize || verticalSizeClass == .compact }
     var body: some View {
         ScrollViewReader { scroll in
@@ -142,20 +177,20 @@ struct ProjectTasksView: View {
                                 .accessibilityAddTraits(.isHeader).accessibilityIdentifier("projectTitle")
                             Text(projectMetadata(project)).font(.subheadline).foregroundStyle(Color.pk.textSecondary)
                         }
-                        ProjectSummaryView(model: model, id: projectID, includeFocus: true, detailed: true)
+                        ProjectSummaryView(model: model, id: project.id, includeFocus: true, detailed: true)
                     }
                     .padding(.vertical, 8)
                 }
-            } else if !projectID.isEmpty {
+            } else if !scopedID.isEmpty {
                 if projectRecord.isLoading { ProgressView("Loading project") }
                 else if projectRecord.error == nil && projectRecord.value != nil { ContentUnavailableView("Project unavailable", systemImage: "folder", description: Text("It may have been deleted.")) }
                 if let error = projectRecord.error { ReadError(message: error) { retry += 1 } }
             }
-            if project != nil || projectID.isEmpty || (projectRecord.value == nil && projectRecord.error == nil) {
+            if project != nil || scopedID.isEmpty || (projectRecord.value == nil && projectRecord.error == nil) {
                 Section {
                     taskControls.listRowSeparator(.hidden)
                     if showingSearch { taskSearchField.listRowSeparator(.hidden) }
-                    PagedRows(model: model, query: LibraryReadQueries.searchedTasks(search, project: projectID, status: status, priority: priority, category: category, sort: sort), identity: queryID, search: search,
+                    PagedRows(model: model, query: taskQuery, identity: queryID, search: search,
                               emptyTitle: emptyTitle, symbol: "checklist", emptyDescription: emptyDescription,
                               emptyActionTitle: narrowed ? "Clear search and filters" : nil, emptyAction: clearTaskSearch,
                               compactEmpty: true) { task in
@@ -203,14 +238,14 @@ struct ProjectTasksView: View {
         }.pkRowBackground() }.pkScreenBackground().listStyle(.insetGrouped)
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("projectTaskList")
-            .navigationTitle(projectID.isEmpty ? "Unassigned tasks" : "Project")
+            .navigationTitle(allTasks ? "All tasks" : scopedID.isEmpty ? "Unassigned tasks" : "Project")
             .navigationBarTitleDisplayMode(.inline).refreshable { await model.refresh() }
-            .task(id: "\(model.queryIdentity)-\(projectID)-\(retry)") {
-                guard !projectID.isEmpty else { return }
+            .task(id: "\(model.queryIdentity)-\(scopedID)-\(retry)") {
+                guard let projectID, !projectID.isEmpty else { return }
                 await projectRecord.load { try await model.readAPI().record("projects", id: projectID) }
             }
             .toolbar {
-                if project != nil || projectID.isEmpty {
+                if project != nil || scopedID.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(showingSearch ? "Close task search" : "Search tasks", systemImage: "magnifyingglass") {
                             showingSearch.toggle()
@@ -233,7 +268,7 @@ struct ProjectTasksView: View {
                             Button(project.isDone ? "Restore project" : "Archive project", systemImage: "archivebox") {
                                 let archived = !project.isDone
                                 save.performAsync {
-                                    guard await model.write(collection: .projects, id: projectID, fields: ["isDone": .bool(archived)]) else { throw PokusError.message(model.error ?? "Couldn't update this project.") }
+                                    guard await model.write(collection: .projects, id: scopedID, fields: ["isDone": .bool(archived)]) else { throw PokusError.message(model.error ?? "Couldn't update this project.") }
                                 } onSuccess: { confirmation = archived ? "Project archived" : "Project restored" }
                             }.disabled(!model.canEdit || save.isSaving)
                             Divider()
@@ -244,17 +279,20 @@ struct ProjectTasksView: View {
                 }
             }
             .navigationDestination(isPresented: $showingProjectDetails) {
-                ProjectResourcesDetailView(model: model, projectID: projectID)
+                ProjectResourcesDetailView(model: model, projectID: scopedID)
             }
             .sheet(isPresented: $editingProject) { if let project { ProjectEditorView(model: model, original: project, onSaved: { _ in confirmation = "Project saved" }) } }
             .sheet(isPresented: $taskEditorOpen) {
-                TaskEditorView(model: model, original: nil, projectID: projectID, onSaved: { _ in
+                // A task added inside a project starts with the project's priority and category.
+                TaskEditorView(model: model, original: nil, projectID: scopedID, initialPriority: project?.priority ?? .none,
+                               initialCategory: project?.category ?? "", onSaved: { _ in
                     status = "open"; clearTaskSearch(); showingSearch = false; confirmation = "Task saved"
                     taskListReset += 1
                 })
             }
             .sheet(isPresented: $showingFilters) {
                 LibraryFilterSheet(title: "Filter and sort", reset: resetFilters) {
+                    if allTasks { RecordSelectionLink(model: model, kind: .project, title: "Project", selection: $projectFilter, none: "All projects") }
                     Picker("Priority", selection: $priority) { Text("All priorities").tag("all"); ForEach(Priority.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0.rawValue) } }
                     RecordSelectionLink(model: model, kind: .category, title: "Category", selection: $category, none: "All categories")
                     Picker("Sort", selection: $sort) { Text("Recommended").tag("smart"); Text("Priority").tag("priority"); Text("Newest first").tag("newest"); Text("Oldest first").tag("oldest"); Text("Title").tag("alphabetical"); Text("Most focused time").tag("focused") }
@@ -264,7 +302,7 @@ struct ProjectTasksView: View {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete project", role: .destructive) {
                     save.performAsync {
-                        guard await model.write(collection: .projects, id: projectID, fields: [:], delete: true) else { throw PokusError.message(model.error ?? "Couldn't delete this project.") }
+                        guard await model.write(collection: .projects, id: scopedID, fields: [:], delete: true) else { throw PokusError.message(model.error ?? "Couldn't delete this project.") }
                     } onSuccess: { dismiss() }
                 }
             } message: { Text("Its tasks become unassigned. Task completion and focus history are preserved.") }
@@ -280,7 +318,7 @@ struct ProjectTasksView: View {
             }
         }
             .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
-            .disabled(!model.canEdit || (!projectID.isEmpty && project == nil))
+            .disabled(!model.canEdit || (!scopedID.isEmpty && project == nil))
     }
     private var taskControls: some View {
         Group {
@@ -365,13 +403,14 @@ struct ProjectTasksView: View {
     }
     private func taskMetadata(_ task: FocusTask) -> String {
         var labels: [String] = []
+        if allTasks { labels.append(task.projectTitle.isEmpty ? "No project" : task.projectTitle) }
         if !task.isDone, let due = task.dueDate, !due.isEmpty { labels.append(LibraryDates.due(due)) }
         if task.focusedSeconds > 0 { labels.append(WorkspaceRules.focused(task.focusedSeconds)) }
         if let priority = task.priority, priority != .none { labels.append("\(priority.rawValue.capitalized) priority") }
         if !task.categoryName.isEmpty { labels.append(task.categoryName) }
         return labels.joined(separator: " · ")
     }
-    private func resetFilters() { priority = "all"; category = ""; sort = "smart" }
+    private func resetFilters() { priority = "all"; category = ""; sort = "smart"; projectFilter = "" }
     private func clearTaskSearch() { resetFilters(); search = "" }
     private func toggle(_ task: FocusTask) {
         let done = !task.isDone
@@ -381,6 +420,7 @@ struct ProjectTasksView: View {
     }
     private var filterSummary: String {
         var labels: [String] = []
+        if !projectFilter.isEmpty { labels.append("Project selected") }
         if priority != "all" { labels.append("\(priority.capitalized) priority") }
         if !category.isEmpty { labels.append("Category selected") }
         if sort != "smart" { labels.append(sort == "focused" ? "Most focused time" : sort.capitalized) }

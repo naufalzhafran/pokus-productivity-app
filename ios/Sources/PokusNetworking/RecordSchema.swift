@@ -18,7 +18,8 @@ public enum RecordSchema {
     ]
 
     static let relations: [String: [String: Relation]] = [
-        "projects": ["captures": Relation(collection: "captures", multiple: true, cascade: false)],
+        "projects": ["captures": Relation(collection: "captures", multiple: true, cascade: false),
+                     "category": Relation(collection: "categories", multiple: false, cascade: false)],
         "tasks": ["project": Relation(collection: "projects", multiple: false, cascade: false),
                   "category": Relation(collection: "categories", multiple: false, cascade: false)],
         "pomodoro_sessions": ["task": Relation(collection: "tasks", multiple: false, cascade: false)],
@@ -33,7 +34,8 @@ public enum RecordSchema {
     private static let defaults: [String: [String: JSONValue]] = [
         "categories": ["owner": .string(""), "name": .string(""), "color": .string("")],
         "projects": ["owner": .string(""), "title": .string(""), "description": .string(""), "isDone": .bool(false),
-                     "status": .string(""), "dueDate": .string(""), "captures": .array([])],
+                     "status": .string(""), "dueDate": .string(""), "captures": .array([]), "priority": .string(""),
+                     "category": .string("")],
         "tasks": ["owner": .string(""), "project": .string(""), "title": .string(""), "isDone": .bool(false),
                   "focusedSeconds": .number(0), "description": .string(""), "priority": .string(""),
                   "category": .string(""), "dueDate": .string("")],

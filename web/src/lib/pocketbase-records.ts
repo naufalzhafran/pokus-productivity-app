@@ -28,6 +28,8 @@ export interface ProjectRecord extends RecordModel {
   status?: Project["status"];
   dueDate?: string;
   captures?: string[];
+  priority?: Project["priority"] | "";
+  category?: string;
   created: string;
 }
 
@@ -112,6 +114,8 @@ export function projectFromRecord(record: ProjectRecord): Project {
     status: record.status || "active",
     createdAt: Date.parse(record.created),
     dueDate: record.dueDate || null,
+    priority: record.priority || "none",
+    categoryId: record.category || null,
     captureIds: record.captures ?? [],
   };
 }
@@ -154,6 +158,8 @@ export function projectToRecord(project: Project) {
     isDone: project.isArchived ?? project.isDone ?? false,
     status: project.status ?? "active",
     dueDate: project.dueDate ?? "",
+    priority: project.priority ?? "none",
+    category: project.categoryId ?? "",
     captures: project.captureIds ?? [],
   };
 }

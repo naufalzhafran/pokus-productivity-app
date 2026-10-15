@@ -1,36 +1,41 @@
-import { CalendarDays, Inbox } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { dueLabel, formatFocused, getProjectStatus, isProjectArchived, PROJECT_STATUS_LABELS, type ProjectStats } from "@/lib/workspace";
+import { CategoryPill } from "@/components/features/CategoryPill";
+import { dueLabel, formatFocused, getProjectStatus, isProjectArchived, PRIORITY_LABELS, PROJECT_STATUS_LABELS, type ProjectStats } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
-import type { Project } from "@/types/task";
+import type { Category, Project } from "@/types/task";
 
 const EMPTY_STATS: ProjectStats = { taskCount: 0, openCount: 0, completedCount: 0, focusedSeconds: 0 };
 
 interface ProjectCardProps {
-  /** `null` renders the card for tasks without a project. */
-  project: Project | null;
+  project: Project;
+  category?: Category;
   href: string;
   stats?: ProjectStats;
   captureCount?: number;
   today: string;
 }
 
-export function ProjectCard({ project, href, stats = EMPTY_STATS, captureCount = 0, today }: ProjectCardProps) {
-  const title = project?.title ?? "No project";
+export function ProjectCard({ project, category, href, stats = EMPTY_STATS, captureCount = 0, today }: ProjectCardProps) {
   const progress = stats.taskCount ? Math.round((stats.completedCount / stats.taskCount) * 100) : 0;
-  const due = dueLabel(project?.dueDate, today);
-  const dueSoon = Boolean(project?.dueDate && project.dueDate <= today);
+  const due = dueLabel(project.dueDate, today);
+  const dueSoon = Boolean(project.dueDate && project.dueDate <= today);
+  const priority = project.priority ?? "none";
   return (
     <a href={href} className="group flex h-full min-w-0 flex-col gap-3 rounded-[min(var(--radius-4xl),24px)] border bg-card p-4 text-card-foreground transition-colors hover:border-primary/40 hover:bg-accent/40">
       <div className="flex items-start gap-2">
-        {project ? null : <Inbox aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
-        <h2 className="min-w-0 flex-1 font-semibold leading-snug [overflow-wrap:anywhere] group-hover:underline">{title}</h2>
-        {project ? <Badge variant={isProjectArchived(project) ? "secondary" : "outline"} className="shrink-0">{isProjectArchived(project) ? "Archived" : PROJECT_STATUS_LABELS[getProjectStatus(project)]}</Badge> : null}
+        <h2 className="min-w-0 flex-1 font-semibold leading-snug [overflow-wrap:anywhere] group-hover:underline">{project.title}</h2>
+        <Badge variant={isProjectArchived(project) ? "secondary" : "outline"} className="shrink-0">{isProjectArchived(project) ? "Archived" : PROJECT_STATUS_LABELS[getProjectStatus(project)]}</Badge>
       </div>
-      {project ? null : <p className="text-sm text-muted-foreground">Tasks that aren’t in a project yet.</p>}
+      {category || priority !== "none" ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+          {category ? <CategoryPill category={category} /> : null}
+          {priority !== "none" ? <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{PRIORITY_LABELS[priority]} priority</span> : null}
+        </div>
+      ) : null}
       {due ? (
         <p className={cn("flex items-center gap-1.5 text-xs", dueSoon ? "font-medium text-destructive" : "text-muted-foreground")}>
-          <CalendarDays aria-hidden="true" className="size-3.5" /><time dateTime={project?.dueDate ?? undefined}>{due}</time>
+          <CalendarDays aria-hidden="true" className="size-3.5" /><time dateTime={project.dueDate ?? undefined}>{due}</time>
         </p>
       ) : null}
       <div className="mt-auto flex flex-col gap-1.5">

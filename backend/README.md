@@ -40,6 +40,11 @@ limited to 120 characters. Existing legacy task titles are preserved when only
 metadata changes. Project lifecycle status is independent of archiving, which
 continues to use the existing `projects.isDone` field.
 Archived projects retain their child tasks and statuses.
+Projects have an optional `priority` and `category` (a relation to `categories`,
+owner-checked like the task relation). A new task added inside a project starts
+with those values; changing a project's priority or category does not touch its
+existing tasks. Older records without these fields read as no priority and no
+category, and deleting a category clears it from projects on the client.
 
 To import them from the PocketBase Dashboard:
 

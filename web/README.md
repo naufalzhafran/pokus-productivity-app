@@ -7,12 +7,14 @@ Tailwind CSS. Run every command below from this `web/` directory.
 
 - Adjustable Pomodoro duration with a circular control
 - Quick presets for 15, 25, 45, and 60 minutes
-- Installable Timer-first PWA (it still opens on the Timer). Desktop navigation lists Timer, Today, Projects, Calendar, Habits, Capture, Knowledge, and Profile; phones show Timer, Today, Projects, Capture, and More (Calendar, Habits, Knowledge, Profile). Old hash links keep working
+- Installable Timer-first PWA (it still opens on the Timer). Desktop navigation lists Timer, Today, Projects, All tasks, Calendar, Habits, Capture, Knowledge, and Profile; phones show Timer, Today, Projects, Capture, and More (All tasks, Calendar, Habits, Knowledge, Profile). Old hash links keep working
 - Today page: today's focus total with Start focus, Overdue, tasks and project deadlines due today, today's habits, capture reminders, a collapsed Completed list, and New task (due today)
 - Install shortcuts for New capture, Start focus, and Today, and a share target (Android and desktop Chrome) that opens Quick capture prefilled with the shared title, text, and link
 - A short, dismissible welcome on the Timer for new accounts: pick a length, add a first task, or just start
 - Responsive sticky desktop navigation and safe-area-aware mobile navigation
-- Projects list with status, Due soon, and Archived filters, progress, and focused time per project
+- Projects list opens on open projects (not completed or archived), with status, Due soon, Archived, and category filters, progress, and focused time per project
+- Projects have a priority and a category; a new task added inside a project starts with them
+- All tasks (`#tasks`) lists every task in one list, filterable by project, status, priority, and category
 - Project detail pages with the project's tasks, filters, and actions, plus a No project page for loose tasks
 - Responsive task rows with 25-row progressive loading and detail overlays
 - Archive, restore, rename, and delete projects without changing child statuses

@@ -37,6 +37,9 @@ export interface Project {
   /** Legacy test/record compatibility. PocketBase still stores this column. */
   isDone?: boolean;
   dueDate?: string | null;
+  /** Default priority for new tasks added inside this project. */
+  priority?: TaskPriority;
+  categoryId?: string | null;
   /** Captures this project contains, in the order they were added. */
   captureIds?: string[];
 }
@@ -46,6 +49,9 @@ export interface ProjectInput {
   description: string;
   status: ProjectStatus;
   dueDate: string | null;
+  /** Omitted fields keep the project's current value. */
+  priority?: TaskPriority;
+  categoryId?: string | null;
 }
 
 export interface Category {

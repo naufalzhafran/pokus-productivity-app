@@ -21,9 +21,11 @@ export function loadWorkspacePreferences(userId: string): WorkspaceViewState {
       localStorage.getItem(getStorageKey(userId)) ?? "{}",
     ) as Partial<WorkspaceViewState>;
     return {
+      // "all" was removed; the default open view replaces it.
       projectFilter: PROJECT_LIST_FILTERS.includes(saved.projectFilter as ProjectListFilter)
         ? saved.projectFilter!
         : defaults.projectFilter,
+      projectCategory: typeof saved.projectCategory === "string" && saved.projectCategory ? saved.projectCategory : defaults.projectCategory,
       status: ["open", "completed", "all"].includes(saved.status ?? "")
         ? saved.status!
         : defaults.status,

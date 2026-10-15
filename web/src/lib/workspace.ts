@@ -10,17 +10,22 @@ export const DUE_SOON_DAYS = 7;
 /** Route id for tasks that are not in any project. */
 export const NO_PROJECT_ID = "none";
 
-export type ProjectListFilter = "all" | ProjectStatus | "due" | "archived";
+export type ProjectListFilter = "open" | ProjectStatus | "due" | "archived";
+/** `"all"`, `"none"` for projects without a category, or a category id. */
+export type ProjectCategoryFilter = string;
 export type TaskStatusFilter = "open" | "completed" | "all";
 export type TaskSort = "smart" | "priority" | "newest" | "oldest" | "alphabetical" | "focused";
 export type PriorityFilter = "all" | TaskPriority;
 
-export const PROJECT_LIST_FILTERS: ProjectListFilter[] = ["all", "active", "planned", "on_hold", "completed", "due", "archived"];
+export const PROJECT_LIST_FILTERS: ProjectListFilter[] = ["open", "active", "planned", "on_hold", "completed", "due", "archived"];
 export const TASK_SORTS: TaskSort[] = ["smart", "priority", "newest", "oldest", "alphabetical", "focused"];
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = { planned: "Planned", active: "Active", on_hold: "On hold", completed: "Completed" };
+export const TASK_PRIORITIES: TaskPriority[] = ["none", "low", "medium", "high", "urgent"];
+export const PRIORITY_LABELS: Record<TaskPriority, string> = { none: "No priority", low: "Low", medium: "Medium", high: "High", urgent: "Urgent" };
 
 export interface WorkspaceViewState {
   projectFilter: ProjectListFilter;
+  projectCategory?: ProjectCategoryFilter;
   status: TaskStatusFilter;
   sort: TaskSort;
   priority?: PriorityFilter;
@@ -32,7 +37,8 @@ const taskTitleCollator = new Intl.Collator(undefined, { sensitivity: "base" });
 
 export function createDefaultWorkspaceState(): WorkspaceViewState {
   return {
-    projectFilter: "all",
+    projectFilter: "open",
+    projectCategory: "all",
     status: "open",
     sort: "smart",
     priority: "all",
@@ -120,20 +126,28 @@ export function isProjectDueSoon(project: Project, today = localDateKey()) {
 function matchesProjectFilter(project: Project, filter: ProjectListFilter, today: string) {
   if (filter === "archived") return isProjectArchived(project);
   if (isProjectArchived(project)) return false;
-  if (filter === "all") return true;
+  if (filter === "open") return getProjectStatus(project) !== "completed";
   if (filter === "due") return isProjectDueSoon(project, today);
   return getProjectStatus(project) === filter;
 }
 
-export function countProjectsByFilter(projects: Project[], today = localDateKey()) {
-  return Object.fromEntries(PROJECT_LIST_FILTERS.map((filter) => [filter, projects.filter((project) => matchesProjectFilter(project, filter, today)).length])) as Record<ProjectListFilter, number>;
+export function matchesProjectCategory(project: Project, category: ProjectCategoryFilter = "all") {
+  if (category === "all") return true;
+  if (category === "none") return !project.categoryId;
+  return project.categoryId === category;
+}
+
+/** Projects per status chip, within the chosen category. */
+export function countProjectsByFilter(projects: Project[], today = localDateKey(), category: ProjectCategoryFilter = "all") {
+  const inCategory = projects.filter((project) => matchesProjectCategory(project, category));
+  return Object.fromEntries(PROJECT_LIST_FILTERS.map((filter) => [filter, inCategory.filter((project) => matchesProjectFilter(project, filter, today)).length])) as Record<ProjectListFilter, number>;
 }
 
 /** Projects for the list page: soonest due date first, then newest. */
-export function selectProjects(projects: Project[], filter: ProjectListFilter, search: string, today = localDateKey()) {
+export function selectProjects(projects: Project[], filter: ProjectListFilter, search: string, today = localDateKey(), category: ProjectCategoryFilter = "all") {
   const needle = search.trim().toLocaleLowerCase();
   return projects
-    .filter((project) => matchesProjectFilter(project, filter, today))
+    .filter((project) => matchesProjectFilter(project, filter, today) && matchesProjectCategory(project, category))
     .filter((project) => !needle || [project.title, plainTextFromHtml(project.description)].some((value) => value.toLocaleLowerCase().includes(needle)))
     .sort((a, b) => {
       if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate) || b.createdAt - a.createdAt;
@@ -142,12 +156,12 @@ export function selectProjects(projects: Project[], filter: ProjectListFilter, s
     });
 }
 
-/** Tasks for one project (or `null` for tasks without a project) after filters, search, and sorting. */
-export function selectProjectTasks(tasks: Task[], projectId: string | null, state: Pick<WorkspaceViewState, "status" | "sort" | "priority" | "categoryId">, search: string, categoryMap: Map<string, Category>) {
+/** Tasks for one project (`null` for tasks without a project, `undefined` for every task) after filters, search, and sorting. */
+export function selectProjectTasks(tasks: Task[], projectId: string | null | undefined, state: Pick<WorkspaceViewState, "status" | "sort" | "priority" | "categoryId">, search: string, categoryMap: Map<string, Category>) {
   const needle = search.trim().toLocaleLowerCase();
   return tasks
     .filter((task) => {
-      if (task.projectId !== projectId) return false;
+      if (projectId !== undefined && task.projectId !== projectId) return false;
       if (state.status === "open" && task.isDone) return false;
       if (state.status === "completed" && !task.isDone) return false;
       if ((state.priority ?? "all") !== "all" && taskPriority(task) !== state.priority) return false;

@@ -13,6 +13,16 @@ describe("TaskEditor", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ projectId: null }));
   });
 
+  it("starts a new task with its project's priority and category", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<TaskEditor projects={[{ id: "project", title: "Launch", description: "", createdAt: 1 }]} categories={[{ id: "work", name: "Work", color: "blue", createdAt: 1, updatedAt: 1 }]}
+      initialProjectId="project" initialPriority="high" initialCategoryId="work" onCancel={vi.fn()} onSave={onSave} />);
+    await user.type(screen.getByRole("textbox", { name: "Task" }), "Write brief");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project", priority: "high", categoryId: "work" }));
+  });
+
   it("focuses and describes the first invalid field", () => {
     render(
       <TaskEditor

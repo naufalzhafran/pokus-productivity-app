@@ -31,8 +31,13 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
     public var dueDate: String?
     public var created: String
     public var captures: [String]?
+    /// Default priority and category for new tasks added inside this project.
+    public var priority: Priority?
+    public var category: String?
+    public var categoryName = ""
     public var lifecycle: ProjectStatus { status ?? .active }
-    private enum CodingKeys: String, CodingKey { case id, title, description, isDone, status, dueDate, created, captures }
+    private enum CodingKeys: String, CodingKey { case id, title, description, isDone, status, dueDate, created, captures, priority, category, expand }
+    private struct RelatedLabel: Codable { var name: String? }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id); title = try c.decode(String.self, forKey: .title)
@@ -40,6 +45,16 @@ public struct Project: Codable, Identifiable, Equatable, Sendable {
         isDone = try c.decode(Bool.self, forKey: .isDone); status = try c.decodeIfPresent(ProjectStatus.self, forKey: .status)
         dueDate = try c.decodeIfPresent(String.self, forKey: .dueDate); created = try c.decode(String.self, forKey: .created)
         captures = try c.decodeIfPresent([String].self, forKey: .captures)
+        priority = try c.decodeIfPresent(Priority.self, forKey: .priority); category = try c.decodeIfPresent(String.self, forKey: .category)
+        categoryName = try c.decodeIfPresent([String: RelatedLabel].self, forKey: .expand)?["category"]?.name ?? ""
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id); try c.encode(title, forKey: .title); try c.encode(description, forKey: .description)
+        try c.encode(isDone, forKey: .isDone); try c.encodeIfPresent(status, forKey: .status); try c.encodeIfPresent(dueDate, forKey: .dueDate)
+        try c.encode(created, forKey: .created); try c.encodeIfPresent(captures, forKey: .captures)
+        try c.encodeIfPresent(priority, forKey: .priority); try c.encodeIfPresent(category, forKey: .category)
+        if !categoryName.isEmpty { try c.encode(["category": RelatedLabel(name: categoryName)], forKey: .expand) }
     }
 }
 public struct FocusTask: Codable, Identifiable, Equatable, Sendable {

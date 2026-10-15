@@ -28,6 +28,8 @@ export function useProjects() {
         createdAt: Date.now(),
         status: input.status,
         dueDate: input.dueDate,
+        priority: input.priority ?? "none",
+        categoryId: input.categoryId ?? null,
         isArchived: false,
       };
 
@@ -121,13 +123,15 @@ export function useProjects() {
       }
       const previousProject = projectsRef.current.find((project) => project.id === projectId);
       if (!previousProject) return false;
+      const priority = input.priority ?? previousProject.priority ?? "none";
+      const categoryId = input.categoryId === undefined ? previousProject.categoryId ?? null : input.categoryId;
       replaceProjects(
         projectsRef.current.map((project) =>
-          project.id === projectId ? { ...project, ...input, title: normalizedTitle } : project,
+          project.id === projectId ? { ...project, ...input, title: normalizedTitle, priority, categoryId } : project,
         ),
       );
       try {
-        const record = await pb.collection(COLLECTIONS.projects).update<ProjectRecord>(projectId, { title: normalizedTitle, description: input.description, status: input.status, dueDate: input.dueDate ?? "" }, { requestKey: null });
+        const record = await pb.collection(COLLECTIONS.projects).update<ProjectRecord>(projectId, { title: normalizedTitle, description: input.description, status: input.status, dueDate: input.dueDate ?? "", priority, category: categoryId ?? "" }, { requestKey: null });
         const savedProject = projectFromRecord(record);
         replaceProjects(projectsRef.current.map((project) => project.id === projectId ? savedProject : project));
         return savedProject;
@@ -190,6 +194,15 @@ export function useProjects() {
     [replaceProjects, projectsRef],
   );
 
+  /** Clears a deleted category from projects locally; PocketBase does not cascade it. */
+  const reconcileDeletedCategory = useCallback(
+    (categoryId: string) => {
+      if (!projectsRef.current.some((project) => project.categoryId === categoryId)) return;
+      replaceProjects(projectsRef.current.map((project) => project.categoryId === categoryId ? { ...project, categoryId: null } : project));
+    },
+    [replaceProjects, projectsRef],
+  );
+
   return {
     projects,
     isLoading,
@@ -201,6 +214,7 @@ export function useProjects() {
     changeProjectCaptures,
     setCaptureProjects,
     reconcileDeletedCapture,
+    reconcileDeletedCategory,
     setProjectStatus: useCallback(async (projectId: string, status: ProjectStatus) => updateProject(projectId, {
       title: projectsRef.current.find((project) => project.id === projectId)?.title ?? "",
       description: projectsRef.current.find((project) => project.id === projectId)?.description ?? "",

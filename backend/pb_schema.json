@@ -195,8 +195,8 @@
     "id": "pbc_484305853",
     "listRule": "owner = @request.auth.id",
     "viewRule": "owner = @request.auth.id",
-    "createRule": "@request.auth.id != '' && owner = @request.auth.id && (@request.body.captures:length = 0 || @request.body.captures.owner = @request.auth.id)",
-    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false && (@request.body.captures:length = 0 || @request.body.captures.owner = @request.auth.id)",
+    "createRule": "@request.auth.id != '' && owner = @request.auth.id && (@request.body.captures:length = 0 || @request.body.captures.owner = @request.auth.id) && (category = '' || category.owner = @request.auth.id)",
+    "updateRule": "owner = @request.auth.id && @request.body.owner:changed = false && (@request.body.captures:length = 0 || @request.body.captures.owner = @request.auth.id) && (@request.body.category:isset = false || @request.body.category = '' || @request.body.category.owner = @request.auth.id)",
     "deleteRule": "owner = @request.auth.id",
     "name": "projects",
     "type": "base",
@@ -314,6 +314,38 @@
         "type": "relation"
       },
       {
+        "help": "Default priority for new tasks added inside this project",
+        "hidden": false,
+        "id": "selprjprio01",
+        "maxSelect": 1,
+        "name": "priority",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "select",
+        "values": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "urgent"
+        ]
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "pbc_categories1",
+        "help": "Project category; also the default category for new tasks added inside this project",
+        "hidden": false,
+        "id": "relprjcat001",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "category",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "relation"
+      },
+      {
         "hidden": false,
         "id": "autodate2990389176",
         "name": "created",
@@ -337,10 +369,11 @@
     "indexes": [
       "CREATE INDEX idx_projects_owner ON projects (owner)",
       "CREATE INDEX idx_projects_owner_due ON projects (owner, dueDate)",
-      "CREATE INDEX idx_projects_owner_updated ON projects (owner, updated)"
+      "CREATE INDEX idx_projects_owner_updated ON projects (owner, updated)",
+      "CREATE INDEX idx_projects_owner_category ON projects (owner, category)"
     ],
     "created": "2026-07-15 02:31:16.847Z",
-    "updated": "2026-10-06 00:00:00.000Z",
+    "updated": "2026-10-15 00:00:00.000Z",
     "system": false
   },
   {

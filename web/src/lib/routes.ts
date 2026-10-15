@@ -1,8 +1,8 @@
 import { validHabitDay } from "@/lib/habits";
 
-export type AppPage = "timer" | "today" | "projects" | "capture" | "knowledge" | "habits" | "calendar" | "profile" | "more";
+export type AppPage = "timer" | "today" | "projects" | "tasks" | "capture" | "knowledge" | "habits" | "calendar" | "profile" | "more";
 /** Pages the phone's bottom bar reaches through More. */
-export const MORE_PAGES: readonly AppPage[] = ["calendar", "habits", "knowledge", "profile"];
+export const MORE_PAGES: readonly AppPage[] = ["tasks", "calendar", "habits", "knowledge", "profile"];
 
 /** `#knowledge/review` opens the review queue; note ids are 15 characters, so they never collide. */
 export const KNOWLEDGE_REVIEW_ID = "review";
@@ -20,7 +20,9 @@ export interface AppRoute {
 export function parseRoute(hash: string): AppRoute {
   const [page, id, captureId] = hash.replace(/^#/, "").split("/");
   if (page === "calendar") return { page, projectId: null, calendarDay: id && validHabitDay(id) ? id : null, captureId: captureId && /^[a-z0-9]{15}$/.test(captureId) ? captureId : null };
-  if (page === "projects" || page === "tasks") return { page: "projects", projectId: page === "projects" && id ? decodeURIComponent(id) : null };
+  if (page === "projects") return { page, projectId: id ? decodeURIComponent(id) : null };
+  // `#tasks/<id>` is an old project link; plain `#tasks` is the All tasks list.
+  if (page === "tasks") return id ? { page: "projects", projectId: decodeURIComponent(id) } : { page, projectId: null };
   if (page === "knowledge") return { page, projectId: null, knowledgeId: id ? decodeURIComponent(id) : null };
   if (page === "capture" || page === "habits" || page === "profile" || page === "today" || page === "more") return { page, projectId: null };
   return { page: "timer", projectId: null };

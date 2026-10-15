@@ -7,10 +7,14 @@ import PokusNetworking
 extension PokusModel {
     func saveProject(original: Project?, creationID: String, title: String, description: String,
                      status: ProjectStatus, dueDate: Date?, captureID: String?,
+                     priority: Priority? = nil, category: String? = nil,
                      replacementDescription: String? = nil) async throws -> Bool {
         let clean = try WorkspaceRules.validateTitle(title, maximum: 120)
         var fields: [String: JSONValue] = ["title": .string(clean), "status": .string(status.rawValue),
             "dueDate": .string(dueDate.map(WorkspaceRules.dayKey) ?? "")]
+        // Nil leaves the stored value alone.
+        if let priority { fields["priority"] = .string(priority.rawValue) }
+        if let category { fields["category"] = .string(category) }
         if original == nil {
             fields["description"] = .string(WorkspaceRules.paragraphHTML(description))
             fields["isDone"] = .bool(false)

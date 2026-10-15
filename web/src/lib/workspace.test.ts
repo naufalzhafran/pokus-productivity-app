@@ -5,12 +5,12 @@ import type { Category, Project, Task } from "@/types/task";
 const today = "2026-07-29";
 const categories = new Map<string, Category>([["work", { id: "work", name: "Work", color: "blue", createdAt: 1, updatedAt: 1 }]]);
 const projects: Project[] = [
-  { id: "overdue", title: "Launch", description: "<p>Beta release</p>", createdAt: 4, status: "active", isArchived: false, dueDate: "2026-07-28" },
+  { id: "overdue", title: "Launch", description: "<p>Beta release</p>", createdAt: 4, status: "active", isArchived: false, dueDate: "2026-07-28", categoryId: "work" },
   { id: "soon", title: "Review", description: "", createdAt: 3, status: "planned", isArchived: false, dueDate: addLocalDays(today, 7) },
   { id: "later", title: "Later", description: "", createdAt: 2, status: "active", isArchived: false, dueDate: addLocalDays(today, 8) },
   { id: "undated", title: "Someday", description: "", createdAt: 5, status: "on_hold", isArchived: false, dueDate: null },
   { id: "done", title: "Shipped", description: "", createdAt: 1, status: "completed", isArchived: false, dueDate: "2026-07-01" },
-  { id: "archived", title: "Old", description: "", createdAt: 0, status: "active", isArchived: true, dueDate: today },
+  { id: "archived", title: "Old", description: "", createdAt: 0, status: "active", isArchived: true, dueDate: today, categoryId: "work" },
 ];
 const task = (values: Partial<Task> & Pick<Task, "id" | "title">): Task => ({ isDone: false, createdAt: 1, focusedSeconds: 0, projectId: "overdue", description: "", priority: "none", categoryId: null, ...values });
 const tasks = [
@@ -22,15 +22,22 @@ const tasks = [
 
 describe("project list selectors", () => {
   it("orders projects by due date, then newest, and hides archived ones outside the archive", () => {
-    expect(selectProjects(projects, "all", "", today).map((project) => project.id)).toEqual(["done", "overdue", "soon", "later", "undated"]);
+    expect(selectProjects(projects, "open", "", today).map((project) => project.id)).toEqual(["overdue", "soon", "later", "undated"]);
+    expect(selectProjects(projects, "completed", "", today).map((project) => project.id)).toEqual(["done"]);
     expect(selectProjects(projects, "archived", "", today).map((project) => project.id)).toEqual(["archived"]);
   });
 
   it("filters due-soon and status views and searches descriptions", () => {
     expect(selectProjects(projects, "due", "", today).map((project) => project.id)).toEqual(["overdue", "soon"]);
     expect(selectProjects(projects, "on_hold", "", today).map((project) => project.id)).toEqual(["undated"]);
-    expect(selectProjects(projects, "all", "beta", today).map((project) => project.id)).toEqual(["overdue"]);
-    expect(countProjectsByFilter(projects, today)).toMatchObject({ all: 5, active: 2, due: 2, archived: 1, completed: 1 });
+    expect(selectProjects(projects, "open", "beta", today).map((project) => project.id)).toEqual(["overdue"]);
+    expect(countProjectsByFilter(projects, today)).toMatchObject({ open: 4, active: 2, due: 2, archived: 1, completed: 1 });
+  });
+
+  it("filters projects by category, or by having none", () => {
+    expect(selectProjects(projects, "open", "", today, "work").map((project) => project.id)).toEqual(["overdue"]);
+    expect(selectProjects(projects, "open", "", today, "none").map((project) => project.id)).toEqual(["soon", "later", "undated"]);
+    expect(countProjectsByFilter(projects, today, "work")).toMatchObject({ open: 1, active: 1, archived: 1, planned: 0 });
   });
 
   it("summarizes tasks per project, including tasks without a project", () => {
@@ -46,6 +53,7 @@ describe("project task selector", () => {
   it("smart sorts open tasks first, then by priority and newest", () => {
     expect(selectProjectTasks(tasks, "overdue", state, "", categories).map((item) => item.id)).toEqual(["urgent", "low", "done"]);
     expect(selectProjectTasks(tasks, null, state, "", categories).map((item) => item.id)).toEqual(["loose"]);
+    expect(selectProjectTasks(tasks, undefined, state, "", categories).map((item) => item.id)).toEqual(["urgent", "low", "loose", "done"]);
   });
 
   it("searches descriptions and categories and applies filters", () => {
