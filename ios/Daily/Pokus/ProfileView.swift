@@ -7,6 +7,7 @@ struct PokusProfileView: View {
     @Bindable var reminders: ReminderManager
     @Environment(\.openURL) private var openURL
     @AppStorage("pokus.appearance") private var appearance = "system"
+    @AppStorage(TodayPlan.capacityKey) private var dailyCapacity = TodayPlan.defaultCapacity
     @State private var signingOut = false
     @State private var total = ReadState<Int>()
     @State private var totalRetry = 0
@@ -55,6 +56,15 @@ struct PokusProfileView: View {
                 }
             }
             TimerPreferencesSection()
+            Section {
+                Stepper(value: $dailyCapacity, in: TodayPlan.capacityRange) {
+                    LabeledContent("Daily capacity", value: "\(dailyCapacity) Pokus")
+                }
+                .accessibilityValue("\(dailyCapacity) Pokus")
+                .accessibilityIdentifier("dailyCapacity")
+            } header: { Text("Today's plan") } footer: {
+                Text("How many Pokus you plan to focus each day.")
+            }
             Section("Preferences") {
                 Picker("Appearance", selection: $appearance) {
                     Text("System").tag("system")

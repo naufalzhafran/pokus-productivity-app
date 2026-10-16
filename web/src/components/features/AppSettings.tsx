@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Download, Lightbulb, Volume2, Sun, Smartphone } from "lucide-react";
+import { CalendarClock, Download, Lightbulb, Minus, Plus, Volume2, Sun, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useAppPreferences, updateAppPreferences, type AppPreferences } from "@/hooks/useAppPreferences";
+import { DAILY_CAPACITY_RANGE, useAppPreferences, updateAppPreferences, type AppPreferences } from "@/hooks/useAppPreferences";
 import { unlockCompletionSound, playCompletionSound } from "@/hooks/useFocusDevice";
 import { isStandalone } from "@/lib/pwa";
 
@@ -31,6 +31,7 @@ export function AppSettings() {
     <label className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><Volume2 className="size-4" />Completion sound</span><Checkbox checked={settings.sound} onCheckedChange={(checked) => { updateAppPreferences({ sound: Boolean(checked) }); if (checked) unlockCompletionSound(); }} /></label>
     {settings.sound ? <Button variant="outline" onClick={() => { unlockCompletionSound(); window.setTimeout(playCompletionSound, 100); }}>Test sound</Button> : null}
     <div><label className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><Smartphone className="size-4" />Keep screen awake</span><Checkbox checked={settings.keepAwake} onCheckedChange={(checked) => updateAppPreferences({ keepAwake: Boolean(checked) })} /></label><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Only while a timer is running and Pokus is open. Your phone may release this in low power mode.</p></div>
+    <div><div className="flex min-h-11 items-center justify-between gap-3 text-sm"><span id="daily-capacity-label" className="flex items-center gap-2"><CalendarClock className="size-4" />Daily plan</span><div role="group" aria-labelledby="daily-capacity-label" className="flex items-center gap-1"><Button variant="outline" size="icon" aria-label="Plan fewer Pokus each day" disabled={settings.dailyCapacity <= DAILY_CAPACITY_RANGE.min} onClick={() => updateAppPreferences({ dailyCapacity: settings.dailyCapacity - 1 })}><Minus /></Button><output aria-live="polite" className="min-w-16 text-center tabular-nums">{settings.dailyCapacity} Pokus</output><Button variant="outline" size="icon" aria-label="Plan more Pokus each day" disabled={settings.dailyCapacity >= DAILY_CAPACITY_RANGE.max} onClick={() => updateAppPreferences({ dailyCapacity: settings.dailyCapacity + 1 })}><Plus /></Button></div></div><p className="mt-1 text-xs leading-relaxed text-muted-foreground">How many Pokus you plan to focus each day. Today fills up to this, starting bigger tasks before they’re due.</p></div>
     <div><label className="flex min-h-11 items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><Lightbulb className="size-4" />Review knowledge after sessions</span><Checkbox checked={settings.reviewAfterSession} onCheckedChange={(checked) => updateAppPreferences({ reviewAfterSession: Boolean(checked) })} /></label><p className="mt-1 text-xs leading-relaxed text-muted-foreground">When a session ends, offer one knowledge note that’s due for review.</p></div>
     <p className="text-xs leading-relaxed text-muted-foreground">Sound plays while Pokus is open. When your phone is locked, the timer catches up when you return.</p>
     <div className="border-t pt-4"><p className="text-sm font-medium">{installed ? "Pokus is installed" : "Pokus on your Home Screen"}</p><p className="mt-1 text-xs text-muted-foreground">{ready ? "Ready for offline use after sign-in." : "Connect to finish preparing offline use."}</p>

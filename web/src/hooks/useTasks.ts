@@ -39,6 +39,7 @@ export function useTasks() {
         priority: input.priority,
         categoryId: input.categoryId,
         dueDate: input.dueDate ?? null,
+        effort: input.effort ?? null,
       };
 
       try {
@@ -125,7 +126,8 @@ export function useTasks() {
       const titleChanged = input.title !== previousTask.title;
       const normalizedTitle = titleChanged ? input.title.replace(/\s+/g, " ").trim() : previousTask.title;
       const dueDate = input.dueDate === undefined ? previousTask.dueDate ?? null : input.dueDate;
-      const nextTask = { ...previousTask, ...input, title: normalizedTitle, dueDate };
+      const effort = input.effort === undefined ? previousTask.effort ?? null : input.effort;
+      const nextTask = { ...previousTask, ...input, title: normalizedTitle, dueDate, effort };
 
       replaceTasks(
         tasksRef.current.map((task) =>
@@ -146,6 +148,7 @@ export function useTasks() {
               priority: input.priority,
               category: input.categoryId ?? "",
               dueDate: dueDate ?? "",
+              effort: effort ?? "",
             },
             { requestKey: null },
           );

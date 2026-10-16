@@ -22,6 +22,9 @@ struct PokusCalendarView: View {
     @State private var window = ReadState<CalendarWindow>()
     @State private var overdue = ReadState<[CalendarItem]>()
     @State private var day = ReadState<HabitDayIndex>()
+    @State private var plan = ReadState<[PlanDay]>()
+    @State private var loadedPlan = ""
+    @AppStorage(TodayPlan.capacityKey) private var dailyCapacity = TodayPlan.defaultCapacity
     @State private var completedExpanded = false
     @State private var retry = 0
     @State private var timeRevision = 0
@@ -49,14 +52,22 @@ struct PokusCalendarView: View {
         selectedDay == today ? overdue.value?.compactMap { CalendarProjection.rolledOver($0, to: today) } ?? [] : []
     }
     private var overdueOther: [CalendarItem] { overdue.value?.filter { $0.kind != .task } ?? [] }
-    /// Overdue tasks and reminders that "Move all to today" reschedules. Project deadlines stay put.
-    private var movableOverdue: [CalendarItem] { rolledOver + overdueOther.filter { $0.kind == .reminder } }
+    /// Overdue reminders, plus rolled-over tasks in the month view, that "Move all to today" reschedules. On Today,
+    /// overdue tasks live in the plan instead. Project deadlines stay put.
+    private var movableOverdue: [CalendarItem] { (showsMonth ? rolledOver : []) + overdueOther.filter { $0.kind == .reminder } }
     /// The button sits on the Overdue section when it has reminders, otherwise on today's list of rolled-over tasks.
     private var overdueHostsMoveAll: Bool { overdueOther.contains { $0.kind == .reminder } }
     private var store: AccountHabitViewStore { AccountHabitViewStore(model: model, owner: model.account?.id ?? "") }
     private var remaining: [CalendarItem] { rolledOver + items.filter { !$0.isComplete && $0.kind != .reminder } }
     private var reminders: [CalendarItem] { items.filter { !$0.isComplete && $0.kind == .reminder } }
     private var completed: [CalendarItem] { items.filter(\.isComplete) }
+    /// Today keeps project deadlines in their own section; tasks come from the plan.
+    private var deadlines: [CalendarItem] { items.filter { !$0.isComplete && $0.kind == .project } }
+    private var todayPlan: PlanDay? { plan.value?.first }
+    /// Tasks the plan starts on `date` ahead of their due date, or undated filler on today.
+    private func planned(_ date: DayKey) -> [PlanEntry] {
+        plan.value?.first { $0.day == date }?.entries.filter { $0.reason == .early || $0.reason == .filler } ?? []
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -116,6 +127,16 @@ struct PokusCalendarView: View {
             if loadedDay != identity { day.clear(); overdue.clear(); loadedDay = identity }
             await day.load { try await store.dayIndex(selectedDay) }
             if selectedDay == today { await overdue.load { try await model.readAPI().calendarOverdue(before: today) } }
+        }
+        .task(id: "plan-\(model.queryIdentity)-\(today)-\(dailyCapacity)-\(retry)-\(timeRevision)") {
+            guard model.account != nil else { return }
+            let identity = "\(model.scope?.generation.uuidString ?? "")-\(today)-\(TimeZone.autoupdatingCurrent.identifier)"
+            if loadedPlan != identity { plan.clear(); loadedPlan = identity }
+            let start = today, capacity = min(max(dailyCapacity, TodayPlan.capacityRange.lowerBound), TodayPlan.capacityRange.upperBound)
+            await plan.load {
+                let tasks = try await model.readAPI().calendarPlanTasks(through: start.adding(days: TodayPlan.days - 1))
+                return TodayPlan.planDays(tasks, today: start, capacity: capacity)
+            }
         }
         .task(id: "welcome-\(model.scope?.generation.uuidString ?? "")-\(model.storageReady)") {
             // First run: checked once per account, so the welcome stays while its first task is added.
@@ -187,6 +208,7 @@ struct PokusCalendarView: View {
         Label("Project deadlines", systemImage: "folder")
         Label("Tasks", systemImage: "checklist")
         Label("Reminders", systemImage: "bell")
+        Label("Planned", systemImage: "clock")
     }
 
     private func dayButton(_ date: DayKey) -> some View {
@@ -275,12 +297,39 @@ struct PokusCalendarView: View {
                     sectionHeader(selectedDay.formatted("EEEE, MMMM d"), showsMoveAll: !overdueHostsMoveAll && !rolledOver.isEmpty)
                 }
                 .textCase(nil)
-            } else {
-                if !remaining.isEmpty {
+                let plannedEntries = planned(selectedDay)
+                if !plannedEntries.isEmpty {
                     Section {
-                        ForEach(remaining) { CalendarAgendaRow(model: model, item: $0, moveTarget: $0.rolledOverFrom == nil ? nil : today) }
+                        ForEach(plannedEntries) { planRow($0, on: selectedDay) }
                     } header: {
-                        sectionHeader("Scheduled", showsMoveAll: !overdueHostsMoveAll && !rolledOver.isEmpty)
+                        countHeader("Planned", count: "\(plannedEntries.reduce(0) { $0 + $1.cost }) Pokus")
+                    } footer: {
+                        Text("Tasks to start ahead of their due date.")
+                    }
+                    .textCase(nil)
+                }
+            } else {
+                if let todayPlan {
+                    if !todayPlan.entries.isEmpty {
+                        Section {
+                            ForEach(todayPlan.entries) { planRow($0, on: today) }
+                        } header: {
+                            countHeader("Today's plan", count: "\(todayPlan.used) of \(todayPlan.capacity) Pokus")
+                        } footer: {
+                            if todayPlan.used > todayPlan.capacity {
+                                Text("That's more than your \(todayPlan.capacity) Pokus for today. Move something to another day, or change your daily capacity in Profile.")
+                            }
+                        }
+                        .textCase(nil)
+                    }
+                } else if let error = plan.error {
+                    Section { ReadError(message: error) { retry += 1 } }
+                } else if window.value != nil {
+                    Section { ProgressView("Planning your day") }
+                }
+                if !deadlines.isEmpty {
+                    Section("Project deadlines") {
+                        ForEach(deadlines) { CalendarAgendaRow(model: model, item: $0) }
                     }
                     .textCase(nil)
                 }
@@ -289,21 +338,13 @@ struct PokusCalendarView: View {
                         Section {
                             habitRows(index.remaining, index: index)
                         } header: {
-                            let layout = typeSize.isAccessibilitySize
-                                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-                                : AnyLayout(HStackLayout())
-                            layout {
-                                Text("Habits")
-                                if !typeSize.isAccessibilitySize { Spacer() }
-                                Text("\(index.completed.count) of \(index.ids.count) done")
-                                    .fontWeight(.regular)
-                            }
+                            countHeader("Habits", count: "\(index.completed.count) of \(index.ids.count) done")
                         }
                         .textCase(nil)
                     }
-                    if window.value != nil, overdue.value != nil,
-                       window.error == nil, day.error == nil, overdue.error == nil,
-                       remaining.isEmpty, reminders.isEmpty, index.remaining.isEmpty,
+                    if window.value != nil, overdue.value != nil, todayPlan?.entries.isEmpty == true,
+                       window.error == nil, day.error == nil, overdue.error == nil, plan.error == nil,
+                       deadlines.isEmpty, reminders.isEmpty, index.remaining.isEmpty,
                        overdue.value?.isEmpty == true {
                         Section {
                             if completed.isEmpty && index.completed.isEmpty {
@@ -362,6 +403,24 @@ struct PokusCalendarView: View {
         }
     }
 
+    private func countHeader(_ title: String, count: String) -> some View {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout())
+        return layout {
+            Text(title)
+            if !typeSize.isAccessibilitySize { Spacer() }
+            Text(count).fontWeight(.regular)
+        }
+    }
+
+    @ViewBuilder private func planRow(_ entry: PlanEntry, on date: DayKey) -> some View {
+        if let item = CalendarProjection.task(entry.task) {
+            CalendarAgendaRow(model: model, item: item, caption: TodayPlan.label(entry, on: date),
+                              moveTarget: entry.reason == .overdue ? today : nil)
+        }
+    }
+
     private func moveAllOverdue() {
         let items = movableOverdue
         save.performAsync {
@@ -397,10 +456,10 @@ struct PokusCalendarView: View {
         let hasRolledOver = date == today && overdue.value?.contains { $0.kind == .task } == true
         // Habits recur every day, so they're listed in the day's agenda rather than marked on the grid.
         return [(items.contains { $0.kind == .project }, "folder"), (hasRolledOver || items.contains { $0.kind == .task }, "checklist"),
-                (items.contains { $0.kind == .reminder }, "bell")].filter(\.0).map(\.1)
+                (items.contains { $0.kind == .reminder }, "bell"), (!planned(date).isEmpty, "clock")].filter(\.0).map(\.1)
     }
     private func markerDescription(_ date: DayKey) -> String {
-        let labels = ["folder": "Project deadlines", "checklist": "Tasks", "bell": "Reminders"]
+        let labels = ["folder": "Project deadlines", "checklist": "Tasks", "bell": "Reminders", "clock": "Planned tasks"]
         return markers(date).compactMap { labels[$0] }.joined(separator: ", ")
     }
 }
@@ -420,6 +479,8 @@ private struct CalendarAgendaRow: View {
     let model: PokusModel
     let item: CalendarItem
     var showsDate = false
+    /// Replaces the kind label, such as the plan's "Due Fri · start early".
+    var caption: String? = nil
     /// Set on overdue rows: the day "Move to today" moves the item to.
     var moveTarget: DayKey? = nil
     @State private var save = SaveAction()
@@ -480,8 +541,9 @@ private struct CalendarAgendaRow: View {
         .saveAlert(save)
     }
     private var detail: String {
-        var labels = [item.kind == .project ? "Project deadline" : item.kind == .task ? "Task" : "Reminder"]
+        var labels = [caption ?? (item.kind == .project ? "Project deadline" : item.kind == .task ? "Task" : "Reminder")]
         if !item.projectTitle.isEmpty { labels.append(item.projectTitle) }
+        if caption != nil { return labels.joined(separator: " · ") }
         if item.inheritsProjectDate { labels.append("From project") }
         if let from = item.rolledOverFrom, let day = item.day {
             let late = CalendarProjection.days(from: from, to: day)

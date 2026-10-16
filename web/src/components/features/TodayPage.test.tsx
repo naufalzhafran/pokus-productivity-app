@@ -12,6 +12,8 @@ const tasks: Task[] = [
   { id: "late", title: "Send invoice", isDone: false, createdAt: 1, focusedSeconds: 0, projectId: null, dueDate: addHabitDays(today, -2) },
   { id: "done", title: "Book room", isDone: true, createdAt: 1, focusedSeconds: 0, projectId: null, dueDate: today },
   { id: "later", title: "Someday", isDone: false, createdAt: 1, focusedSeconds: 0, projectId: null },
+  { id: "big", title: "Draft the report", isDone: false, createdAt: 1, focusedSeconds: 0, projectId: null, effort: "large", dueDate: addHabitDays(today, 3) },
+  { id: "small", title: "Reply to Sam", isDone: false, createdAt: 1, focusedSeconds: 0, projectId: null, dueDate: addHabitDays(today, 3) },
 ];
 function props() {
   return {
@@ -25,15 +27,20 @@ function props() {
 }
 
 describe("TodayPage", () => {
-  it("shows focus, rolled-over work, today's tasks, habits, and collapsed completed work", async () => {
+  it("shows focus, today's plan, habits, and collapsed completed work", async () => {
     const user = userEvent.setup(); const input = props();
     render(<TodayPage {...input} />);
     expect(screen.getByText("1h 5m focused today")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Start a Pokus" }));
     expect(input.onStartFocus).toHaveBeenCalled();
-    const work = screen.getByRole("region", { name: "Tasks and deadlines" });
+    const work = screen.getByRole("region", { name: "Today’s plan" });
+    expect(within(work).getByText("6 of 6 Pokus")).toBeInTheDocument();
     expect(within(work).getByText("Send invoice")).toBeInTheDocument();
-    expect(within(work).getByText(/Rolled over from .* · 2 days late/)).toBeInTheDocument();
+    expect(within(work).getByText(/· 2 days late/)).toBeInTheDocument();
+    expect(within(work).getByText(/· Due today/)).toBeInTheDocument();
+    expect(within(work).getByText("Draft the report")).toBeInTheDocument();
+    expect(within(work).getByText(/start early/)).toBeInTheDocument();
+    expect(within(work).queryByText("Reply to Sam")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Overdue" })).not.toBeInTheDocument();
     await user.click(within(work).getByRole("button", { name: "Focus on Write the brief" }));
     expect(input.onFocusTask).toHaveBeenCalledWith("due");

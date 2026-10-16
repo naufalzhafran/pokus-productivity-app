@@ -527,6 +527,22 @@
         "type": "text"
       },
       {
+        "help": "Rough effort used by the daily plan; empty counts as small",
+        "hidden": false,
+        "id": "seltaskeffort1",
+        "maxSelect": 1,
+        "name": "effort",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "select",
+        "values": [
+          "small",
+          "medium",
+          "large"
+        ]
+      },
+      {
         "hidden": false,
         "id": "autodate2990389176",
         "name": "created",

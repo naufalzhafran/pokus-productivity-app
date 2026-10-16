@@ -22,6 +22,12 @@ public enum Priority: String, Codable, CaseIterable, Sendable {
         else { throw DecodingError.dataCorruptedError(in: value, debugDescription: "Unknown task priority: \(raw)") }
     }
 }
+/// Rough size of a task in Pokus. Unset counts as small.
+public enum Effort: String, Codable, CaseIterable, Sendable {
+    case small, medium, large
+    public var label: String { rawValue.capitalized }
+    public var rank: Int { Self.allCases.firstIndex(of: self)! }
+}
 public struct Project: Codable, Identifiable, Equatable, Sendable {
     public var id: String
     public var title: String
@@ -65,6 +71,7 @@ public struct FocusTask: Codable, Identifiable, Equatable, Sendable {
     public var focusedSeconds: Int
     public var project: String
     public var priority: Priority?
+    public var effort: Effort?
     public var category: String?
     public var dueDate: String?
     public var created: String
@@ -72,7 +79,7 @@ public struct FocusTask: Codable, Identifiable, Equatable, Sendable {
     public var projectDueDate: String?
     public var projectIsArchived = false
     public var categoryName = ""
-    private enum CodingKeys: String, CodingKey { case id, title, description, isDone, focusedSeconds, project, priority, category, dueDate, created, expand }
+    private enum CodingKeys: String, CodingKey { case id, title, description, isDone, focusedSeconds, project, priority, effort, category, dueDate, created, expand }
     private struct RelatedLabel: Codable { var title: String?; var name: String?; var dueDate: String?; var isDone: Bool? }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -80,6 +87,8 @@ public struct FocusTask: Codable, Identifiable, Equatable, Sendable {
         description = try c.decodeIfPresent(String.self, forKey: .description); isDone = try c.decode(Bool.self, forKey: .isDone)
         focusedSeconds = try c.decode(Int.self, forKey: .focusedSeconds); project = try c.decode(String.self, forKey: .project)
         priority = try c.decodeIfPresent(Priority.self, forKey: .priority); category = try c.decodeIfPresent(String.self, forKey: .category)
+        // Empty or unknown effort reads as unset, so older and newer records both decode.
+        effort = (try? c.decodeIfPresent(String.self, forKey: .effort)).flatMap { $0.flatMap(Effort.init(rawValue:)) }
         dueDate = try c.decodeIfPresent(String.self, forKey: .dueDate)
         created = try c.decode(String.self, forKey: .created)
         let related = try c.decodeIfPresent([String: RelatedLabel].self, forKey: .expand)
@@ -90,7 +99,8 @@ public struct FocusTask: Codable, Identifiable, Equatable, Sendable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id); try c.encode(title, forKey: .title); try c.encodeIfPresent(description, forKey: .description)
         try c.encode(isDone, forKey: .isDone); try c.encode(focusedSeconds, forKey: .focusedSeconds); try c.encode(project, forKey: .project)
-        try c.encodeIfPresent(priority, forKey: .priority); try c.encodeIfPresent(category, forKey: .category); try c.encode(created, forKey: .created)
+        try c.encodeIfPresent(priority, forKey: .priority); try c.encodeIfPresent(effort, forKey: .effort)
+        try c.encodeIfPresent(category, forKey: .category); try c.encode(created, forKey: .created)
         try c.encodeIfPresent(dueDate, forKey: .dueDate)
         if !projectTitle.isEmpty || projectDueDate != nil || projectIsArchived || !categoryName.isEmpty {
             try c.encode(["project": RelatedLabel(title: projectTitle, dueDate: projectDueDate, isDone: projectIsArchived),

@@ -43,6 +43,7 @@ export interface TaskRecord extends RecordModel {
   priority?: Task["priority"];
   category?: string;
   dueDate?: string;
+  effort?: NonNullable<Task["effort"]> | "";
 }
 
 export interface CategoryRecord extends RecordModel {
@@ -132,6 +133,7 @@ export function taskFromRecord(record: TaskRecord): Task {
     priority: record.priority || "none",
     categoryId: record.category || null,
     dueDate: record.dueDate || null,
+    effort: record.effort || null,
   };
 }
 
@@ -176,6 +178,7 @@ export function taskToRecord(task: Task) {
     priority: task.priority ?? "none",
     category: task.categoryId ?? "",
     dueDate: task.dueDate ?? "",
+    effort: task.effort ?? "",
   };
 }
 

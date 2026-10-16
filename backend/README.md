@@ -66,6 +66,13 @@ recomputes the task's effective date. Archived projects and their tasks are hidd
 from Calendar. Calendar opens at `#calendar`; a date and optional capture can be
 linked as `#calendar/YYYY-MM-DD/<capture-id>`. Existing `#habits` links still work.
 
+Tasks have an optional `effort` (`small`, `medium`, `large`; empty counts as
+small). Both clients use it with the due date and priority to build the daily
+plan on Today and the Planned sections in Calendar: bigger or higher-priority
+tasks start a few days before their due date, up to a per-device daily capacity
+in Pokus. The plan is computed on the client and nothing about it is stored.
+Older clients ignore the field.
+
 Captures use `reminderAt` (integer epoch milliseconds, zero when absent) and
 `reminderDone` (independent of `isProcessed`). Scheduling requires a future time;
 completion retains the dated entry, and rescheduling reopens it. Reminders display

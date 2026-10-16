@@ -12,6 +12,8 @@ import { ResponsiveOverlay } from "@/components/features/ResponsiveOverlay";
 import { buildCalendarItems, calendarMonthDays } from "@/lib/calendar";
 import { formatHabitDay, habitDay } from "@/lib/habits";
 import { captureDisplayTitle } from "@/lib/capture";
+import { planDays, planReasonLabel } from "@/lib/today-plan";
+import { useAppPreferences } from "@/hooks/useAppPreferences";
 import type { CalendarSourceItem } from "@/types/calendar";
 import type { useHabits } from "@/hooks/useHabits";
 import type { CaptureStore } from "@/hooks/useCaptures";
@@ -45,8 +47,12 @@ export function CalendarPage({ projects, tasks, categories, captureStore, habitS
   const [view, setView] = useState({ routeKey, value: "agenda" });
   const days = useMemo(() => calendarMonthDays(day), [day]);
   const { items, unscheduled, overdue } = useMemo(() => buildCalendarItems({ projects, tasks, captures: captureStore.captures, habits: habitStore.habits, startDay: days[0], endDay: days[41], today }), [projects, tasks, captureStore.captures, habitStore.habits, days, today]);
+  const { dailyCapacity } = useAppPreferences();
+  // Work started ahead of its due date; must-do work already shows on its own day.
+  const planned = useMemo(() => new Map(planDays({ tasks, projects, today, capacity: dailyCapacity }).map((plan) => [plan.day, plan.entries.filter((entry) => entry.reason === "early" || entry.reason === "filler")])), [tasks, projects, today, dailyCapacity]);
   const markers = useMemo(() => {
     const result = new Map<string, string[]>();
+    for (const [plannedDay, entries] of planned) if (entries.length) result.set(plannedDay, ["planned work"]);
     const names = { task: "tasks", project: "project deadlines", habit: "habits", capture: "reminders" };
     for (const item of items) {
       if (!item.day) continue;
@@ -54,7 +60,10 @@ export function CalendarPage({ projects, tasks, categories, captureStore, habitS
       if (!current.includes(names[item.type])) result.set(item.day, [...current, names[item.type]]);
     }
     return result;
-  }, [items]);
+  }, [items, planned]);
+  const plannedEntries = planned.get(day) ?? [];
+  const plannedItems: CalendarSourceItem[] = plannedEntries.map(({ task, project }) => ({ type: "task", id: task.id, source: task, project, title: task.title, day, completed: false }));
+  const plannedNotes = new Map(plannedEntries.map((entry) => [`task:${entry.task.id}`, planReasonLabel(entry, day)]));
   const selected = items.filter((item) => item.day === day);
   const open = selected.filter((item) => !item.completed);
   const completed = selected.filter((item) => item.completed);
@@ -68,7 +77,7 @@ export function CalendarPage({ projects, tasks, categories, captureStore, habitS
     return () => { clearInterval(timer); document.removeEventListener("visibilitychange", update); };
   }, []);
 
-  const agendaRows = (entries: CalendarSourceItem[]) => <AgendaList entries={entries} day={day} today={today} readOnly={readOnly} captureStore={captureStore} habitStore={habitStore}
+  const agendaRows = (entries: CalendarSourceItem[], notes?: ReadonlyMap<string, string>) => <AgendaList entries={entries} notes={notes} day={day} today={today} readOnly={readOnly} captureStore={captureStore} habitStore={habitStore}
     onTaskDone={onTaskDone} onEdit={setEditor} onOpenCapture={(item) => onSelect(item.day ?? day, item.id)} onFocus={onFocusTask} canFocus={canFocus} />;
 
   return <div className="mx-auto flex max-w-6xl flex-col gap-5">
@@ -83,7 +92,8 @@ export function CalendarPage({ projects, tasks, categories, captureStore, habitS
           <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">{day === today ? "Today" : formatHabitDay(day)}</h2><div className="flex gap-2">{onCreateTask ? <Button variant="outline" disabled={readOnly} onClick={() => setEditor({ type: "new", day })}><Plus data-icon="inline-start" />{day === today ? "New task today" : `New task on ${formatHabitDay(day)}`}</Button> : null}<Button variant="outline" onClick={() => onSelect(today)}>Today</Button></div></div>
           {loading || habitStore.isLoading ? <Skeleton className="h-64 w-full" /> : <>
             {day === today && overdue.length ? <section aria-label="Overdue" className="flex flex-col gap-3"><h3 className="font-medium">Overdue</h3>{agendaRows(overdue)}</section> : null}
-            {open.length ? agendaRows(open) : <CalendarEmpty title="Nothing left on this date" description="Dated tasks, project deadlines, daily habits, and capture reminders appear here." />}
+            {open.length ? agendaRows(open) : plannedItems.length ? null : <CalendarEmpty title="Nothing left on this date" description="Dated tasks, project deadlines, daily habits, and capture reminders appear here." />}
+            {plannedItems.length ? <section aria-label="Planned" className="flex flex-col gap-3"><h3 className="font-medium">Planned</h3><p className="text-sm text-muted-foreground">Started ahead of their due dates to fit your daily plan.</p>{agendaRows(plannedItems, plannedNotes)}</section> : null}
             {completed.length ? <details className="rounded-xl border p-3"><summary className="min-h-11 cursor-pointer content-center font-medium">Completed ({completed.length})</summary><div className="pt-3">{agendaRows(completed)}</div></details> : null}
             {day > today && selected.some((item) => item.type === "habit") ? <p className="text-xs text-muted-foreground">Future habits are shown for planning. Check in on the day or afterward.</p> : null}
           </>}

@@ -1,4 +1,4 @@
-import type { Category, Project, ProjectStatus, Task, TaskPriority } from "@/types/task";
+import type { Category, Project, ProjectStatus, Task, TaskEffort, TaskPriority } from "@/types/task";
 
 export const TASK_TITLE_MAX_LENGTH = 160;
 export const LEGACY_TASK_TITLE_MAX_LENGTH = 2000;
@@ -22,6 +22,8 @@ export const TASK_SORTS: TaskSort[] = ["smart", "priority", "newest", "oldest", 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = { planned: "Planned", active: "Active", on_hold: "On hold", completed: "Completed" };
 export const TASK_PRIORITIES: TaskPriority[] = ["none", "low", "medium", "high", "urgent"];
 export const PRIORITY_LABELS: Record<TaskPriority, string> = { none: "No priority", low: "Low", medium: "Medium", high: "High", urgent: "Urgent" };
+export const TASK_EFFORTS: TaskEffort[] = ["small", "medium", "large"];
+export const EFFORT_LABELS: Record<TaskEffort, string> = { small: "Small", medium: "Medium", large: "Large" };
 
 export interface WorkspaceViewState {
   projectFilter: ProjectListFilter;

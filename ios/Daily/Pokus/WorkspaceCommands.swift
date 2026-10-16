@@ -27,11 +27,11 @@ extension PokusModel {
     }
 
     func saveTask(original: FocusTask?, creationID: String, title: String, description: String,
-                  projectID: String, priority: Priority, category: String, dueDate: Date? = nil,
+                  projectID: String, priority: Priority, effort: Effort? = nil, category: String, dueDate: Date? = nil,
                   replacementDescription: String? = nil) async throws -> Bool {
         let clean = try WorkspaceRules.validateTitle(title, maximum: 160, original: original?.title)
         var fields: [String: JSONValue] = ["title": .string(clean), "project": .string(projectID),
-            "priority": .string(priority.rawValue), "category": .string(category),
+            "priority": .string(priority.rawValue), "effort": .string(effort?.rawValue ?? ""), "category": .string(category),
             "dueDate": .string(dueDate.map(WorkspaceRules.dayKey) ?? "")]
         if original == nil {
             fields["description"] = .string(WorkspaceRules.paragraphHTML(description))

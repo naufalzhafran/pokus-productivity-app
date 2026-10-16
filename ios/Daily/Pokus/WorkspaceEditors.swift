@@ -102,6 +102,7 @@ struct TaskEditorView: View {
     @State private var description = ""
     @State private var projectID: String
     @State private var priority: Priority
+    @State private var effort: Effort?
     @State private var category: String
     @State private var hasDueDate: Bool
     @State private var dueDate: Date
@@ -110,7 +111,7 @@ struct TaskEditorView: View {
     @State private var closeRequested = false
     private enum Field { case title, description }
     @FocusState private var focusedField: Field?
-    private var draft: [String] { [title.trimmingCharacters(in: .whitespacesAndNewlines), description, projectID, priority.rawValue, category, hasDueDate ? WorkspaceRules.dayKey(dueDate) : ""] }
+    private var draft: [String] { [title.trimmingCharacters(in: .whitespacesAndNewlines), description, projectID, priority.rawValue, effort?.rawValue ?? "", category, hasDueDate ? WorkspaceRules.dayKey(dueDate) : ""] }
     /// `initialDueDate` dates a new task, such as one created from Today or a calendar day; `initialPriority` and
     /// `initialCategory` start a new task with its project's defaults.
     init(model: PokusModel, original: FocusTask?, projectID: String, initialDueDate: Date? = nil, initialPriority: Priority = .none,
@@ -120,6 +121,7 @@ struct TaskEditorView: View {
         _description = State(initialValue: WorkspaceRules.plainText(original?.description ?? ""))
         _projectID = State(initialValue: original?.project ?? projectID)
         _priority = State(initialValue: original.map { $0.priority ?? .none } ?? initialPriority)
+        _effort = State(initialValue: original?.effort)
         _category = State(initialValue: original.map { $0.category ?? "" } ?? initialCategory)
         _hasDueDate = State(initialValue: original == nil ? initialDueDate != nil : !(original?.dueDate ?? "").isEmpty)
         let formatter = DateFormatter(); formatter.calendar = Calendar(identifier: .gregorian); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.dateFormat = "yyyy-MM-dd"
@@ -136,10 +138,17 @@ struct TaskEditorView: View {
                         .accessibilityHint("Required")
                     EditorError(message: validation)
                 }
-                Section("Organize") {
+                Section {
                     RecordSelectionLink(model: model, kind: .project, title: "Project", selection: $projectID, none: "No project")
                     Picker("Priority", selection: $priority) { ForEach(Priority.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } }
+                    Picker("Effort", selection: $effort) {
+                        Text("Not set").tag(Effort?.none)
+                        ForEach(Effort.allCases, id: \.self) { Text($0.label).tag(Effort?.some($0)) }
+                    }
+                    .accessibilityIdentifier("taskEffort")
                     RecordSelectionLink(model: model, kind: .category, title: "Category", selection: $category)
+                } header: { Text("Organize") } footer: {
+                    Text("Effort: about 1, 2, or 4 Pokus. Bigger tasks start earlier in Today's plan.")
                 }
                 Section {
                     Toggle("Due date", isOn: $hasDueDate.animation())
@@ -175,7 +184,7 @@ struct TaskEditorView: View {
         defer { submitting = false }
         do {
             if try await model.saveTask(original: original, creationID: creationID, title: title, description: description,
-                                        projectID: projectID, priority: priority, category: category, dueDate: hasDueDate ? dueDate : nil,
+                                        projectID: projectID, priority: priority, effort: effort, category: category, dueDate: hasDueDate ? dueDate : nil,
                                         replacementDescription: original.flatMap { WorkspaceRules.replacementDescription(description, original: $0.description ?? "") }) { onSaved?(original?.id ?? creationID); dismiss() } else { validation = model.error }
         } catch { validation = error.localizedDescription; focusedField = .title }
     }

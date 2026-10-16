@@ -78,4 +78,17 @@ describe("Calendar", () => {
     await user.click(within(dialog).getByRole("button", { name: "Create task" }));
     await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith(expect.objectContaining({ title: "Plan the review", dueDate: tomorrow, projectId: null })));
   });
+
+  it("shows large work on the days it is planned ahead of its due date", () => {
+    const due = addHabitDays(today, 5);
+    const big: Task = { ...task, id: "big", title: "Write the report", projectId: null, effort: "large", dueDate: due };
+    const filler: Task = { ...task, id: "fill", title: "Small thing", projectId: null, dueDate: addHabitDays(today, 2) };
+    const view = render(<CalendarPage {...props()} tasks={[big, filler]} selectedDay={addHabitDays(today, 2)} />);
+    const planned = screen.getByRole("region", { name: "Planned" });
+    expect(within(planned).getByText("Write the report")).toBeInTheDocument();
+    expect(within(planned).getByText(/start early/)).toBeInTheDocument();
+    expect(within(planned).queryByText("Small thing")).not.toBeInTheDocument();
+    view.rerender(<CalendarPage {...props()} tasks={[big, filler]} selectedDay={addHabitDays(today, 1)} />);
+    expect(screen.queryByRole("region", { name: "Planned" })).not.toBeInTheDocument();
+  });
 });

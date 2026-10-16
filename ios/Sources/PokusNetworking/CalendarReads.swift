@@ -26,11 +26,18 @@ extension RecordQueries {
                     fields: "id,title,isDone,status,dueDate,created")
     }
 
-    static func calendarTaskQuery(date: (String) -> String, openOnly: Bool = false) -> RecordQuery<FocusTask> {
+    /// Open tasks the today plan can place by `end`: everything effectively due by then, overdue included,
+    /// plus undated high and urgent tasks.
+    public static func calendarPlanTasks(through end: DayKey) -> (dated: RecordQuery<FocusTask>, undated: RecordQuery<FocusTask>) {
+        (calendarTaskQuery(date: { "\($0) != '' && \($0) <= \(RecordFilters.literal(end.rawValue))" }, openOnly: true),
+         calendarTaskQuery(date: { "\($0) = ''" }, openOnly: true, extra: "priority = 'high' || priority = 'urgent'"))
+    }
+
+    static func calendarTaskQuery(date: (String) -> String, openOnly: Bool = false, extra: String = "") -> RecordQuery<FocusTask> {
         let effectiveDate = "(dueDate != '' && (\(date("dueDate")))) || (dueDate = '' && ((project = '' && (\(date("dueDate")))) || (project != '' && (\(date("project.dueDate"))))))"
-        let filter = RecordFilters.and(["project = '' || project.isDone = false", effectiveDate, openOnly ? "isDone = false" : ""])
+        let filter = RecordFilters.and(["project = '' || project.isDone = false", effectiveDate, openOnly ? "isDone = false" : "", extra])
         var query = RecordQuery<FocusTask>("tasks", segments: [RecordSegment(filter: filter, sort: "created,id")],
-            fields: "id,title,isDone,focusedSeconds,project,priority,category,dueDate,created,expand.project.title,expand.project.dueDate,expand.project.isDone,expand.category.name")
+            fields: "id,title,isDone,focusedSeconds,project,priority,effort,category,dueDate,created,expand.project.title,expand.project.dueDate,expand.project.isDone,expand.category.name")
         query.expand = "project,category"
         return query
     }
@@ -72,6 +79,13 @@ extension PocketBaseClient {
         async let tasks = calendarRecords(RecordQueries.calendarUnscheduledTasks())
         let values = try await (projects, tasks)
         return CalendarProjection.sorted(values.0.compactMap(CalendarProjection.project) + values.1.compactMap(CalendarProjection.task))
+    }
+
+    public func calendarPlanTasks(through end: DayKey) async throws -> [FocusTask] {
+        let queries = RecordQueries.calendarPlanTasks(through: end)
+        async let dated = calendarRecords(queries.dated)
+        async let undated = calendarRecords(queries.undated)
+        return try await dated + undated
     }
 
     public func calendarReminders() async throws -> [Capture] {

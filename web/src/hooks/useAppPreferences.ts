@@ -1,12 +1,16 @@
 import { useSyncExternalStore } from "react";
 
-export interface AppPreferences { theme: "system" | "light" | "dark"; sound: boolean; keepAwake: boolean; reviewAfterSession: boolean }
-const defaults: AppPreferences = { theme: "system", sound: true, keepAwake: false, reviewAfterSession: true };
+export interface AppPreferences { theme: "system" | "light" | "dark"; sound: boolean; keepAwake: boolean; reviewAfterSession: boolean; /** Pokus the daily plan fills each day. */ dailyCapacity: number }
+export const DAILY_CAPACITY_RANGE = { min: 1, max: 12 } as const;
+const defaults: AppPreferences = { theme: "system", sound: true, keepAwake: false, reviewAfterSession: true, dailyCapacity: 6 };
+function readCapacity(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= DAILY_CAPACITY_RANGE.min && value <= DAILY_CAPACITY_RANGE.max ? value : defaults.dailyCapacity;
+}
 const key = "pokus-device-preferences-v1";
 function read(): AppPreferences {
   try {
     const value = JSON.parse(localStorage.getItem(key) ?? "null");
-    return { theme: ["system", "light", "dark"].includes(value?.theme) ? value.theme : "system", sound: value?.sound !== false, keepAwake: value?.keepAwake === true, reviewAfterSession: value?.reviewAfterSession !== false };
+    return { theme: ["system", "light", "dark"].includes(value?.theme) ? value.theme : "system", sound: value?.sound !== false, keepAwake: value?.keepAwake === true, reviewAfterSession: value?.reviewAfterSession !== false, dailyCapacity: readCapacity(value?.dailyCapacity) };
   } catch { return defaults; }
 }
 let preferences = read();

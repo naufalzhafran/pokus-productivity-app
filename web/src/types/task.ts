@@ -10,8 +10,11 @@ export interface Task {
   categoryId?: string | null;
   /** Local calendar date; otherwise this task follows its project's deadline. */
   dueDate?: string | null;
+  /** Rough size for the daily plan; unset counts as small. */
+  effort?: TaskEffort | null;
 }
 
+export type TaskEffort = "small" | "medium" | "large";
 export type TaskPriority = "none" | "low" | "medium" | "high" | "urgent";
 export type ProjectStatus = "planned" | "active" | "on_hold" | "completed";
 export type CategoryColor =
@@ -25,6 +28,7 @@ export interface TaskInput {
   priority: TaskPriority;
   categoryId: string | null;
   dueDate?: string | null;
+  effort?: TaskEffort | null;
 }
 
 export interface Project {

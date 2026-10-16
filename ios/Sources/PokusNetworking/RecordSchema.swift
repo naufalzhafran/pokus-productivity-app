@@ -37,7 +37,7 @@ public enum RecordSchema {
                      "status": .string(""), "dueDate": .string(""), "captures": .array([]), "priority": .string(""),
                      "category": .string("")],
         "tasks": ["owner": .string(""), "project": .string(""), "title": .string(""), "isDone": .bool(false),
-                  "focusedSeconds": .number(0), "description": .string(""), "priority": .string(""),
+                  "focusedSeconds": .number(0), "description": .string(""), "priority": .string(""), "effort": .string(""),
                   "category": .string(""), "dueDate": .string("")],
         "captures": ["owner": .string(""), "kind": .string(""), "url": .string(""), "title": .string(""), "note": .string(""),
                      "author": .string(""), "isProcessed": .bool(false), "preview": .null, "reminderAt": .number(0),
